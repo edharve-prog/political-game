@@ -8,6 +8,7 @@ from pydantic import Field, model_validator
 
 from hog_sim.core.models import (
     AnyNode,
+    ApprovalEvent,
     Country,
     Edge,
     Group,
@@ -28,6 +29,7 @@ class WorldState(Model):
     institutions: dict[str, Institution] = Field(default_factory=dict)
     indicators: dict[str, Indicator] = Field(default_factory=dict)
     edges: list[Edge] = Field(default_factory=list)
+    events: list[ApprovalEvent] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_references(self) -> WorldState:

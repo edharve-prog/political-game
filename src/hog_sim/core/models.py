@@ -53,6 +53,9 @@ class Group(Node):
     population_share: float = Field(ge=0, le=1)
     turnout: float = Field(ge=0, le=1)
     approval: float = Field(0.5, ge=0, le=1)
+    lean: float = Field(
+        0.5, ge=0, le=1, description="Approval the group drifts to when nothing changes"
+    )
 
 
 class Institution(Node):
@@ -114,6 +117,15 @@ class PolicyAction(Model):
     duration_turns: int = Field(1, ge=1)
     requires: list[str] = Field(default_factory=list)
     rationale: str = ""
+
+
+class ApprovalEvent(Model):
+    """A one-off hit or boost to some groups' approval that fades over time."""
+
+    name: str
+    group_effects: dict[str, float] = Field(description="Approval change per group, 0..1 scale")
+    half_life_turns: float = Field(3.0, gt=0)
+    age_turns: int = Field(0, ge=0)
 
 
 class Scenario(Model):

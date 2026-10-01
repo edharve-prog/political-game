@@ -44,13 +44,29 @@ def toy_world() -> WorldState:
         Sector(id="sector:public", name="Public Sector", output_bn=500, employment_k=5900),
     ]
     groups = [
-        Group(id="group:pensioners", name="Pensioners", population_share=0.19, turnout=0.80),
-        Group(id="group:young_renters", name="Young renters", population_share=0.15, turnout=0.45),
+        Group(
+            id="group:pensioners",
+            name="Pensioners",
+            population_share=0.19,
+            turnout=0.80,
+            approval=0.55,
+            lean=0.55,
+        ),
+        Group(
+            id="group:young_renters",
+            name="Young renters",
+            population_share=0.15,
+            turnout=0.45,
+            approval=0.35,
+            lean=0.35,
+        ),
         Group(
             id="group:public_workers",
             name="Public sector workers",
             population_share=0.17,
             turnout=0.70,
+            approval=0.45,
+            lean=0.45,
         ),
         Group(id="group:business", name="Business owners", population_share=0.08, turnout=0.75),
     ]
