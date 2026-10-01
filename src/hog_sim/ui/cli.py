@@ -51,7 +51,7 @@ def _report(record: TurnRecord) -> str:
 
 
 OFFLINE_BANNER = (
-    "Mode: OFFLINE PRACTICE. Scenarios come from a short built-in list and responses are\n"
+    "Mode: OFFLINE PRACTICE. Scenarios come from a built-in library and responses are\n"
     "matched by keywords; Claude is not used."
 )
 

@@ -88,3 +88,17 @@ def test_no_repeat_within_window_and_replays(world) -> None:
     titles = [r.scenario.title for r in game.history]
     assert len(set(titles)) == 16
     assert replay(world, config, game.history) == game.state
+
+
+def test_builtin_library_meets_sd3(world) -> None:
+    library = ScenarioLibrary.load()
+    counts = {c: 0 for c in CATEGORIES}
+    for s in library.scenarios:
+        counts[s.category] += 1
+    assert len(library.scenarios) >= 60 and min(counts.values()) >= 5
+    config = GameConfig(election_turn=30, k_draws=10)
+    game = Game(config, world, library, KeywordInterpreter(), EngineForecaster())
+    for i in range(30):
+        game.play_turn(["tax energy profits", "spend on the NHS", "do nothing"][i % 3])
+    titles = [r.scenario.title for r in game.history]
+    assert all(t not in titles[max(0, i - 15) : i] for i, t in enumerate(titles))

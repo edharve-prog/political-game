@@ -1,0 +1,195 @@
+[
+  {
+    "id": "cyber-attack-cripples-hospital-and-council-systems",
+    "category": "defence_security",
+    "title": "Cyber attack cripples hospital and council systems",
+    "briefing": "A ransomware attack attributed to a criminal group operating from Eastern Europe has shut down the IT systems of a pathology provider serving six London hospital trusts and the payroll systems of twelve councils. Blood tests and transfusions are delayed and hundreds of operations cancelled. The attackers are demanding $50m. The cyber security centre says public bodies running outdated systems remain vulnerable. Upgrading them would cost billions over several years.",
+    "affected_nodes": [
+      "sector:public",
+      "indicator:deficit",
+      "group:public_workers"
+    ],
+    "urgency": 0.9,
+    "suggested_options": [
+      "Fund an emergency upgrade of public sector IT security.",
+      "Ban public bodies from paying ransoms.",
+      "Negotiate with European allies to pursue the attackers."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:public",
+        "stance": 0.8,
+        "statement": "We need help now to restore services."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Our operations were cancelled. Fix it."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.6,
+        "statement": "The country's defences are clearly inadequate."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:public",
+        "delta": -0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "weight": 0.5
+  },
+  {
+    "id": "allies-demand-defence-spending-reach-three-percent",
+    "category": "defence_security",
+    "title": "Allies demand defence spending reach three percent",
+    "briefing": "At the alliance summit next month, partners are expected to agree a new target of three per cent of GDP on defence by 2030. The UK spends 2.3 per cent. Meeting the target would require an extra £20bn a year by the end of the decade. The Defence Secretary says it is essential given threats in Eastern Europe; the Chancellor says it can only be met by tax rises or cuts to other departments. Defence manufacturers say they would expand production and hiring if orders were guaranteed.",
+    "affected_nodes": [
+      "indicator:deficit",
+      "country:eu",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Spend three per cent on defence funded by borrowing.",
+      "Raise taxes to pay for higher defence spending.",
+      "Negotiate a longer timetable with allies.",
+      "Cut overseas aid to fund defence."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "country:eu",
+        "stance": 0.6,
+        "statement": "Europe must shoulder more of its own security."
+      },
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.7,
+        "statement": "Guaranteed orders mean jobs and investment."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": -0.5,
+        "statement": "Guns before nurses again."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "new-frigate-programme-runs-two-years-late",
+    "category": "defence_security",
+    "title": "New frigate programme runs two years late",
+    "briefing": "An internal Ministry of Defence report, leaked to a defence magazine, shows that the new frigate programme at Clydemouth Shipbuilders is two years late and £1.4bn over budget, with a welding defect requiring parts of two hulls to be rebuilt. The navy may have to keep ageing ships in service, at a cost of £200m a year. Clydemouth employs 3,000 people and is the largest private employer in its constituency. Moving the work elsewhere would take years.",
+    "affected_nodes": [
+      "sector:manufacturing",
+      "indicator:deficit",
+      "institution:legislature"
+    ],
+    "urgency": 0.45,
+    "suggested_options": [
+      "Fund the overrun and keep the programme at Clydemouth.",
+      "Regulate the contract with penalty clauses and an outside review.",
+      "Negotiate a fixed-price contract with the shipbuilder."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.6,
+        "statement": "Cancel it and you lose the skills for a generation."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": -0.5,
+        "statement": "Overruns are coming straight out of other budgets."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.3,
+        "statement": "The defence committee wants answers."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "undersea-power-cable-cut-in-the-north-sea",
+    "category": "defence_security",
+    "title": "Undersea power cable cut in the North Sea",
+    "briefing": "The interconnector carrying electricity from Norway was severed overnight, cutting about 1.4 gigawatts of import capacity. The navy has located a cargo ship registered in a third country that dragged its anchor across the cable route; the vessel has a Chinese operator. Repairs will take three months. Wholesale power prices rose 18 per cent this morning. The coastguard and navy have asked for powers to board suspect vessels in the exclusive economic zone, which would require new legislation.",
+    "affected_nodes": [
+      "sector:energy",
+      "indicator:energy_prices",
+      "country:china"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Fund naval patrols to protect undersea infrastructure.",
+      "Regulate shipping with new powers to board suspect vessels.",
+      "Negotiate with China for an investigation into the operator."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:energy",
+        "stance": 0.7,
+        "statement": "We cannot run a grid on infrastructure no one guards."
+      },
+      {
+        "node": "country:china",
+        "stance": -0.6,
+        "statement": "Accusations without evidence are unacceptable."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.4,
+        "statement": "Who will pay for this on our bills?"
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:energy_prices",
+        "delta": 0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "weight": 0.5
+  },
+  {
+    "id": "terror-plot-foiled-at-a-major-airport",
+    "category": "defence_security",
+    "title": "Terror plot foiled at a major airport",
+    "briefing": "Counter-terrorism police arrested five people overnight over a plot to attack a terminal at a major northern airport, after a tip-off from an allied intelligence service. The threat level has been raised to severe. Security services say they are tracking more plots than at any time in a decade and want new powers to access encrypted messages, which technology firms oppose and civil liberties groups say would weaken everyone's security. Airports want funding for new scanners before the summer peak.",
+    "affected_nodes": [
+      "institution:legislature",
+      "sector:public",
+      "group:business"
+    ],
+    "urgency": 0.75,
+    "suggested_options": [
+      "Fund counter-terrorism policing and airport scanners.",
+      "Regulate encrypted messaging with new access powers.",
+      "Negotiate with technology firms on voluntary co-operation."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.6,
+        "statement": "The services need the tools to keep us safe."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.5,
+        "statement": "Breaking encryption harms every customer."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Security comes first."
+      }
+    ],
+    "shocks": [],
+    "weight": 0.5
+  }
+]

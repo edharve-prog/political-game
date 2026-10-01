@@ -1,0 +1,225 @@
+[
+  {
+    "id": "prisons-in-england-reach-full-capacity",
+    "category": "crime_justice",
+    "title": "Prisons in England reach full capacity",
+    "briefing": "The prison service has told ministers that the adult male estate will be full within ten days, leaving no space for people remanded by the courts. Police could be forced to hold suspects in cells and suspend some arrests. Officials propose releasing low-risk prisoners up to sixty days early, as done once before. The alternatives are to hire temporary prison ships or delay trials. Victims' groups oppose early release and the governor's association says the system is close to collapse.",
+    "affected_nodes": [
+      "sector:public",
+      "institution:legislature",
+      "indicator:deficit"
+    ],
+    "urgency": 0.85,
+    "suggested_options": [
+      "Fund emergency prison places and modular cells.",
+      "Regulate sentencing to release low-risk prisoners early.",
+      "Spend on probation to manage more offenders in the community."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:public",
+        "stance": 0.8,
+        "statement": "We are days away from refusing new prisoners."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.6,
+        "statement": "Criminals should serve their sentences."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Early release will be hard to defend."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:public",
+        "delta": -0.3,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "criminal-barristers-walk-out-over-legal-aid-fees",
+    "category": "crime_justice",
+    "title": "Criminal barristers walk out over legal aid fees",
+    "briefing": "The criminal barristers' association has voted to refuse new legal aid cases from next Monday, after the government delayed a promised fee increase. The court backlog already stands at 68,000 cases, with some trials listed for 2028. Judges warn that rape and serious assault trials will collapse as defendants go unrepresented. Raising fees by 15 per cent would cost £95m a year. The Lord Chancellor fears other parts of the justice system would demand the same.",
+    "affected_nodes": [
+      "sector:public",
+      "group:public_workers",
+      "indicator:deficit"
+    ],
+    "urgency": 0.65,
+    "suggested_options": [
+      "Fund the promised legal aid fee rise.",
+      "Negotiate a phased increase with the barristers.",
+      "Hold firm and use salaried public defenders."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:public_workers",
+        "stance": 0.7,
+        "statement": "Justice delayed is justice denied."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.2,
+        "statement": "Victims need trials, but legal aid lawyers are not the priority."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.4,
+        "statement": "Victims are waiting years for trial."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "supreme-court-strikes-down-new-protest-powers",
+    "category": "crime_justice",
+    "title": "Supreme Court strikes down new protest powers",
+    "briefing": "The Supreme Court has unanimously ruled that police powers introduced last year to restrict 'noisy' and 'disruptive' protests were made unlawfully by secondary legislation. Hundreds of convictions may now be quashed. Climate groups have announced a summer of action on motorways and at oil terminals. The Home Secretary wants to restore the powers in primary legislation; civil liberties groups and some backbenchers oppose it, and the upper house is likely to resist.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:young_renters",
+      "sector:public"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Regulate protest with new primary legislation.",
+      "Negotiate a narrower protest bill with the upper house.",
+      "Accept the ruling and fund more neighbourhood policing instead."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": -0.7,
+        "statement": "The right to protest is not up for negotiation."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Blocking ambulances is not peaceful protest."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Ministers should respect the court."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "knife-crime-spike-after-a-summer-of-stabbings",
+    "category": "crime_justice",
+    "title": "Knife crime spike after a summer of stabbings",
+    "briefing": "Police figures show knife offences up 22 per cent on last year, with a cluster of teenage deaths in London, Birmingham and Manchester. Youth services in those cities lost half their funding over the past decade. Chief constables want new stop and search powers and more officers; youth workers argue that prevention and mentoring are cheaper and more effective. The Home Office is drafting a ban on a new class of 'zombie' blades but retailers say online sales are hard to police.",
+    "affected_nodes": [
+      "sector:public",
+      "group:young_renters",
+      "institution:legislature"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Fund youth services and violence reduction units.",
+      "Ban the sale of large blades online.",
+      "Spend on 5,000 more police officers."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.7,
+        "statement": "People are afraid in their own neighbourhoods."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": 0.5,
+        "statement": "Give young people somewhere to go."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.3,
+        "statement": "Online sales bans are hard for retailers to enforce."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:unemployment": {
+        "op": ">",
+        "value": 5
+      }
+    }
+  },
+  {
+    "id": "leaked-inspection-finds-police-force-not-fit-for-purpose",
+    "category": "crime_justice",
+    "title": "Leaked inspection finds police force not fit for purpose",
+    "briefing": "A leaked inspectorate report on the Mercia Valley constabulary finds that the force failed to investigate 40 per cent of reported burglaries, mishandled child protection cases and covered up misconduct by senior officers. The elected police commissioner is refusing to dismiss the chief constable. The Home Secretary has powers to put the force into special measures and appoint an outside team. The police officers' association warns that morale is collapsing and recruitment is falling.",
+    "affected_nodes": [
+      "sector:public",
+      "institution:legislature",
+      "group:public_workers"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Regulate the force with special measures and an outside team.",
+      "Fund a national police standards unit.",
+      "Negotiate the chief constable's departure with the commissioner."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "Residents deserve a police force that works."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": -0.4,
+        "statement": "Officers are being blamed for leadership failures."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.5,
+        "statement": "Burglary victims have been ignored for years."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "online-fraud-epidemic-costs-savers-billions",
+    "category": "crime_justice",
+    "title": "Online fraud epidemic costs savers billions",
+    "briefing": "Banking industry figures show fraud losses passed £2bn last year, with romance and investment scams targeting older people rising fastest. Most scams start on social media and online marketplaces, but banks bear the cost of reimbursement under rules introduced last year. Banks want the platforms to share the cost; the platforms say they already invest heavily. Fewer than one per cent of fraud cases result in a charge, and the police fraud units have 400 detectives for the whole country.",
+    "affected_nodes": [
+      "sector:finance",
+      "group:pensioners",
+      "group:business"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Regulate platforms to share the cost of fraud refunds.",
+      "Fund a national fraud squad with 1,000 officers.",
+      "Tax tech platforms with a fraud levy."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.8,
+        "statement": "People are losing their life savings."
+      },
+      {
+        "node": "sector:finance",
+        "stance": 0.6,
+        "statement": "The platforms profit from the adverts that start these scams."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.5,
+        "statement": "A levy would punish the whole sector for a few bad actors."
+      }
+    ],
+    "shocks": []
+  }
+]
