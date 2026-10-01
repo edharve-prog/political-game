@@ -3,31 +3,36 @@
 - ``api``: the Anthropic API through the SDK. Signs in with ``ANTHROPIC_API_KEY`` or, with no
   key, an ``ant auth login`` profile (browser OAuth, no key to copy). Billed per token to the
   Anthropic Console account.
-- ``claude-code``: the local Claude Code CLI in headless mode, signed in with the player's
-  Claude account. Counts against that plan's limits. For playing on your own machine.
-- ``auto``: ``api`` when API credentials exist, otherwise ``claude-code`` when it is
-  installed.
+- ``claude-code`` (the default): the local Claude Code CLI in headless mode, signed in with
+  the player's Claude account. Counts against that plan's limits. For playing on your own
+  machine. When Claude Code is missing or signed out and API credentials exist, the game
+  falls back to ``api`` and says so.
+- ``auto``: kept for older ``.env`` files; the same as ``claude-code``.
 
 Every provider returns an ``LLMClient``, so the rest of the game does not care which.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
+import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from hog_sim.llm.client import LLMClient, LLMError
 
 Provider = Literal["auto", "api", "claude-code"]
-PROVIDERS: tuple[str, ...] = ("auto", "api", "claude-code")
+PROVIDERS: tuple[str, ...] = ("claude-code", "api", "auto")
+DEFAULT_PROVIDER = "claude-code"
 
 NO_BACKEND_HELP = """\
 --llm needs a way to reach Claude. Pick one:
   1. Your Claude subscription: install Claude Code (https://claude.com/claude-code),
-     run `claude` once and sign in. Then: hog-sim --llm --provider claude-code
+     run `claude` once and sign in. Then: hog-sim --llm
   2. An API key from https://console.anthropic.com: put this line in a file called .env
      next to pyproject.toml:
          ANTHROPIC_API_KEY=sk-ant-...
@@ -52,16 +57,52 @@ def has_api_credentials() -> bool:
     return creds.is_dir() and any(creds.glob("*.json"))
 
 
-def resolve_provider(provider: str) -> str:
+def claude_code_signed_in(
+    executable: str, runner: Callable[..., Any] = subprocess.run
+) -> bool | None:
+    """Whether Claude Code reports a sign-in; None when it can't say (older versions)."""
+    from hog_sim.llm.claude_code import subscription_env
+
+    try:
+        proc = runner(
+            [executable, "auth", "status"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            env=subscription_env(),
+        )
+        return bool(json.loads(proc.stdout)["loggedIn"])
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        return None
+
+
+def choose_provider(
+    provider: str, runner: Callable[..., Any] = subprocess.run
+) -> tuple[str, str | None]:
+    """The provider to use and, when it differs from the one asked for, a note saying why."""
     if provider not in PROVIDERS:
         raise LLMError(f"unknown provider {provider!r}; use one of {', '.join(PROVIDERS)}")
-    if provider != "auto":
-        return provider
+    if provider == "api":
+        return "api", None
+    executable = shutil.which("claude")
+    if executable is None:
+        problem = "Claude Code isn't installed"
+    elif claude_code_signed_in(executable, runner) is False:
+        problem = "Claude Code isn't signed in"
+    else:
+        return "claude-code", None
     if has_api_credentials():
-        return "api"
-    if shutil.which("claude"):
-        return "claude-code"
-    raise LLMError(NO_BACKEND_HELP)
+        return "api", f"{problem}, so the game is falling back to the Anthropic API."
+    if executable is None:
+        raise LLMError(NO_BACKEND_HELP)
+    from hog_sim.llm.claude_code import SIGN_IN_HELP
+
+    raise LLMError(f"{problem}. {SIGN_IN_HELP}")
+
+
+def resolve_provider(provider: str) -> str:
+    return choose_provider(provider)[0]
 
 
 def describe(provider: str) -> str:
@@ -70,13 +111,13 @@ def describe(provider: str) -> str:
     return "the Anthropic API (billed per token to your Console account)"
 
 
-def make_client(provider: str = "auto") -> tuple[LLMClient, str]:
-    """A client for ``provider`` and the resolved provider name."""
-    resolved = resolve_provider(provider)
+def make_client(provider: str = DEFAULT_PROVIDER) -> tuple[LLMClient, str, str | None]:
+    """A client for ``provider``, the provider actually used, and any fallback note."""
+    resolved, note = choose_provider(provider)
     if resolved == "claude-code":
         from hog_sim.llm.claude_code import ClaudeCodeClient
 
-        return ClaudeCodeClient(), resolved
+        return ClaudeCodeClient(), resolved, note
     try:
         import anthropic  # noqa: F401
     except ImportError:
@@ -87,4 +128,4 @@ def make_client(provider: str = "auto") -> tuple[LLMClient, str]:
         raise LLMError(NO_BACKEND_HELP)
     from hog_sim.llm.client import AnthropicClient
 
-    return AnthropicClient(), resolved
+    return AnthropicClient(), resolved, note

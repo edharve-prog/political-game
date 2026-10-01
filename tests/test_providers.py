@@ -59,11 +59,43 @@ def no_credentials(tmp_path, monkeypatch):
     return tmp_path
 
 
-def test_auto_prefers_api_credentials(no_credentials, monkeypatch) -> None:
+def test_claude_code_is_the_default(no_credentials, monkeypatch) -> None:
     monkeypatch.setattr(providers.shutil, "which", lambda name: "/usr/bin/claude")
-    assert providers.resolve_provider("auto") == "claude-code"
+    monkeypatch.setattr(providers, "claude_code_signed_in", lambda exe, runner=None: True)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
-    assert providers.resolve_provider("auto") == "api"
+    assert providers.DEFAULT_PROVIDER == "claude-code"
+    assert providers.choose_provider("claude-code") == ("claude-code", None)
+    assert providers.choose_provider("auto") == ("claude-code", None)
+    assert providers.choose_provider("api") == ("api", None)
+
+
+def test_falls_back_to_the_api_when_claude_code_is_missing(no_credentials, monkeypatch) -> None:
+    monkeypatch.setattr(providers.shutil, "which", lambda name: None)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    provider, note = providers.choose_provider("claude-code")
+    assert provider == "api"
+    assert note.startswith("Claude Code isn't installed")
+
+
+def test_falls_back_to_the_api_when_claude_code_is_signed_out(no_credentials, monkeypatch) -> None:
+    monkeypatch.setattr(providers.shutil, "which", lambda name: "/usr/bin/claude")
+    signed_out = lambda argv, **kw: SimpleNamespace(stdout='{"loggedIn": false}')  # noqa: E731
+    with pytest.raises(LLMError, match="sign in"):
+        providers.choose_provider("claude-code", runner=signed_out)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    provider, note = providers.choose_provider("claude-code", runner=signed_out)
+    assert provider == "api"
+    assert note.startswith("Claude Code isn't signed in")
+
+
+def test_sign_in_check_that_cannot_answer_does_not_block() -> None:
+    def old_cli(argv, **kw):
+        assert argv[1:] == ["auth", "status"]
+        assert "ANTHROPIC_API_KEY" not in kw["env"]
+        return SimpleNamespace(stdout="unknown command")
+
+    assert providers.claude_code_signed_in("/usr/bin/claude", old_cli) is None
+    assert providers.claude_code_signed_in("/no/such/claude") is None
 
 
 def test_ant_login_profile_counts_as_api_credentials(no_credentials) -> None:
@@ -73,14 +105,13 @@ def test_ant_login_profile_counts_as_api_credentials(no_credentials) -> None:
     assert providers.has_api_credentials()
 
 
-def test_auto_with_nothing_explains_the_options(no_credentials, monkeypatch) -> None:
+def test_nothing_available_explains_the_options(no_credentials, monkeypatch) -> None:
     monkeypatch.setattr(providers.shutil, "which", lambda name: None)
     with pytest.raises(LLMError, match="ant auth login"):
-        providers.resolve_provider("auto")
+        providers.resolve_provider("claude-code")
 
 
-def test_explicit_provider_is_respected(no_credentials) -> None:
-    assert providers.resolve_provider("claude-code") == "claude-code"
+def test_unknown_provider_is_rejected() -> None:
     with pytest.raises(LLMError):
         providers.resolve_provider("openai")
 
@@ -243,7 +274,7 @@ def test_api_errors_become_one_line_with_the_other_route(status, message, expect
     with pytest.raises(LLMUnavailable) as caught:
         AnthropicClient(sdk).complete(request())
     text = str(caught.value)
-    assert expected in text and "--provider claude-code" in text
+    assert expected in text and "--provider api is set" in text
     assert "\n" not in text
 
 
@@ -285,7 +316,25 @@ def test_cli_prints_one_line_instead_of_a_traceback(monkeypatch) -> None:
         def complete(self, request):
             raise LLMUnavailable("Anthropic API: your Anthropic API account has no credit left.")
 
-    monkeypatch.setattr(cli, "_llm_client", lambda provider: (Broken(), "api"))
+    monkeypatch.setattr(cli, "_llm_client", lambda provider: (Broken(), "api", None))
     with pytest.raises(SystemExit) as exc:
         cli.main(["--check-llm"])
     assert str(exc.value).startswith("Could not reach Claude. Anthropic API: ")
+
+
+def test_cli_says_when_it_fell_back_to_the_api(monkeypatch, capsys) -> None:
+    from hog_sim.llm.client import FakeClient
+    from hog_sim.ui import cli
+
+    note = "Claude Code isn't installed, so the game is falling back to the Anthropic API."
+    client = FakeClient([{"reply": "connected"}])
+    monkeypatch.setattr(cli, "_llm_client", lambda provider: (client, "api", note))
+    cli.main(["--check-llm"])
+    out = capsys.readouterr().out
+    assert out.startswith(note) and "via the Anthropic API" in out
+
+    from hog_sim.forecasting.candidates import ForecastConfig
+    from hog_sim.llm.client import ModelConfig
+
+    banner = cli._llm_banner(ModelConfig(), ForecastConfig(), "api", note)
+    assert banner.splitlines()[0] == note

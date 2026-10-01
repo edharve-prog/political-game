@@ -26,7 +26,7 @@ ends with a line counting the Claude calls, tokens and cost so far.
 
 ## Connecting to Claude
 
-`--llm` reaches Claude in one of two ways, chosen with `--provider` (default `auto`):
+`--llm` reaches Claude in one of two ways, chosen with `--provider` (default `claude-code`):
 
 - **`claude-code`: your Claude subscription, no key.** Install [Claude Code](https://claude.com/claude-code),
   run `claude` once and sign in. The game then runs Claude Code in headless mode (`claude -p`),
@@ -37,8 +37,9 @@ ends with a line counting the Claude calls, tokens and cost so far.
   (see `.env.example`; the file is git-ignored, so no environment variables to set on Windows),
   or sign in through the browser with the `ant` CLI: `ant auth login`.
 
-`auto` uses the API when a key or `ant` sign-in exists, otherwise Claude Code. Check the
-connection with `hog-sim --check-llm`; it says which route it used.
+When Claude Code isn't installed or isn't signed in and an API key or `ant` sign-in exists,
+the game falls back to the API and says so when it starts. Check the connection with
+`hog-sim --check-llm`; it says which route it used.
 
 ## Layout
 

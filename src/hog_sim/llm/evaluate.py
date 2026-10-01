@@ -16,7 +16,7 @@ from hog_sim.core.env import load_env
 from hog_sim.llm.client import LLMClient, RecordingClient
 from hog_sim.llm.eval_cases import CASES, score
 from hog_sim.llm.interpreter import interpret
-from hog_sim.llm.providers import PROVIDERS, make_client
+from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS, make_client
 from hog_sim.llm.summary import summarise_state
 from hog_sim.world.seed.toy import toy_world
 
@@ -35,10 +35,12 @@ def run(client: LLMClient) -> list[tuple[str, list[str]]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cassette", type=Path, default=DEFAULT_CASSETTE)
-    parser.add_argument("--provider", choices=PROVIDERS, default="auto")
+    parser.add_argument("--provider", choices=PROVIDERS, default=DEFAULT_PROVIDER)
     args = parser.parse_args(argv)
     load_env()
-    inner, _ = make_client(args.provider)
+    inner, _, note = make_client(args.provider)
+    if note:
+        print(note)
     client = RecordingClient(args.cassette, inner=inner)
     results = run(client)
     for text, problems in results:

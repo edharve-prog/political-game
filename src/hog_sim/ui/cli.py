@@ -62,7 +62,7 @@ def _llm_client(provider: str):
         raise SystemExit(str(exc)) from None
 
 
-def _llm_banner(model_config, forecast_config, provider: str) -> str:
+def _llm_banner(model_config, forecast_config, provider: str, note: str | None = None) -> str:
     from hog_sim.llm.providers import describe
 
     models = sorted(
@@ -74,7 +74,8 @@ def _llm_banner(model_config, forecast_config, provider: str) -> str:
         }
     )
     return (
-        f"Mode: CLAUDE ({', '.join(models)}) via {describe(provider)}.\n"
+        (f"{note}\n" if note else "")
+        + f"Mode: CLAUDE ({', '.join(models)}) via {describe(provider)}.\n"
         "Scenarios, your responses and outcomes are written by Claude. Each turn ends with\n"
         "a line counting the calls it made."
     )
@@ -136,7 +137,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
-    from hog_sim.llm.providers import PROVIDERS
+    from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
     load_env()
     parser = argparse.ArgumentParser(description="Head of Government Simulator")
@@ -151,9 +152,10 @@ def _main(argv: list[str] | None) -> None:
     parser.add_argument(
         "--provider",
         choices=PROVIDERS,
-        default=os.environ.get("HOG_SIM_PROVIDER", "auto"),
-        help="how to reach Claude: api (API key or `ant auth login`), claude-code (your "
-        "Claude Code sign-in), or auto (api if credentials exist, else claude-code)",
+        default=os.environ.get("HOG_SIM_PROVIDER", DEFAULT_PROVIDER),
+        help="how to reach Claude: claude-code (the default: your Claude Code sign-in, "
+        "falling back to the API when Claude Code is missing or signed out and an API key "
+        "exists) or api (API key or `ant auth login`)",
     )
     parser.add_argument(
         "--check-llm",
@@ -165,7 +167,9 @@ def _main(argv: list[str] | None) -> None:
     if args.check_llm:
         from hog_sim.llm.providers import describe
 
-        client, provider = _llm_client(args.provider)
+        client, provider, note = _llm_client(args.provider)
+        if note:
+            print(note)
         print(check_llm(client) + f" Connected via {describe(provider)}.")
         return
 
@@ -177,10 +181,10 @@ def _main(argv: list[str] | None) -> None:
         from hog_sim.game.llm_plugins import llm_plugins
         from hog_sim.llm.client import ModelConfig
 
-        client, provider = _llm_client(args.provider)
+        client, provider, note = _llm_client(args.provider)
         model_config, forecast_config = ModelConfig(), ForecastConfig()
         plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
-        print(_llm_banner(model_config, forecast_config, provider))
+        print(_llm_banner(model_config, forecast_config, provider, note))
     else:
         plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
         print(OFFLINE_BANNER)
