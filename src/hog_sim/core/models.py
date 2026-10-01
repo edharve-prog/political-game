@@ -142,6 +142,35 @@ class ApprovalEvent(Model):
     age_turns: int = Field(0, ge=0)
 
 
+class GraphChange(Model):
+    """A proposed change to the world graph's structure or a node's standing.
+
+    LLM outcomes may carry these; ``world/changes.py`` validates them against the state
+    (known ids, whitelisted fields, size caps) and applies them inside ``resolve()``.
+
+    - ``edge_weight``: move the weight of the existing ``source -edge_kind-> target`` edge by
+      ``delta``.
+    - ``add_edge``: create that edge with weight ``delta`` and the given ``lag``.
+    - ``node_attr``: move ``attr`` of ``node`` by ``delta`` (clamped to the field's bounds).
+    """
+
+    kind: Literal["edge_weight", "add_edge", "node_attr"]
+    source: str | None = None
+    target: str | None = None
+    edge_kind: EdgeKind | None = None
+    node: str | None = None
+    attr: str | None = None
+    delta: float
+    lag: int = Field(0, ge=0)
+    reason: str = ""
+
+    def describe(self) -> str:
+        if self.kind == "node_attr":
+            return f"{self.node}.{self.attr} {self.delta:+.2f}"
+        verb = "new edge" if self.kind == "add_edge" else "edge"
+        return f"{verb} {self.source} -{self.edge_kind}-> {self.target} {self.delta:+.2f}"
+
+
 class Scenario(Model):
     title: str
     briefing: str
@@ -161,6 +190,9 @@ class Outcome(Model):
     events: list[str] = Field(default_factory=list)
     approval_events: list[ApprovalEvent] = Field(default_factory=list)
     shocks: list[Shock] = Field(default_factory=list, description="New shocks the outcome triggers")
+    graph_changes: list[GraphChange] = Field(
+        default_factory=list, description="Validated changes to the world graph, applied on resolve"
+    )
     probability: float = Field(ge=0, le=1)
     scores: dict[str, float] = Field(
         default_factory=dict, description="Score breakdown behind probability, for logs and UI"

@@ -8,7 +8,7 @@ module does not import the game package.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from hog_sim.core.models import PolicyAction, Scenario
@@ -37,15 +37,23 @@ def recent_events(history: Sequence[Any], limit: int = 8) -> list[str]:
 
 
 class LLMScenarioSource:
+    """``recall(state)`` (optional) returns precedent lines from the knowledge store."""
+
     def __init__(
-        self, client: LLMClient, role: Role = "prime_minister", config: ModelConfig | None = None
+        self,
+        client: LLMClient,
+        role: Role = "prime_minister",
+        config: ModelConfig | None = None,
+        recall: Callable[[WorldState], list[str]] | None = None,
     ) -> None:
         self.client = client
         self.role = role
         self.config = config
+        self.recall = recall
 
     def next_scenario(self, state: WorldState, history: Sequence[Any]) -> GeneratedScenario:
-        summary = summarise_state(state, self.role, recent_events(history))
+        precedents = self.recall(state) if self.recall else None
+        summary = summarise_state(state, self.role, recent_events(history), precedents=precedents)
         return generate_scenario(summary, self.client, self.config)
 
 

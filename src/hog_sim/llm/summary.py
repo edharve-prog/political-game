@@ -11,6 +11,7 @@ from pydantic import Field
 
 from hog_sim.core.models import Model
 from hog_sim.core.state import WorldState
+from hog_sim.world.graph import build_graph, edges_of
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
 
@@ -60,6 +61,12 @@ class StateSummary(Model):
     foreign_tensions: list[str]
     institutions: list[InstitutionLine]
     recent_events: list[str] = Field(default_factory=list)
+    links: list[str] = Field(
+        default_factory=list, description="Graph edges relevant to this call, one per line"
+    )
+    precedents: list[str] = Field(
+        default_factory=list, description="Similar past situations from the knowledge store"
+    )
     catalogue: dict[str, str] = Field(description="Every node id the model may reference -> name")
 
     def to_prompt(self) -> str:
@@ -100,6 +107,16 @@ class StateSummary(Model):
         if self.recent_events:
             lines += ["", "Recent events (most recent last):"]
             lines += [f"- {e}" for e in self.recent_events]
+        if self.links:
+            lines += ["", "Links in the world graph (source -KIND-> target, weight, lag in turns):"]
+            lines += [f"- {e}" for e in self.links]
+        if self.precedents:
+            lines += [
+                "",
+                "Precedents from earlier turns and games (reference only; the current numbers "
+                "rule, and do not repeat them):",
+            ]
+            lines += [f"- {p}" for p in self.precedents]
         return "\n".join(lines)
 
 
@@ -108,6 +125,7 @@ def summarise_state(
     role: str = "prime_minister",
     recent_events: list[str] | None = None,
     *,
+    precedents: list[str] | None = None,
     window: int = 3,
     stress_threshold: float = 0.05,
     angry_below: float = 0.4,
@@ -170,5 +188,26 @@ def summarise_state(
             for i in state.institutions.values()
         ],
         recent_events=(recent_events or [])[-max_events:],
+        precedents=list(precedents or []),
         catalogue={node.id: node.name for node in state.nodes()},
     )
+
+
+def relevant_links(state: WorldState, node_ids: list[str], limit: int = 15) -> list[str]:
+    """Edges touching ``node_ids`` (groups' CARES_ABOUT edges left out), for prompts that may
+    propose graph changes."""
+    graph = build_graph(state)
+    seen: set[tuple[str, str, str]] = set()
+    lines = []
+    for node_id in node_ids:
+        if node_id not in graph:
+            continue
+        for edge in edges_of(graph, node_id, direction="both"):
+            key = (edge.source, edge.target, edge.kind)
+            if key in seen or edge.kind == "CARES_ABOUT":
+                continue
+            seen.add(key)
+            lines.append(
+                f"{edge.source} -{edge.kind}-> {edge.target}, {edge.weight:+.2f}, {edge.lag}"
+            )
+    return lines[:limit]

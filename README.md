@@ -26,6 +26,23 @@ so far. When it can't reach Claude it says why, explains how to connect, and sta
 PRACTICE (67 built-in scenarios across 12 categories, keyword matching). `--offline` picks practice mode on
 purpose; `--llm` stops with the explanation instead of falling back.
 
+## What the game keeps from Claude
+
+Every Claude turn is also filed in a knowledge store inside the save file: the scenario, how
+your response was read, the candidate outcomes, and any lasting changes to the world graph
+Claude proposed (checked and capped by the engine before they apply). Later Claude turns see
+similar past situations as precedents, and offline practice reuses Claude's scenarios,
+interpretations and outcomes when they fit.
+
+```
+uv run hog-sim knowledge stats                      # what has been kept
+uv run hog-sim knowledge export knowledge.jsonl     # move it to another install
+uv run hog-sim knowledge import knowledge.jsonl
+uv run hog-sim knowledge export-scenarios s.jsonl   # scenario-library format
+```
+
+Add `--db <file>` after `knowledge` for a save file other than `saves/game.db`.
+
 ## Connecting to Claude
 
 The game reaches Claude in one of two ways, chosen with `--provider` (default `claude-code`):
@@ -46,4 +63,5 @@ the game falls back to the API and says so when it starts. Check the connection 
 ## Layout
 
 - `src/hog_sim/core/` — shared schemas (`models.py`), world state container (`state.py`), config and seeded RNG.
+- `src/hog_sim/knowledge/` — the knowledge store (`store.py`), precedents for prompts (`recall.py`) and offline reuse (`offline.py`); graph-change rules are in `world/changes.py`.
 - `tests/` — pytest suite.

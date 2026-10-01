@@ -18,6 +18,9 @@ from hog_sim.game.loop import Game
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
+from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
+from hog_sim.knowledge.recall import Recaller
+from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.world.seed.toy import toy_world
 
@@ -143,9 +146,64 @@ def _usage_line(client, since: int) -> str:
     )
 
 
+def _provenance(client, since: int):
+    """Which models and prompt versions wrote this turn, from the client's usage log."""
+    from hog_sim.knowledge.entries import Provenance
+
+    calls = client.usage.records[since:]
+    models = sorted({r.served_model or r.model for r in calls})
+    versions = sorted({r.prompt_version for r in calls})
+    return Provenance(model=", ".join(models) or None, prompt_version=", ".join(versions) or None)
+
+
+def knowledge_main(argv: list[str]) -> None:
+    """``hog-sim knowledge stats|export|import|export-scenarios``."""
+    from hog_sim.knowledge.store import KnowledgeStore
+
+    parser = argparse.ArgumentParser(
+        prog="hog-sim knowledge",
+        description="What the game has kept from Claude's turns, for prompts and offline play",
+    )
+    parser.add_argument("--db", default="saves/game.db", help="the save file holding the store")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("stats", help="count stored entries by kind")
+    for name, text in (
+        ("export", "write every entry to a JSONL file"),
+        ("import", "load entries from a JSONL file written by export"),
+        ("export-scenarios", "write stored scenarios as scenario-library JSONL"),
+    ):
+        sub.add_parser(name, help=text).add_argument("file")
+    args = parser.parse_args(argv)
+
+    if args.command != "import" and not Path(args.db).exists():
+        raise SystemExit(f"No save file at {args.db}; play a game with Claude first.")
+    Path(args.db).parent.mkdir(parents=True, exist_ok=True)
+    store = KnowledgeStore(args.db)
+    try:
+        if args.command == "stats":
+            for kind, n in store.stats().items():
+                print(f"{kind:<16}{n:>6}")
+            applied = sum(e.status == "applied" for e in store.graph_changes())
+            print(f"({applied} graph changes were applied in play)")
+        elif args.command == "export":
+            print(f"Wrote {store.export_jsonl(args.file)} entries to {args.file}.")
+        elif args.command == "import":
+            print(f"Imported {store.import_jsonl(args.file)} entries into {args.db}.")
+        else:
+            print(f"Wrote {store.export_scenarios(args.file)} scenarios to {args.file}.")
+    finally:
+        store.close()
+
+
 def main(argv: list[str] | None = None) -> None:
+    import sys
+
     from hog_sim.llm.client import LLMUnavailable
 
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["knowledge"]:
+        knowledge_main(argv[1:])
+        return
     try:
         _main(argv)
     except LLMUnavailable as exc:
@@ -200,6 +258,8 @@ def _main(argv: list[str] | None) -> None:
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
     store = SaveStore(args.save)
+    knowledge = KnowledgeStore(args.save)
+    recaller = Recaller(knowledge)
     client = None
     if not args.offline:
         from hog_sim.llm.client import LLMError
@@ -217,19 +277,36 @@ def _main(argv: list[str] | None) -> None:
         from hog_sim.llm.client import ModelConfig
 
         model_config, forecast_config = ModelConfig(), ForecastConfig()
-        plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
+        plugins = llm_plugins(
+            client,
+            model_config=model_config,
+            forecast_config=forecast_config,
+            recaller=recaller,
+        )
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
-        plugins = (ScenarioLibrary.load(seed=args.seed), KeywordInterpreter(), EngineForecaster())
+        plugins = (
+            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
+            StoredInterpreter(knowledge, KeywordInterpreter()),
+            StoredForecaster(knowledge, EngineForecaster()),
+        )
         print(OFFLINE_BANNER)
+        kept = knowledge.stats()
+        if kept["scenario"]:
+            print(
+                f"Reusing {kept['scenario']} scenarios and {kept['outcome']} outcomes "
+                "Claude wrote in earlier games."
+            )
     game_id = store.latest_game() if args.resume else None
     if game_id:
         config, start, records = store.load(game_id)
+        recaller.game_id = game_id
         game = Game.resume(config, start, records, *plugins)
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
         config, start = GameConfig(seed=args.seed), toy_world()
         game_id = store.new_game(config, start)
+        recaller.game_id = game_id
         game = Game(config, start, *plugins)
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
@@ -241,6 +318,7 @@ def _main(argv: list[str] | None) -> None:
             for option in s.suggested_options:
                 print(f"  - {option}")
             calls_before = len(client.usage.records) if client else 0
+            state_before = game.state
             while True:
                 response = input("\nYour response> ")
                 try:
@@ -249,6 +327,10 @@ def _main(argv: list[str] | None) -> None:
                 except NeedsClarification as ask:
                     print(f"\nYour advisers ask: {ask.question}")
             store.save_turn(game_id, record)
+            if client:
+                knowledge.harvest_turn(
+                    game_id, record, state_before, _provenance(client, calls_before)
+                )
             for line in getattr(game.interpreter, "dropped", lambda: [])():
                 print(f"  (not possible: {line})")
             print("\n" + _report(record))
@@ -259,6 +341,7 @@ def _main(argv: list[str] | None) -> None:
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")
     finally:
         store.close()
+        knowledge.close()
 
 
 if __name__ == "__main__":
