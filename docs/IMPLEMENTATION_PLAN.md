@@ -262,6 +262,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Stability tests: long no-action runs shouldn't explode or flatline.
   - LLM output quality checks: diversity of candidates, consistency, rate of validation failures.
   - Calibration of outcome probabilities over many simulated turns.
+  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; fix in review as PR #13 (deficit shocks from spend and tax, debt penalty above a 6% deficit); PR #12 records indicator and group history so the effect is visible turn by turn.
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
 
 ### Project 12 — Stretch Goals
@@ -284,6 +285,12 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Backlog:** stories RB-1 to RB-7 in [backlog/scenarios-and-responses.md](backlog/scenarios-and-responses.md).
 - **Done when:** A player can build, review and commit a multi-part package in one turn; the same actions delivered differently give measurably different outcome probabilities on a fixture.
 
+### Project 15 — LLM Knowledge Store
+- **Goal:** Keep every validated Claude output (scenario, interpretation, candidate outcomes, graph changes) and reuse it, as prompt precedents and in offline play.
+- **Scope:** SQLite store in the save file plus JSONL export/import; outcomes may propose bounded graph changes applied in `resolve()`; stored scenarios feed the Project 13 library with `origin="llm"`; stored interpretations and outcomes back offline play.
+- **Design:** [projects/15-llm-knowledge-store.md](projects/15-llm-knowledge-store.md).
+- **Done when:** see the design doc.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -304,6 +311,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 11 | Evaluation & Calibration | 3, 4, 6 | Backtest suite, tuned weights |
 | 13 | Scenario Depth | 2, 5, 8 | `Storyline`, `InTray` in `WorldState`; `generate_turn(summary, storylines, client) -> InTray`; offline `ScenarioLibrary` |
 | 14 | Response Builder | 5, 6, 10 | `ResponsePackage` (picked options + text + delivery), confirm/edit step in `Game`, `advise(question, summary, client) -> [Option]` |
+| 15 | Knowledge Store | 1, 3, 5, 6, 8, 13 | `KnowledgeStore` (`harvest_turn`, `library_scenarios`, `interpretations`, `outcomes`, `graph_changes`, JSONL export/import); `GraphChange` + `validate_graph_changes()`/`apply_graph_changes()` in `world/changes.py`; `Outcome.graph_changes`; `recall()`/`Recaller` → `llm_plugins(recaller=...)`; `StoredInterpreter`, `StoredForecaster` |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -340,8 +348,9 @@ Smallest thing that is fun and proves the architecture:
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
-| 13 | Scenario Depth | Backlog | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
+| 13 | Scenario Depth | In progress (SD-3 part 1: PR #11) | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | Backlog | Stories RB-1 to RB-7 in backlog/scenarios-and-responses.md |
+| 15 | LLM Knowledge Store | In review (PR #14, stacked on #11) | See projects/15-llm-knowledge-store.md |
 
 ---
 
@@ -361,6 +370,11 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | Turns split into decide (may call LLM) and resolve (deterministic, from the log) | Exact replay without LLM calls |
 | 2026-10-01 | The LLM reads a `StateSummary`, never the WorldState; feasibility is deterministic engine code | Keeps the LLM out of the numbers |
 | 2026-10-01 | Startup shows the mode (offline practice or Claude with its model); `--llm` without a key exits with help (PR #7) | Ed couldn't tell whether Claude was in use |
+| 2026-10-01 | Knowledge store keeps validated structured output harvested from TurnRecords, not raw text | Reusable, checkable, replay-safe |
+| 2026-10-01 | One SQLite file shared with saves; JSONL to move knowledge between installs | Simple ops, portable |
+| 2026-10-01 | LLM graph changes are whitelisted and capped (≤3 per outcome; attrs ±0.2; edge weight ±0.1 or 25%; new edges ≤0.3) and applied in `resolve()` | Keeps the engine in charge and replay exact |
+| 2026-10-01 | Carrying graph changes across games deferred to Project 11 | Needs calibration first |
+| 2026-10-01 | Stored Claude scenarios feed the SD-3 library as `LibraryScenario(origin="llm")` | One scenario format for handwritten, LLM and news |
 | 2026-10-01 | Richer scenarios and responses become Projects 13 and 14; P1 order SD-3, RB-2, RB-1, SD-1, SD-2, RB-3, RB-4 | Ed's first play-through found scenarios basic and repeating and responses hard to combine |
 
 ---
@@ -383,6 +397,7 @@ Smallest thing that is fun and proves the architecture:
 |---|---|
 | LLM outputs drift or contradict state | Strict schemas, engine as source of truth, state summary in every prompt |
 | Runaway feedback loops | Damping, caps, stability tests |
+| Dominant strategies (e.g. spend on everything, see Project 11) | Real costs for deficits, backtests against unpopular-but-necessary episodes |
 | Game becomes solvable/deterministic | Sampling selection mode, hidden variables, random events |
 | Cost/latency per turn too high | Caching, smaller models for classification, batch candidate generation in one call |
 | News incompatible with game world | Divergence filter; adapt rather than import |

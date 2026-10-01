@@ -45,5 +45,193 @@
       "Negotiate"
     ],
     "shocks": []
+  },
+  {
+    "id": "gilt-yields-jump-after-fiscal-watchdog-warning",
+    "category": "economy",
+    "title": "Gilt yields jump after fiscal watchdog warning",
+    "briefing": "The fiscal watchdog's interim report, published this morning, says the government is on course to miss its debt rule by £18bn in the final year of the forecast. Ten-year gilt yields rose 35 basis points within an hour and two lenders have already withdrawn fixed-rate mortgage products. Treasury officials advise that a credible statement before markets open tomorrow would limit the damage, but any consolidation large enough to satisfy investors would fall on departments already planning real-terms cuts. A tax rise would breach a manifesto pledge; doing nothing risks a disorderly sell-off and a higher Bank Rate.",
+    "affected_nodes": [
+      "indicator:deficit",
+      "sector:finance",
+      "indicator:interest_rate"
+    ],
+    "urgency": 0.85,
+    "suggested_options": [
+      "Cut departmental spending to meet the debt rule.",
+      "Raise income tax to close the gap.",
+      "Negotiate a looser fiscal rule with the watchdog and explain it to markets.",
+      "Hold firm and wait for markets to calm."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:finance",
+        "stance": 0.8,
+        "statement": "Investors want a credible plan by Friday, not a review."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": -0.7,
+        "statement": "Another squeeze on budgets would break frontline services."
+      },
+      {
+        "node": "institution:central_bank",
+        "stance": 0.4,
+        "statement": "Fiscal policy is a matter for the government, but credibility matters."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:interest_rate",
+        "delta": 0.6,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:deficit": {
+        "op": ">",
+        "value": 5
+      }
+    }
+  },
+  {
+    "id": "albion-steel-enters-administration",
+    "category": "economy",
+    "title": "Albion Steel enters administration",
+    "briefing": "Albion Steel's board has appointed administrators after its overseas parent refused a further £400m credit line. The company employs 4,200 people at its Teesside and South Wales works and supports an estimated 11,000 jobs in its supply chain. Administrators say they can keep the furnaces lit for three weeks without a buyer or state support; once the blast furnace cools it cannot be restarted economically. Officials estimate temporary nationalisation would cost £60m a month. Allowing closure would end primary steelmaking in the region and leave defence and rail projects reliant on imports.",
+    "affected_nodes": [
+      "sector:manufacturing",
+      "indicator:unemployment",
+      "group:business"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Fund a temporary state takeover to keep the furnaces lit.",
+      "Subsidise a buyer with a time-limited support package.",
+      "Negotiate with the parent company for a managed wind-down.",
+      "Hold firm and let the administrators find a buyer."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.9,
+        "statement": "Lose the furnace and you lose sovereign steel for good."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.3,
+        "statement": "Support suppliers, but don't make the state a steelmaker."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Taxpayers would be left with an open-ended liability."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:manufacturing",
+        "delta": -0.7,
+        "start_turn": 0,
+        "duration_turns": 1
+      },
+      {
+        "node": "indicator:unemployment",
+        "delta": 0.3,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "unemployment-passes-five-percent-for-the-first-time",
+    "category": "economy",
+    "title": "Unemployment passes five percent for the first time",
+    "briefing": "The quarterly labour force survey shows unemployment above five per cent for the first time in this parliament, with youth unemployment rising fastest in the North East and the Midlands. Job vacancies have fallen for nine consecutive months. The Work and Pensions Secretary is pressing for a youth jobs guarantee costing £2.4bn a year; the Chancellor favours a cut to employer national insurance, which business groups say would protect hiring but which the Treasury cannot fully fund. The opposition has tabled an urgent question for Monday.",
+    "affected_nodes": [
+      "indicator:unemployment",
+      "group:young_renters",
+      "group:business"
+    ],
+    "urgency": 0.65,
+    "suggested_options": [
+      "Fund a youth jobs guarantee.",
+      "Cut employer national insurance tax to protect hiring.",
+      "Regulate zero-hours contracts to improve job security.",
+      "Wait for the next survey before acting."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.8,
+        "statement": "We are the first to be let go and the last to be hired."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.6,
+        "statement": "Lower the cost of employing people and we will keep hiring."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Either option adds to borrowing."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:unemployment": {
+        "op": ">",
+        "value": 5
+      }
+    }
+  },
+  {
+    "id": "strong-growth-figures-open-budget-headroom",
+    "category": "economy",
+    "title": "Strong growth figures open budget headroom",
+    "briefing": "Revised national accounts show the economy grew 0.9 per cent last quarter, well ahead of forecasts, and tax receipts are running £9bn above plan. Treasury officials estimate the windfall creates roughly £6bn of headroom against the fiscal rules at the next budget. Backbenchers are already lobbying for an income tax cut before the election, while departmental ministers want capital investment restored after two years of delays. The central bank has signalled that a large giveaway could delay rate cuts. The Chancellor's statement is due in three weeks.",
+    "affected_nodes": [
+      "indicator:deficit",
+      "institution:legislature",
+      "institution:central_bank"
+    ],
+    "urgency": 0.4,
+    "suggested_options": [
+      "Cut income tax for basic-rate payers.",
+      "Invest the headroom in roads, rail and hospitals.",
+      "Use the windfall to cut borrowing and rebuild buffers."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "Voters deserve to keep more of their money."
+      },
+      {
+        "node": "institution:central_bank",
+        "stance": -0.4,
+        "statement": "A stimulus now would make our job harder."
+      },
+      {
+        "node": "sector:public",
+        "stance": 0.6,
+        "statement": "Capital budgets have been raided for years."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:deficit",
+        "delta": -0.4,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:unemployment": {
+        "op": "<",
+        "value": 4.8
+      }
+    }
   }
 ]

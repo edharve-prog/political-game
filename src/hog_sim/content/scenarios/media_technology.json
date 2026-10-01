@@ -1,0 +1,184 @@
+[
+  {
+    "id": "cobalt-labs-plans-10bn-ai-data-centre",
+    "category": "media_technology",
+    "title": "Cobalt Labs plans £10bn AI data centre",
+    "briefing": "Cobalt Labs, a fast-growing artificial intelligence company, has proposed a £10bn data centre campus in Lincolnshire, promising 3,000 construction jobs and 600 permanent posts. The site would need a gigawatt of power, as much as a large city, and the grid operator says connection would take seven years without changes to the queue system. The firm wants fast-track planning and discounted power. Local residents and farmers object to the loss of farmland and the strain on the grid.",
+    "affected_nodes": [
+      "sector:energy",
+      "group:business",
+      "indicator:energy_prices"
+    ],
+    "urgency": 0.4,
+    "suggested_options": [
+      "Deregulate grid connections to fast-track the data centre.",
+      "Subsidise the power price to win the investment.",
+      "Negotiate a deal where Cobalt Labs funds its own power supply."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.8,
+        "statement": "This is the investment that puts Britain on the AI map."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.4,
+        "statement": "Why should our bills fund a data centre?"
+      },
+      {
+        "node": "sector:energy",
+        "stance": 0.3,
+        "statement": "We need investment in generation either way."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "social-media-platforms-threaten-online-safety-boycott",
+    "category": "media_technology",
+    "title": "Social media platforms threaten online safety boycott",
+    "briefing": "Two of the largest social media platforms say they will withdraw encrypted messaging and some services from the UK if the regulator enforces age verification and content scanning under the online safety law. Parents' groups and children's charities want ministers to hold firm after a coroner linked a teenager's death to self-harm content. The platforms say the rules are technically unworkable. The regulator's first enforcement deadline is in six weeks.",
+    "affected_nodes": [
+      "group:business",
+      "institution:legislature",
+      "group:young_renters"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Regulate platforms and enforce the law in full.",
+      "Negotiate a phased timetable with the platforms.",
+      "Ban under-16s from social media altogether."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "Children's safety comes before tech profits."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.6,
+        "statement": "Unworkable rules will drive investment away."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": -0.4,
+        "statement": "Young adults shouldn't lose private messaging."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "public-broadcaster-faces-licence-fee-showdown",
+    "category": "media_technology",
+    "title": "Public broadcaster faces licence fee showdown",
+    "briefing": "The public broadcaster's charter review has reached a decision point. The broadcaster wants the licence fee to rise with inflation to £180; ministers have floated replacing it with a subscription or a household levy. Pensioners' groups oppose ending free licences for the over-75s on pension credit. The broadcaster says cuts would close local radio stations and its World Service would lose language services. Newspapers are running a campaign against the fee.",
+    "affected_nodes": [
+      "sector:public",
+      "group:pensioners",
+      "institution:legislature"
+    ],
+    "urgency": 0.35,
+    "suggested_options": [
+      "Cut the licence fee and move to a subscription model.",
+      "Fund the World Service directly from the Foreign Office budget.",
+      "Regulate a household levy to replace the licence fee."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.5,
+        "statement": "Don't take away free licences from the poorest older people."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "The fee is a regressive tax."
+      },
+      {
+        "node": "sector:public",
+        "stance": 0.6,
+        "statement": "Cuts would gut local news."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "deepfake-video-of-the-prime-minister-goes-viral",
+    "category": "media_technology",
+    "title": "Deepfake video of the Prime Minister goes viral",
+    "briefing": "A fabricated video showing the Prime Minister apparently mocking pensioners has been viewed 12 million times in 24 hours, and the platforms have been slow to remove it. The security services suspect a foreign state-linked group. Election officials warn that similar videos could disrupt the coming local elections. Ministers are considering an emergency requirement for platforms to label AI-generated content; free speech campaigners and some backbenchers oppose rushed legislation.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:pensioners",
+      "group:young_renters"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Regulate platforms to label and remove deepfakes within an hour.",
+      "Fund a rapid-response unit to counter disinformation.",
+      "Ban AI-generated political adverts during election periods."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.5,
+        "statement": "How are we supposed to know what's real?"
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.4,
+        "statement": "Elections must be protected, but carefully."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.3,
+        "statement": "Hour-long takedown rules are impossible to meet."
+      }
+    ],
+    "shocks": [],
+    "weight": 0.7
+  },
+  {
+    "id": "automation-study-warns-of-1-5-million-jobs-at-risk",
+    "category": "media_technology",
+    "title": "Automation study warns of 1.5 million jobs at risk",
+    "briefing": "A leaked government-commissioned study estimates that 1.5 million jobs in clerical, call centre and logistics work could be automated by AI within five years, concentrated in towns already hit by deindustrialisation. Business groups say productivity gains would raise wages overall. Unions want a legal right to consultation before AI replaces jobs and a retraining fund paid for by the firms that benefit. The report was due to be published next year.",
+    "affected_nodes": [
+      "indicator:unemployment",
+      "group:business",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.45,
+    "suggested_options": [
+      "Fund a national retraining programme for displaced workers.",
+      "Tax companies that automate jobs to fund retraining.",
+      "Regulate AI deployment with a right to consultation."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": -0.5,
+        "statement": "Taxing automation would make Britain a laggard."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.6,
+        "statement": "Workers deserve a say in how AI is used."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.3,
+        "statement": "Displacement is real even if the totals balance."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:unemployment": {
+        "op": ">",
+        "value": 4.8
+      }
+    }
+  }
+]

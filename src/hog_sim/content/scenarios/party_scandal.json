@@ -1,0 +1,179 @@
+[
+  {
+    "id": "minister-s-undeclared-links-to-contract-winner-exposed",
+    "category": "party_scandal",
+    "title": "Minister's undeclared links to contract winner exposed",
+    "briefing": "A Sunday newspaper reports that a junior health minister failed to declare a family shareholding in Bellmont Medical, a firm awarded a £120m testing contract by her department last year. The minister says the shares are held in a blind trust; documents published by the paper suggest otherwise. The ethics adviser has opened an inquiry. The opposition is demanding her resignation, and two cabinet ministers have privately said she should go.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:business",
+      "group:public_workers"
+    ],
+    "urgency": 0.65,
+    "suggested_options": [
+      "Regulate ministerial interests with a statutory register.",
+      "Negotiate the minister's resignation quietly.",
+      "Wait for the ethics adviser's report."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "This is a matter of standards, not politics."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.5,
+        "statement": "Nurses were told there was no money while friends got contracts."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.2,
+        "statement": "Contract rules are already onerous."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "whistleblower-alleges-bullying-by-party-whips",
+    "category": "party_scandal",
+    "title": "Whistleblower alleges bullying by party whips",
+    "briefing": "A former parliamentary aide, Hannah Rowe, has given a television interview alleging that government whips threatened to withdraw constituency funding from MPs who rebelled on the welfare bill. She has handed messages to a parliamentary committee. Three MPs have backed her account. The Chief Whip denies wrongdoing. The standards committee chair says a formal inquiry is likely, and backbenchers are demanding an independent complaints process.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:public_workers"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Regulate party discipline with an independent complaints body.",
+      "Negotiate the Chief Whip's departure to draw a line.",
+      "Hold firm and defend the whips."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.6,
+        "statement": "MPs must be free to vote with their conscience."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.4,
+        "statement": "Parliament's staff deserve proper protection."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "party-treasurer-linked-to-cash-for-honours-claims",
+    "category": "party_scandal",
+    "title": "Party treasurer linked to cash-for-honours claims",
+    "briefing": "An undercover newspaper investigation has filmed the party's treasurer apparently offering a peerage nomination to a property developer in return for a £2m donation. The police have been asked to investigate under the honours law, and the upper house appointments commission has suspended two pending nominations. The party says it has suspended the treasurer. Opposition parties are demanding a ban on large donations and publication of all donor meetings with ministers.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:pensioners",
+      "group:business"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Ban donations over £50,000 from individuals.",
+      "Regulate honours with an independent appointments process.",
+      "Hold firm and await the police investigation."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "It is the same rot as ever."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.3,
+        "statement": "Donations are legitimate political participation."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "The upper house cannot be for sale."
+      }
+    ],
+    "shocks": [],
+    "weight": 0.5
+  },
+  {
+    "id": "backbenchers-gather-letters-for-a-leadership-challenge",
+    "category": "party_scandal",
+    "title": "Backbenchers gather letters for a leadership challenge",
+    "briefing": "After a string of poor by-election results, the chair of the backbench committee has confirmed she has received a significant number of letters calling for a confidence vote. The threshold is close. A former cabinet minister has published an article setting out a rival platform of tax cuts and lower migration. Whips say the plotters could be held off with a reshuffle or a popular policy announcement, but either risks looking desperate.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:pensioners",
+      "group:young_renters"
+    ],
+    "urgency": 0.85,
+    "suggested_options": [
+      "Cut income tax to win back the backbenches.",
+      "Negotiate with the rebels on a reshuffle and policy concessions.",
+      "Hold firm and call their bluff."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": -0.7,
+        "statement": "The party is heading for defeat under this leadership."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.3,
+        "statement": "Infighting looks self-indulgent."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": -0.2,
+        "statement": "None of them are talking about rents."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "group:pensioners": {
+        "op": "<",
+        "value": 0.35
+      }
+    },
+    "weight": 0.5
+  },
+  {
+    "id": "chancellor-s-offshore-trust-revealed-in-leaked-files",
+    "category": "party_scandal",
+    "title": "Chancellor's offshore trust revealed in leaked files",
+    "briefing": "A leak of offshore financial records shows that the Chancellor's family has benefited from a trust registered in the Cayman Islands which reduced their tax bill. The Chancellor says the arrangement was legal and declared to the Treasury's permanent secretary. Coming two weeks before a budget that raises taxes on working families, the story is dominating coverage. The opposition says the Chancellor cannot credibly lead a crackdown on tax avoidance.",
+    "affected_nodes": [
+      "institution:legislature",
+      "sector:finance",
+      "group:young_renters"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Regulate offshore trusts with a public register of beneficial owners.",
+      "Tax offshore trusts at the same rate as domestic income.",
+      "Hold firm and back the Chancellor."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.7,
+        "statement": "One rule for them, another for us."
+      },
+      {
+        "node": "sector:finance",
+        "stance": -0.4,
+        "statement": "Trusts are legitimate planning tools."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.5,
+        "statement": "Ministers must lead by example."
+      }
+    ],
+    "shocks": []
+  }
+]

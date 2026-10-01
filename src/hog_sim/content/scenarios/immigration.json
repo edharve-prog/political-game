@@ -1,0 +1,226 @@
+[
+  {
+    "id": "small-boat-crossings-hit-a-summer-record",
+    "category": "immigration",
+    "title": "Small boat crossings hit a summer record",
+    "briefing": "More than 4,000 people crossed the Channel in small boats in the past fortnight, a record, and two people drowned off Dungeness on Tuesday. Asylum hotels now cost £8m a day. French officials say they will increase beach patrols only in exchange for a legal route allowing some asylum seekers to apply from France. Backbenchers demand tougher deterrents, while charities say the asylum backlog of 110,000 cases is the real problem.",
+    "affected_nodes": [
+      "country:eu",
+      "institution:legislature",
+      "indicator:deficit"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Negotiate a returns and legal routes deal with Europe.",
+      "Fund more caseworkers to clear the asylum backlog.",
+      "Regulate asylum claims with fast-track removals."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "The public wants the boats stopped."
+      },
+      {
+        "node": "country:eu",
+        "stance": 0.3,
+        "statement": "Co-operation must work in both directions."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "The hotels cost a fortune and nothing changes."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "care-visa-cuts-leave-30-000-vacancies",
+    "category": "immigration",
+    "title": "Care visa cuts leave 30,000 vacancies",
+    "briefing": "Six months after care worker visas were restricted, the sector reports 30,000 additional vacancies, and three councils say they cannot commission enough home care for discharged hospital patients. Providers want the visa route reopened; the Home Office points to evidence of exploitation and abuse of sponsorship licences. A domestic pay rise for care workers would cost councils £1.2bn a year. Unions argue that low pay, not visas, is why care struggles to recruit.",
+    "affected_nodes": [
+      "sector:public",
+      "group:pensioners",
+      "group:business"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Fund a national pay rise for care workers.",
+      "Deregulate the care visa route with stronger anti-exploitation checks.",
+      "Regulate providers with licensing and minimum standards."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.7,
+        "statement": "Older people are stuck in hospital for want of carers."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.6,
+        "statement": "We cannot recruit at the wages councils pay."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.4,
+        "statement": "Pay care workers properly."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "net-migration-figures-beat-forecasts-again",
+    "category": "immigration",
+    "title": "Net migration figures beat forecasts again",
+    "briefing": "Official statistics show net migration of 620,000 last year, 150,000 above the government's forecast, driven by health workers, students and their dependants. The figures land a week before a by-election in a seat where immigration is the top issue. Business groups and universities warn that further restrictions would worsen labour shortages and university finances. The Home Secretary wants to raise the salary threshold for skilled worker visas by a third.",
+    "affected_nodes": [
+      "institution:legislature",
+      "group:business",
+      "sector:public"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Regulate skilled visas with a higher salary threshold.",
+      "Fund training for domestic workers to reduce reliance on visas.",
+      "Hold firm and explain that the rise is temporary."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.7,
+        "statement": "We promised to bring the numbers down."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.6,
+        "statement": "A higher threshold would close firms."
+      },
+      {
+        "node": "sector:public",
+        "stance": -0.4,
+        "statement": "The health service depends on overseas staff."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "court-halts-offshore-asylum-processing-flights",
+    "category": "immigration",
+    "title": "Court halts offshore asylum processing flights",
+    "briefing": "The Court of Appeal has blocked the first flight under the offshore asylum processing agreement, ruling that the partner country cannot guarantee that claims will be properly assessed. The government has paid £240m to the partner country so far. Ministers can appeal to the Supreme Court, legislate to declare the country safe, or abandon the scheme. Legislating would put the government in conflict with its international obligations and could provoke a split with the upper house.",
+    "affected_nodes": [
+      "institution:legislature",
+      "indicator:deficit",
+      "country:uk"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Regulate by legislating to declare the partner country safe.",
+      "Cut the scheme and spend the money on processing claims.",
+      "Negotiate stronger safeguards with the partner country and appeal."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.5,
+        "statement": "Parliament should decide, not the courts."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.3,
+        "statement": "£240m spent and not a single flight."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": -0.6,
+        "statement": "This policy is cruel and unworkable."
+      }
+    ],
+    "shocks": [],
+    "weight": 0.7
+  },
+  {
+    "id": "universities-warn-student-visa-curbs-threaten-finances",
+    "category": "immigration",
+    "title": "Universities warn student visa curbs threaten finances",
+    "briefing": "A cabinet proposal to stop international postgraduates bringing family members and to shorten the post-study work visa has leaked. Universities say international fees now fund a third of teaching and research, and that applications from India and Nigeria would halve. The sector estimates a £2bn annual shortfall. The Home Office says the routes are being used as a back door to work. University towns, many in marginal seats, rely on student spending.",
+    "affected_nodes": [
+      "sector:public",
+      "group:business",
+      "indicator:deficit"
+    ],
+    "urgency": 0.45,
+    "suggested_options": [
+      "Regulate student visas with stricter dependants rules.",
+      "Fund universities directly to offset lost fees.",
+      "Negotiate with universities on tougher recruitment agent standards instead."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:public",
+        "stance": -0.7,
+        "statement": "Curbs would bankrupt research universities."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.5,
+        "statement": "Student routes must not become work routes."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.4,
+        "statement": "Graduates fill skills gaps."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "farm-labour-shortage-leaves-crops-rotting",
+    "category": "immigration",
+    "title": "Farm labour shortage leaves crops rotting",
+    "briefing": "Growers in Kent, Lincolnshire and Herefordshire say a quarter of this year's soft fruit and vegetable harvest is going unpicked because the seasonal worker visa quota ran out in July. Food producers warn of higher supermarket prices this autumn and some are moving operations to Spain and Morocco. The farmers' union has asked for 15,000 more visas. Ministers have promised voters lower migration and want automation and domestic recruitment to fill the gap.",
+    "affected_nodes": [
+      "group:business",
+      "indicator:inflation",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Deregulate the seasonal worker scheme with 15,000 more visas.",
+      "Subsidise farm automation and robotic picking.",
+      "Fund a domestic recruitment drive for harvest work."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.8,
+        "statement": "Without pickers, crops rot in the fields."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "More visas undercut our migration promises."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.4,
+        "statement": "Food prices are already high enough."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:inflation",
+        "delta": 0.2,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:unemployment": {
+        "op": "<",
+        "value": 4.8
+      }
+    }
+  }
+]

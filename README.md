@@ -23,7 +23,7 @@ uv run hog-sim --offline    # offline practice: built-in scenarios, keyword matc
 The game prints its mode at startup. It plays with Claude whenever it can reach it: the banner
 names the Claude model, and each turn ends with a line counting the Claude calls, tokens and cost
 so far. When it can't reach Claude it says why, explains how to connect, and starts OFFLINE
-PRACTICE (five built-in scenarios and keyword matching). `--offline` picks practice mode on
+PRACTICE (67 built-in scenarios across 12 categories, keyword matching). `--offline` picks practice mode on
 purpose; `--llm` stops with the explanation instead of falling back.
 
 ## What the game keeps from Claude
