@@ -1,0 +1,243 @@
+[
+  {
+    "id": "housing-crunch",
+    "category": "housing",
+    "title": "Housing crunch",
+    "briefing": "Rents and house prices hit records and young voters are angry.",
+    "affected_nodes": [
+      "indicator:house_prices",
+      "sector:housing",
+      "group:young_renters"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Spend on housebuilding",
+      "Deregulate planning",
+      "Do nothing"
+    ],
+    "shocks": [
+      {
+        "node": "indicator:house_prices",
+        "delta": 0.8,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "mortgage-cliff-edge-looms-for-800-000-households",
+    "category": "housing",
+    "title": "Mortgage cliff edge looms for 800,000 households",
+    "briefing": "Lenders' trade body figures show 800,000 households will come off fixed-rate deals in the next six months, most of them facing monthly payments at least £300 higher. Repossession claims rose 40 per cent last quarter. Lenders have asked the government to back a voluntary forbearance charter allowing temporary switches to interest-only. A direct mortgage support scheme would cost up to £3bn and could be accused of helping homeowners over renters. The central bank has warned that measures which push up house prices would work against its efforts to bring down inflation.",
+    "affected_nodes": [
+      "indicator:house_prices",
+      "sector:finance",
+      "sector:housing"
+    ],
+    "urgency": 0.75,
+    "suggested_options": [
+      "Negotiate a forbearance charter with the banks.",
+      "Fund a targeted mortgage support scheme.",
+      "Regulate lenders to cap repossession action for a year."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:finance",
+        "stance": 0.4,
+        "statement": "Forbearance works, but we need regulatory cover."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": -0.5,
+        "statement": "Homeowners get bailouts while rents soar."
+      },
+      {
+        "node": "institution:central_bank",
+        "stance": -0.3,
+        "statement": "Avoid fuelling demand in the housing market."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:house_prices",
+        "delta": -0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:interest_rate": {
+        "op": ">",
+        "value": 4.5
+      }
+    }
+  },
+  {
+    "id": "renters-reform-bill-stalls-in-committee",
+    "category": "housing",
+    "title": "Renters reform bill stalls in committee",
+    "briefing": "The bill to abolish no-fault evictions has been stalled in committee for eleven weeks after a group of backbench landlords tabled 140 amendments. Renters' groups have called a national day of action and a viral campaign about a family evicted in Bristol has reached three million views. Landlord associations warn that ending no-fault evictions without faster courts will push small landlords to sell, reducing supply. Business managers say the bill can pass this session only if the government guillotines debate or accepts a delay to implementation.",
+    "affected_nodes": [
+      "group:young_renters",
+      "institution:legislature",
+      "sector:housing"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Ban no-fault evictions now and force the bill through.",
+      "Fund faster housing courts to win over landlords.",
+      "Negotiate with backbench landlords on a delayed start date."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.9,
+        "statement": "We cannot plan our lives on two months' notice."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Backbenchers want their amendments heard."
+      },
+      {
+        "node": "sector:housing",
+        "stance": -0.3,
+        "statement": "Small landlords will sell up."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "group:young_renters": {
+        "op": "<",
+        "value": 0.35
+      }
+    }
+  },
+  {
+    "id": "cladding-fire-at-brookfield-tower",
+    "category": "housing",
+    "title": "Cladding fire at Brookfield Tower",
+    "briefing": "A fire at Brookfield Tower, a fourteen-storey block in Salford, spread up the exterior overnight; residents were evacuated and two people are in hospital. Early findings suggest the insulation panels were on a list of materials due for removal under a remediation scheme that has stalled for three years. An estimated 3,000 other buildings still have unsafe cladding. Developers say they have paid their share; leaseholders say they face bills of up to £60,000 each. Ministers face questions in the House this afternoon.",
+    "affected_nodes": [
+      "sector:housing",
+      "sector:public",
+      "group:young_renters"
+    ],
+    "urgency": 0.9,
+    "suggested_options": [
+      "Fund remediation upfront and recover costs from developers later.",
+      "Ban combustible cladding outright on all residential blocks.",
+      "Tax large housebuilders with a new safety levy.",
+      "Regulate building owners with fines for missing deadlines."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.9,
+        "statement": "We are living in buildings we know are dangerous."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.5,
+        "statement": "Developers have already paid billions."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Upfront funding is a large unbudgeted cost."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:housing",
+        "delta": -0.3,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "redbrick-homes-cuts-building-starts-by-a-third",
+    "category": "housing",
+    "title": "Redbrick Homes cuts building starts by a third",
+    "briefing": "Redbrick Homes, one of the five largest housebuilders, told investors this morning it will cut new starts by a third and pause land purchases, citing falling prices and mortgage affordability. Two rivals are expected to follow. The announcement makes the government's annual housebuilding target almost unreachable and threatens 9,000 construction jobs. The industry is asking for a revived buyer support scheme; housing charities want the money spent on social housing instead, arguing that the public sector can build when the private market retreats.",
+    "affected_nodes": [
+      "sector:housing",
+      "indicator:house_prices",
+      "indicator:unemployment"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Subsidise first-time buyers with a new equity loan scheme.",
+      "Fund a large social housebuilding programme.",
+      "Deregulate planning to cut developers' costs.",
+      "Wait for the market to recover."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:housing",
+        "stance": 0.8,
+        "statement": "Demand support now or capacity is lost for years."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": 0.5,
+        "statement": "Build homes people can actually afford."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Buyer subsidies have poor value for money."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:housing",
+        "delta": -0.6,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:house_prices": {
+        "op": "<",
+        "value": 95
+      }
+    }
+  },
+  {
+    "id": "green-belt-release-proposed-for-300-000-homes",
+    "category": "housing",
+    "title": "Green belt release proposed for 300,000 homes",
+    "briefing": "An independent planning review commissioned last year recommends releasing low-quality green belt land around eight cities for 300,000 homes over a decade, with a requirement that half be affordable. Housebuilders and younger voters' groups have welcomed it. Forty backbenchers, mostly in commuter-belt seats, have signed a letter opposing it, and rural campaigners have begun a petition. Officials say the plan could add 0.2 per cent to growth by the end of the decade. Accepting it in full would require primary legislation this session.",
+    "affected_nodes": [
+      "sector:housing",
+      "group:young_renters",
+      "institution:legislature"
+    ],
+    "urgency": 0.4,
+    "suggested_options": [
+      "Deregulate planning to release the green belt land.",
+      "Fund infrastructure first so new homes come with schools and GPs.",
+      "Negotiate a smaller release with the backbench rebels."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.8,
+        "statement": "This is the first serious plan to build in a generation."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.6,
+        "statement": "Once the countryside is gone it is gone."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "Our constituents did not vote for this."
+      }
+    ],
+    "shocks": []
+  }
+]

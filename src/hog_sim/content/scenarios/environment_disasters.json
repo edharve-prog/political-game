@@ -1,0 +1,199 @@
+[
+  {
+    "id": "northgate-water-sewage-spills-trigger-swimming-bans",
+    "category": "environment_disasters",
+    "title": "Northgate Water sewage spills trigger swimming bans",
+    "briefing": "Environment Agency data show Northgate Water discharged raw sewage for 290,000 hours last year, and health authorities have banned swimming at eleven beaches after a norovirus outbreak. The company paid its shareholders £180m in dividends and is carrying £8bn of debt. It has warned that a large fine could push it into special administration. Campaigners want bonuses banned and the company taken into public ownership; the regulator wants bills to rise to fund pipe upgrades.",
+    "affected_nodes": [
+      "group:business",
+      "sector:finance",
+      "institution:legislature"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Ban bonuses and dividends at water firms that break discharge rules.",
+      "Regulate Northgate Water through special administration.",
+      "Fund pipe upgrades with a public loan repaid through bills."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": 0.8,
+        "statement": "Constituents are furious about filthy rivers."
+      },
+      {
+        "node": "sector:finance",
+        "stance": -0.5,
+        "statement": "Creditors need confidence that rules are stable."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.3,
+        "statement": "Special administration would chill investment in utilities."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "severn-floods-displace-20-000-households",
+    "category": "environment_disasters",
+    "title": "Severn floods displace 20,000 households",
+    "briefing": "Four days of record rainfall have burst defences along the Severn and its tributaries. 20,000 households have been evacuated, two people have died and the main railway line to South Wales is closed. Insurers estimate claims of £1.8bn, and thousands of homes are uninsured. Councils want an emergency support fund and help with temporary housing. The Environment Agency says flood defence spending has fallen behind the rising risk and that some communities may need to be relocated.",
+    "affected_nodes": [
+      "sector:housing",
+      "sector:public",
+      "indicator:deficit"
+    ],
+    "urgency": 0.9,
+    "suggested_options": [
+      "Fund an emergency relief package for flooded households.",
+      "Spend on a long-term flood defence programme.",
+      "Regulate insurers to cover high-risk homes through a shared scheme."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:public",
+        "stance": 0.8,
+        "statement": "Councils cannot carry this alone."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Older residents have lost everything."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Disaster relief always costs more than first estimated."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:housing",
+        "delta": -0.4,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "weight": 0.5
+  },
+  {
+    "id": "drought-forces-hosepipe-bans-and-crop-losses",
+    "category": "environment_disasters",
+    "title": "Drought forces hosepipe bans and crop losses",
+    "briefing": "After the driest spring and summer on record, five water companies have imposed hosepipe bans and reservoir levels in the South East are at 35 per cent. Wheat and potato yields are expected to fall by a fifth, and supermarkets warn of higher food prices. Heat deaths among the elderly have been reported in three cities. Water companies want planning approval for new reservoirs; environmental groups want stricter limits on leakage, which wastes a fifth of all supply.",
+    "affected_nodes": [
+      "indicator:inflation",
+      "group:pensioners",
+      "group:business"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Regulate water companies with mandatory leakage targets.",
+      "Fund new reservoirs and a national water grid.",
+      "Subsidise farmers for drought losses."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.6,
+        "statement": "Growers need support before they go under."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.7,
+        "statement": "The heat is killing older people."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.4,
+        "statement": "Twenty years without a new reservoir is indefensible."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:inflation",
+        "delta": 0.3,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "climate-committee-says-net-zero-target-will-be-missed",
+    "category": "environment_disasters",
+    "title": "Climate committee says net zero target will be missed",
+    "briefing": "The independent climate committee's annual progress report concludes the country is off track for its 2030 emissions target, citing slow heat pump installation, stalled insulation programmes and a delay to the ban on new petrol cars. Younger voters and many businesses want faster action; a group of backbenchers wants the target itself delayed, arguing that the costs fall on low-income households. Ministers must respond to the report in parliament within three months.",
+    "affected_nodes": [
+      "sector:energy",
+      "group:young_renters",
+      "institution:legislature"
+    ],
+    "urgency": 0.4,
+    "suggested_options": [
+      "Fund a national home insulation and heat pump programme.",
+      "Regulate faster by bringing forward the petrol car ban.",
+      "Tax high-carbon goods to speed the transition.",
+      "Wait and review the target after the election."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.8,
+        "statement": "Delay is a choice to fail."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.5,
+        "statement": "Heat pumps are too expensive for us."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "The target costs too much at the wrong time."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "coastal-erosion-forces-managed-retreat-in-east-anglia",
+    "category": "environment_disasters",
+    "title": "Coastal erosion forces managed retreat in East Anglia",
+    "briefing": "A cliff collapse at Hemsby Sands has destroyed six homes, and the Environment Agency has told the council that sea defences for 1,200 more properties along the coast are no longer cost-effective. The council wants national funding to buy out homeowners at pre-erosion value, which would cost £300m and set a precedent for 20,000 coastal homes nationally. Residents, many retired, cannot sell or insure their properties.",
+    "affected_nodes": [
+      "sector:housing",
+      "group:pensioners",
+      "indicator:deficit"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Fund a buy-out scheme for homes at risk.",
+      "Spend on hard sea defences to protect the coast.",
+      "Regulate coastal planning to stop building in risk zones."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.8,
+        "statement": "Our life savings are in these homes."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "A national buy-out would cost billions over time."
+      },
+      {
+        "node": "sector:public",
+        "stance": 0.3,
+        "statement": "Councils need a national policy, not case-by-case bailouts."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "group:pensioners": {
+        "op": "<",
+        "value": 0.45
+      }
+    }
+  }
+]

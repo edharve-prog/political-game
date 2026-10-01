@@ -23,6 +23,20 @@ from hog_sim.population.popularity import run_election, step_approval
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
 
 
+def _record_history(state: WorldState) -> WorldState:
+    """Append this turn's starting indicator values and group approvals to their histories.
+
+    Scenario generation reads these to see what is moving (stressed indicators, groups
+    turning against the government), so the next scenario can grow out of the last outcome.
+    """
+    new = state.snapshot()
+    for ind in new.indicators.values():
+        ind.history.append(ind.value)
+    for group in new.groups.values():
+        group.history.append(group.approval)
+    return new
+
+
 def resolve(
     start: WorldState,
     state: WorldState,
@@ -47,7 +61,7 @@ def resolve(
                 slot[node_id] = slot.get(node_id, 0.0) + step
 
     now = pending.pop(state.turn, {})
-    new = apply_deltas(state, now)
+    new = apply_deltas(_record_history(state), now)
     new.pending = pending
     new.events = [*new.events, *outcome.approval_events]
     new = step_approval(new, reference=start)

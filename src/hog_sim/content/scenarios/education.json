@@ -1,0 +1,196 @@
+[
+  {
+    "id": "crumbling-concrete-forces-140-school-closures",
+    "category": "education",
+    "title": "Crumbling concrete forces 140 school closures",
+    "briefing": "Days before the start of term, the Department for Education has ordered 140 schools to close buildings containing aerated concrete after a roof collapse at a primary school in Kent. Engineers say another 400 schools need urgent surveys. Head teachers are scrambling to find temporary classrooms, and parents' groups are demanding a published list. Repairs are estimated at £1.5bn; the capital budget for schools has already been cut twice. The opposition is calling it a symbol of a decade of underinvestment.",
+    "affected_nodes": [
+      "sector:public",
+      "indicator:deficit",
+      "group:public_workers"
+    ],
+    "urgency": 0.85,
+    "suggested_options": [
+      "Fund an emergency school rebuilding programme.",
+      "Spend existing capital budgets on temporary classrooms first.",
+      "Regulate councils to complete surveys within a month."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:public_workers",
+        "stance": 0.8,
+        "statement": "Teachers have been warning about these buildings for years."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.2,
+        "statement": "Find the money from existing budgets, not new taxes."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.5,
+        "statement": "Parents need a full list today."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:public",
+        "delta": -0.3,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "university-of-thamesmouth-faces-insolvency",
+    "category": "education",
+    "title": "University of Thamesmouth faces insolvency",
+    "briefing": "The University of Thamesmouth has told the higher education regulator it will run out of cash by March after a sharp fall in international student recruitment. It has 18,000 students and is the largest employer in its town. There is no insolvency regime for universities, and the regulator warns that six others are in a similar position. Options include an emergency loan, a merger with a neighbouring university, or allowing an orderly closure with students transferred elsewhere.",
+    "affected_nodes": [
+      "sector:public",
+      "group:young_renters",
+      "indicator:deficit"
+    ],
+    "urgency": 0.65,
+    "suggested_options": [
+      "Fund an emergency loan with strict conditions.",
+      "Negotiate a merger with a neighbouring university.",
+      "Regulate a new insolvency regime and let the closure proceed."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.7,
+        "statement": "Students should not lose their degrees halfway through."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "A bailout invites six more requests."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.6,
+        "statement": "Staff have already taken pay cuts."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "teachers-union-opens-strike-ballot-over-workload",
+    "category": "education",
+    "title": "Teachers' union opens strike ballot over workload",
+    "briefing": "The largest teaching union has opened a formal strike ballot after a survey found teachers working an average of 54 hours a week, with one in four planning to leave within two years. The union wants a binding cap on working hours and a pay rise above inflation. Recruitment to secondary training courses is 40 per cent below target in physics and maths. Officials believe a workload package without pay could split the union vote. The ballot closes in six weeks.",
+    "affected_nodes": [
+      "group:public_workers",
+      "sector:public",
+      "indicator:deficit"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Negotiate a workload agreement with the union.",
+      "Fund a pay rise above inflation for teachers.",
+      "Regulate the school week with a statutory cap on hours."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:public_workers",
+        "stance": 0.9,
+        "statement": "Teachers are leaving faster than we can train them."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.2,
+        "statement": "Children need their teachers in the classroom."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "A pay award above inflation costs £1bn a year."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "group:public_workers": {
+        "op": "<",
+        "value": 0.4
+      }
+    }
+  },
+  {
+    "id": "tuition-fee-freeze-ends-as-fees-set-to-rise",
+    "category": "education",
+    "title": "Tuition fee freeze ends as fees set to rise",
+    "briefing": "The seven-year freeze on undergraduate tuition fees expires in September, and universities have asked for fees to rise with inflation to £10,400. Vice-chancellors say courses in medicine, engineering and science are run at a loss. Student groups plan protests and the opposition promises to abolish fees. Extending the freeze would cost the Treasury £800m a year in grants to keep universities solvent. Officials also suggest changing loan repayment terms, which would fall hardest on middle earners.",
+    "affected_nodes": [
+      "group:young_renters",
+      "sector:public",
+      "institution:legislature"
+    ],
+    "urgency": 0.45,
+    "suggested_options": [
+      "Raise fees with inflation and protect science courses.",
+      "Fund an extended freeze with direct grants to universities.",
+      "Cut loan repayment thresholds to balance the books."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": -0.8,
+        "statement": "We already graduate with £50,000 of debt."
+      },
+      {
+        "node": "sector:public",
+        "stance": 0.6,
+        "statement": "Universities cannot run courses at a loss forever."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "This is a gift to the opposition."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:inflation": {
+        "op": ">",
+        "value": 3
+      }
+    }
+  },
+  {
+    "id": "exam-grading-error-hits-40-000-pupils",
+    "category": "education",
+    "title": "Exam grading error hits 40,000 pupils",
+    "briefing": "The exams regulator has admitted that a software error in one exam board's moderation system marked down 40,000 GCSE and A-level papers, some by two grades. University offers have already been withdrawn from about 3,000 applicants. The board says remarking will take six weeks, after university places are filled. Head teachers want the government to order universities to hold places open and to fund extra capacity. The board's chief executive has resigned.",
+    "affected_nodes": [
+      "sector:public",
+      "group:young_renters",
+      "institution:legislature"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Fund extra university places for affected pupils.",
+      "Regulate the exam board with an independent review and fines.",
+      "Negotiate with universities to hold offers until remarking ends."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:young_renters",
+        "stance": 0.8,
+        "statement": "Pupils' futures are being decided by a glitch."
+      },
+      {
+        "node": "sector:public",
+        "stance": 0.5,
+        "statement": "Universities need money to add places."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.6,
+        "statement": "Someone must be held to account."
+      }
+    ],
+    "shocks": []
+  }
+]

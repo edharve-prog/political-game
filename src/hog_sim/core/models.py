@@ -56,6 +56,9 @@ class Group(Node):
     lean: float = Field(
         0.5, ge=0, le=1, description="Approval the group drifts to when nothing changes"
     )
+    history: list[float] = Field(
+        default_factory=list, description="Approval at the start of each past turn, oldest first"
+    )
 
 
 class Institution(Node):
@@ -67,7 +70,9 @@ class Institution(Node):
 class Indicator(Node):
     value: float
     unit: str = ""
-    history: list[float] = Field(default_factory=list)
+    history: list[float] = Field(
+        default_factory=list, description="Value at the start of each past turn, oldest first"
+    )
 
 
 AnyNode = Country | Sector | Group | Institution | Indicator

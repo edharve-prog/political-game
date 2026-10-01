@@ -1,0 +1,235 @@
+[
+  {
+    "id": "gas-prices-spike",
+    "category": "energy",
+    "title": "Gas prices spike",
+    "briefing": "A cold snap and supply outages in Europe push wholesale gas prices up sharply.",
+    "affected_nodes": [
+      "indicator:energy_prices",
+      "sector:energy"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Cap household bills",
+      "Tax energy windfall profits",
+      "Wait it out"
+    ],
+    "shocks": [
+      {
+        "node": "indicator:energy_prices",
+        "delta": 1.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "northgate-power-supplier-collapse-strands-1-4-million-customers",
+    "category": "energy",
+    "title": "Northgate Power supplier collapse strands 1.4 million customers",
+    "briefing": "Northgate Power, the country's sixth-largest household energy supplier, ceased trading overnight after failing to post collateral against its wholesale hedges. Its 1.4 million customers will be moved to a supplier of last resort, and the regulator estimates the cost of the transfer at £1.1bn, normally recovered through a levy on every household bill. Two smaller suppliers have told officials they are on the watch list. Ministers must decide whether bill-payers or the Exchequer absorb the cost, and whether to tighten the financial resilience rules that allowed Northgate to trade on thin margins.",
+    "affected_nodes": [
+      "sector:energy",
+      "indicator:energy_prices",
+      "group:pensioners"
+    ],
+    "urgency": 0.75,
+    "suggested_options": [
+      "Fund the transfer from the Exchequer to spare bill-payers.",
+      "Regulate suppliers with tougher capital requirements.",
+      "Spread the cost through a levy on bills over five years."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.7,
+        "statement": "We should not pay for a failed company's gamble."
+      },
+      {
+        "node": "sector:energy",
+        "stance": -0.3,
+        "statement": "Stricter capital rules will drive out competition."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Taxpayers cannot keep underwriting failed suppliers."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:energy_prices",
+        "delta": 0.4,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:energy_prices": {
+        "op": ">",
+        "value": 105
+      }
+    }
+  },
+  {
+    "id": "offshore-wind-auction-attracts-no-bids",
+    "category": "energy",
+    "title": "Offshore wind auction attracts no bids",
+    "briefing": "The latest renewable contracts auction closed yesterday without a single bid for offshore wind, after developers said the strike price ceiling was set below the cost of turbines and capital. The result puts the 2030 clean power target out of reach on current plans, and the grid operator warns of greater reliance on gas imports through the next decade. Raising the ceiling by a fifth would likely bring bids back but add an estimated £14 a year to household bills from the late 2020s. Developers are also asking for faster planning consent for grid connections.",
+    "affected_nodes": [
+      "sector:energy",
+      "indicator:energy_prices",
+      "group:young_renters"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Raise the subsidy ceiling to bring developers back.",
+      "Fund a state-owned developer to build the farms directly.",
+      "Deregulate planning for grid connections and rerun the auction.",
+      "Wait for turbine costs to fall before the next round."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:energy",
+        "stance": 0.8,
+        "statement": "Set a price that reflects reality and we will build."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": -0.4,
+        "statement": "Every subsidy ends up on our bills."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": 0.6,
+        "statement": "Climate targets are not optional."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "leaked-report-shows-nuclear-plant-cost-doubling",
+    "category": "energy",
+    "title": "Leaked report shows nuclear plant cost doubling",
+    "briefing": "A leaked internal review of the Hartmoor C nuclear project shows its cost rising from £26bn to £48bn and first power slipping to 2034. The joint venture partner, Meridian Atomic, is seeking a government equity stake and a revised contract before committing its next tranche of capital. Without it, the review suggests, construction could pause next spring, putting 7,000 site jobs at risk. Officials note the plant would supply seven per cent of national electricity demand. Abandoning it would write off £9bn already spent and leave a gap in firm low-carbon capacity.",
+    "affected_nodes": [
+      "sector:energy",
+      "indicator:deficit",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Fund a government equity stake to keep construction going.",
+      "Negotiate a revised contract with Meridian Atomic.",
+      "Cut losses and cancel the project.",
+      "Regulate the partners with a public audit before deciding."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:energy",
+        "stance": 0.7,
+        "statement": "Firm capacity is the backbone of a clean grid."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.6,
+        "statement": "This is a bottomless pit for public money."
+      },
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.5,
+        "statement": "The supply chain has invested on the strength of this order."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "grid-operator-issues-winter-blackout-warning",
+    "category": "energy",
+    "title": "Grid operator issues winter blackout warning",
+    "briefing": "The electricity system operator has issued its first formal capacity warning of the winter, saying margins could fall below safe levels during a cold, still week in January. Two gas-fired stations are offline for repairs and interconnector imports from the continent are uncertain because of low French nuclear output. The operator proposes paying large users to switch off at peak times and asking households to cut evening use. Planned rota disconnections are possible if both fail. Ministers must decide how to pay for the standby measures and how to communicate the risk without alarm.",
+    "affected_nodes": [
+      "sector:energy",
+      "indicator:energy_prices",
+      "group:pensioners"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Fund payments to factories that switch off at peak times.",
+      "Negotiate extra interconnector imports with Europe.",
+      "Subsidise coal plants to stay on standby for the winter."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Older people cannot be left in the cold and dark."
+      },
+      {
+        "node": "sector:manufacturing",
+        "stance": -0.3,
+        "statement": "Switch-off schemes cost us orders."
+      },
+      {
+        "node": "sector:energy",
+        "stance": 0.5,
+        "statement": "We need decisions this week to contract the capacity."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "indicator:energy_prices",
+        "delta": 0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:energy_prices": {
+        "op": ">",
+        "value": 110
+      }
+    }
+  },
+  {
+    "id": "oil-and-gas-producers-threaten-to-halt-north-sea-investment",
+    "category": "energy",
+    "title": "Oil and gas producers threaten to halt North Sea investment",
+    "briefing": "The offshore producers' association has written to the Prime Minister saying its members will freeze £12bn of planned investment unless the windfall levy introduced during the price spike is scrapped. With wholesale prices still elevated, the levy is raising £4bn a year and is popular with voters. The industry claims 25,000 jobs in Aberdeen and the North East depend on new fields; officials think the investment figures are inflated but accept that some projects will move abroad. The letter was leaked to a Sunday paper before it reached Number 10.",
+    "affected_nodes": [
+      "sector:energy",
+      "group:business",
+      "indicator:deficit"
+    ],
+    "urgency": 0.55,
+    "suggested_options": [
+      "Keep the windfall tax and hold firm against the lobbying.",
+      "Cut the levy for firms that reinvest in British fields.",
+      "Negotiate a sunset date for the levy in exchange for investment pledges."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.7,
+        "statement": "Tax stability is the price of investment."
+      },
+      {
+        "node": "group:young_renters",
+        "stance": -0.6,
+        "statement": "Record profits should not get a tax break."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "Losing £4bn a year blows a hole in the budget."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:energy_prices": {
+        "op": ">",
+        "value": 115
+      }
+    }
+  }
+]

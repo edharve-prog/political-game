@@ -26,7 +26,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import METRICS, scale
 
 K = 0.05  # approval per weighted standard step
-ADJUST = 0.3  # share of the gap to target closed each turn
+ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 6.0  # % of GDP voters accept before credibility suffers

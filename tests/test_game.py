@@ -122,6 +122,37 @@ def test_backlash_hits_exposed_groups() -> None:
     assert "group:pensioners" in backlash and all(v < 0 for v in backlash.values())
 
 
+def test_scores_feed_into_the_next_scenario() -> None:
+    """Each turn records indicator and approval history, and the briefing for the next
+    scenario reports what moved and what the leader did."""
+    from hog_sim.llm.adapters import recent_events
+    from hog_sim.llm.summary import summarise_state
+
+    game, _ = new_game()
+    for response in ["Huge tax on energy", "Huge tax on energy", "Huge tax on energy"]:
+        game.play_turn(response)
+    state = game.state
+    energy = state.indicators["indicator:energy_prices"]
+    assert len(energy.history) == 3
+    assert energy.history[0] == toy_world().indicators["indicator:energy_prices"].value
+    assert [len(g.history) for g in state.groups.values()] == [3] * len(state.groups)
+
+    summary = summarise_state(state, recent_events=recent_events(game.history))
+    assert "indicator:energy_prices" in summary.stressed_indicators
+    pensioners = next(g for g in summary.groups if g.id == "group:pensioners")
+    assert pensioners.change is not None and pensioners.change < 0
+    text = summary.to_prompt()
+    assert "recently" in text
+    assert "the leader responded: Huge tax on energy" in text
+
+
+def test_replay_still_matches_with_history() -> None:
+    game, _ = new_game()
+    for response in RESPONSES[:4]:
+        game.play_turn(response)
+    assert replay(game.start, game.config, game.history) == game.state
+
+
 def test_unfunded_spending_loses_to_funded_spending() -> None:
     """Spending on everything should not buy an election; paying for it should do better."""
     from hog_sim.population.popularity import vote_intention
