@@ -7,6 +7,11 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
            + sum(active event effects, halving every half_life_turns)
+           - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
+
+The last term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
+to a point, then each extra point of deficit costs approval across the board, so spending
+on everything cannot buy an election.
 
 Changes are measured against a ``reference`` state (the start state, or a rolling
 snapshot chosen by the game loop). ``K`` converts one weighted standard step into
@@ -23,6 +28,9 @@ from hog_sim.world.propagation import METRICS, scale
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.3  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
+DEFICIT_ID = "indicator:deficit"
+DEFICIT_TOLERANCE = 6.0  # % of GDP voters accept before credibility suffers
+DEBT_PENALTY = 0.015  # approval lost per point of deficit above the tolerance
 
 
 def _steps(state: WorldState, reference: WorldState, node_id: str) -> float:
@@ -46,6 +54,10 @@ def target_approval(state: WorldState, reference: WorldState) -> dict[str, float
             institution = state.institutions.get(edge.source)
             if institution is not None:
                 targets[edge.target] += K * edge.weight * (institution.support - 0.5) / 0.1
+    deficit = state.indicators.get(DEFICIT_ID)
+    if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
+        penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
+        targets = {gid: t - penalty for gid, t in targets.items()}
     for event in state.events:
         w = _event_weight(event.age_turns, event.half_life_turns)
         for gid, effect in event.group_effects.items():

@@ -113,7 +113,10 @@ def toy_world() -> WorldState:
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
         _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
         _edge("sector:housing", "indicator:house_prices", E.DRIVES, -0.3, lag=12),
-        _edge("sector:public", "indicator:deficit", E.DRIVES, 0.6, unc=0.05),
+        # Borrowing: markets demand higher rates and it feeds prices. What spending and tax
+        # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
+        _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.3, lag=1),
+        _edge("indicator:deficit", "indicator:inflation", E.DRIVES, 0.1, lag=2),
         # Employment
         _edge("sector:public", "group:public_workers", E.EMPLOYS, 0.9, unc=0.0),
         _edge("sector:finance", "group:business", E.EMPLOYS, 0.2, unc=0.0),
@@ -126,9 +129,10 @@ def toy_world() -> WorldState:
         _edge("group:young_renters", "indicator:house_prices", E.CARES_ABOUT, -0.4, unc=0.05),
         _edge("group:young_renters", "indicator:unemployment", E.CARES_ABOUT, -0.3, unc=0.05),
         _edge("group:public_workers", "indicator:inflation", E.CARES_ABOUT, -0.3, unc=0.05),
+        _edge("group:pensioners", "indicator:deficit", E.CARES_ABOUT, -0.15, unc=0.05),
         _edge("group:public_workers", "indicator:deficit", E.CARES_ABOUT, 0.1, unc=0.05),
         _edge("group:business", "indicator:interest_rate", E.CARES_ABOUT, -0.3, unc=0.05),
-        _edge("group:business", "indicator:deficit", E.CARES_ABOUT, -0.2, unc=0.05),
+        _edge("group:business", "indicator:deficit", E.CARES_ABOUT, -0.3, unc=0.05),
         # Institutions
         _edge("institution:legislature", "group:public_workers", E.INFLUENCES, 0.1),
     ]

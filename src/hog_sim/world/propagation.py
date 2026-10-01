@@ -95,12 +95,21 @@ _ACTION_SIGN = {
 ACTION_STEPS = 2.0  # magnitude 1.0 means a two-step shock
 
 
-def actions_to_shocks(actions: list[PolicyAction]) -> list[Shock]:
+# Spending and tax also move the budget: magnitude 1.0 of spending (or a tax cut) adds this
+# many standard steps to the deficit, and the same size of tax rise takes it off.
+FISCAL_NODE = "indicator:deficit"
+_FISCAL_SIGN = {"spend": 1.0, "tax": -1.0}
+FISCAL_STEPS = 0.6
+
+
+def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """First-pass mapping from interpreted actions to engine shocks.
 
     The interpreter (Project 5) may later emit shocks directly; this keeps the loop runnable.
-    Shocks are spread evenly over the action's duration.
+    Shocks are spread evenly over the action's duration. When ``state`` is given and has a
+    deficit indicator, spending and tax actions also shock the deficit, so nothing is free.
     """
+    fiscal = state is not None and FISCAL_NODE in state.indicators
     shocks = []
     for action in actions:
         total = _ACTION_SIGN[action.kind] * action.magnitude * ACTION_STEPS
@@ -109,6 +118,15 @@ def actions_to_shocks(actions: list[PolicyAction]) -> list[Shock]:
                 Shock(
                     node=action.target,
                     delta=total / action.duration_turns,
+                    duration_turns=action.duration_turns,
+                )
+            )
+        cost = _FISCAL_SIGN.get(action.kind, 0.0) * action.magnitude * FISCAL_STEPS
+        if fiscal and cost and action.target != FISCAL_NODE:
+            shocks.append(
+                Shock(
+                    node=FISCAL_NODE,
+                    delta=cost / action.duration_turns,
                     duration_turns=action.duration_turns,
                 )
             )

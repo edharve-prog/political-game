@@ -81,3 +81,30 @@ def test_apply_deltas_returns_new_state(world) -> None:
 def test_unknown_shock_node_raises(world) -> None:
     with pytest.raises(KeyError):
         simulate(world, [Shock(node="sector:space", delta=1)], 3)
+
+
+def test_spending_and_tax_move_the_deficit(world) -> None:
+    spend = actions_to_shocks(
+        [PolicyAction(kind="spend", target="sector:housing", magnitude=0.5)], world
+    )
+    tax = actions_to_shocks(
+        [PolicyAction(kind="tax", target="sector:finance", magnitude=0.5)], world
+    )
+    talk = actions_to_shocks(
+        [PolicyAction(kind="communicate", target="sector:housing", magnitude=0.5)], world
+    )
+    deficit = {s.node: s.delta for s in spend}["indicator:deficit"]
+    assert deficit > 0
+    assert {s.node: s.delta for s in tax}["indicator:deficit"] == -deficit
+    assert "indicator:deficit" not in {s.node for s in talk}
+    # Without a state there is no fiscal shock, so worlds without a deficit still work
+    assert (
+        len(actions_to_shocks([PolicyAction(kind="spend", target="sector:housing", magnitude=0.5)]))
+        == 1
+    )
+
+
+def test_borrowing_raises_rates(world) -> None:
+    run = simulate(world, [Shock(node="indicator:deficit", delta=1)], horizon=4)
+    assert run["indicator:interest_rate"][0] == 0
+    assert run["indicator:interest_rate"][1] > 0
