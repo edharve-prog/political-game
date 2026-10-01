@@ -366,3 +366,24 @@ def test_interpreter_adapter_drops_infeasible_actions(world: WorldState) -> None
     )
     assert [a.kind for a in actions] == ["diplomatic"]
     assert not adapter.last_feasibility.checks[0].feasible
+
+
+def test_adapters_drive_the_game_loop(world: WorldState) -> None:
+    from hog_sim.core.config import GameConfig
+    from hog_sim.game.loop import Game
+    from hog_sim.game.stubs import EngineForecaster
+    from hog_sim.llm.adapters import LLMInterpreter, LLMScenarioSource
+
+    def responder(request: LLMRequest) -> dict:
+        if request.schema_name == "ScenarioDraft":
+            return draft()
+        return {"actions": [action()]}
+
+    client = FakeClient(responder=responder)
+    game = Game(
+        GameConfig(), world, LLMScenarioSource(client), LLMInterpreter(client), EngineForecaster()
+    )
+    for _ in range(2):
+        record = game.play_turn("Windfall tax on energy firms")
+        assert [a.kind for a in record.actions] == ["tax"]
+    assert game.state.turn == 2

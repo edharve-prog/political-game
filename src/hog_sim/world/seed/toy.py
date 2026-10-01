@@ -44,13 +44,29 @@ def toy_world() -> WorldState:
         Sector(id="sector:public", name="Public Sector", output_bn=500, employment_k=5900),
     ]
     groups = [
-        Group(id="group:pensioners", name="Pensioners", population_share=0.19, turnout=0.80),
-        Group(id="group:young_renters", name="Young renters", population_share=0.15, turnout=0.45),
+        Group(
+            id="group:pensioners",
+            name="Pensioners",
+            population_share=0.19,
+            turnout=0.80,
+            approval=0.55,
+            lean=0.55,
+        ),
+        Group(
+            id="group:young_renters",
+            name="Young renters",
+            population_share=0.15,
+            turnout=0.45,
+            approval=0.35,
+            lean=0.35,
+        ),
         Group(
             id="group:public_workers",
             name="Public sector workers",
             population_share=0.17,
             turnout=0.70,
+            approval=0.45,
+            lean=0.45,
         ),
         Group(id="group:business", name="Business owners", population_share=0.08, turnout=0.75),
     ]
@@ -86,10 +102,12 @@ def toy_world() -> WorldState:
         _edge("sector:energy", "sector:manufacturing", E.SUPPLIES, 0.15),
         _edge("sector:finance", "sector:housing", E.SUPPLIES, 0.25),
         # Sectors and institutions drive indicators
-        _edge("sector:energy", "indicator:energy_prices", E.DRIVES, 0.8, unc=0.2),
+        # More energy output means lower prices
+        _edge("sector:energy", "indicator:energy_prices", E.DRIVES, -0.6, unc=0.2),
         _edge("indicator:energy_prices", "indicator:inflation", E.DRIVES, 0.3, lag=1),
         _edge("institution:central_bank", "indicator:interest_rate", E.DRIVES, 1.0, unc=0.0),
-        _edge("indicator:inflation", "institution:central_bank", E.INFLUENCES, 0.5, lag=1),
+        # The central bank's reaction to inflation, applied straight to Bank Rate
+        _edge("indicator:inflation", "indicator:interest_rate", E.DRIVES, 0.5, lag=1),
         _edge("indicator:interest_rate", "indicator:inflation", E.DRIVES, -0.4, lag=6),
         _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.5, lag=3),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
