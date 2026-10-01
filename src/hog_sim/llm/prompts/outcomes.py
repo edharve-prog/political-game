@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-1"
+VERSION = "outcomes-2"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -29,6 +29,13 @@ broken promise, relief at decisive action), -0.1..0.1 on a 0..1 approval scale. 
 when the indicators say it all.
 - new_shocks: knock-on events that hit a node directly (a strike cuts public sector output, a \
 tariff hits manufacturing), in standard steps -1..1. Leave empty when nothing new happens.
+- graph_changes: lasting shifts in how the world is wired, beyond this turn's numbers. Most \
+candidates have none; use at most 3. Kinds: "node_attr" moves a country's relationship \
+(-1..1) or stability, an institution's support or independence, or a sector's sentiment, by at \
+most 0.2 (set node, attr, delta); "edge_weight" strengthens or weakens an existing link in the \
+briefing's world by at most 0.1 (set source, target, edge_kind, delta); "add_edge" creates a \
+new link such as a new trade tie or rivalry, weight within 0.3 and lag 0-6 turns (set source, \
+target, edge_kind, delta, lag). Leave unused fields null and lag 0. Give a one-line reason.
 - event_tags: from the allowed list; use "none" for a quiet outcome
 - self_probability: your own estimate that this candidate is what happens, 0..1. The \
 candidates' probabilities should add up to about 1.

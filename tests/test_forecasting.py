@@ -45,13 +45,14 @@ def engine(world):
     return propagate(world, actions_to_shocks([TAX]), horizon=6, k_draws=100)
 
 
-def draft(title, inflation, tags=("none",), p=0.25, effects=(), shocks=()):
+def draft(title, inflation, tags=("none",), p=0.25, effects=(), shocks=(), changes=()):
     return CandidateDraft(
         title=title,
         narrative=f"{title} happened.",
         indicator_shifts=[Shift(node="indicator:inflation", change=inflation)],
         group_effects=[GroupEffect(group=g, change=c) for g, c in effects],
         new_shocks=[NewShock(node=n, steps=s) for n, s in shocks],
+        graph_changes=list(changes),
         event_tags=list(tags),
         self_probability=p,
     )

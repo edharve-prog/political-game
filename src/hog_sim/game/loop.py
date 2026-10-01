@@ -7,6 +7,10 @@ A turn has two halves:
 * **resolve** (pure, deterministic): apply the chosen outcome to the world. It uses only
   logged data, so a game can be replayed exactly from its log without calling any LLM.
 
+Graph changes in the chosen outcome (validated LLM proposals, see ``world/changes.py``) are
+applied in resolve too, after the turn's effects land, so they shape the next turn's
+propagation and replay reproduces them.
+
 Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
 node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
 """
@@ -20,6 +24,7 @@ from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
 from hog_sim.population.popularity import run_election, step_approval
+from hog_sim.world.changes import apply_graph_changes
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
 
 
@@ -50,6 +55,7 @@ def resolve(
     new = apply_deltas(state, now)
     new.pending = pending
     new.events = [*new.events, *outcome.approval_events]
+    new = apply_graph_changes(new, outcome.graph_changes)
     new = step_approval(new, reference=start)
     new.turn = state.turn + 1
     return new
