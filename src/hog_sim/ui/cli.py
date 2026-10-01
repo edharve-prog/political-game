@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from hog_sim.core.config import GameConfig
@@ -44,6 +45,87 @@ def _report(record: TurnRecord) -> str:
     return "\n".join(lines)
 
 
+OFFLINE_BANNER = (
+    "Mode: OFFLINE PRACTICE. Scenarios come from a short built-in list and responses are\n"
+    "matched by keywords; Claude is not used. Run with --llm to play with Claude."
+)
+
+
+def _llm_client():
+    """An AnthropicClient, or exit with a plain explanation of what is missing."""
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        raise SystemExit(
+            "--llm needs the Claude SDK. Install it with: uv sync --extra llm"
+        ) from None
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise SystemExit(
+            "--llm needs an API key. Set ANTHROPIC_API_KEY first, for example\n"
+            '  PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."\n'
+            "  cmd:         set ANTHROPIC_API_KEY=sk-ant-...\n"
+            "  bash/zsh:    export ANTHROPIC_API_KEY=sk-ant-..."
+        )
+    from hog_sim.llm.client import AnthropicClient
+
+    return AnthropicClient()
+
+
+def _llm_banner(model_config, forecast_config) -> str:
+    models = sorted(
+        {
+            model_config.scenario_model,
+            model_config.interpret_model,
+            forecast_config.outcome_model,
+            forecast_config.judge_model,
+        }
+    )
+    return (
+        f"Mode: CLAUDE ({', '.join(models)}). Scenarios, your responses and outcomes are\n"
+        "written by Claude. Each turn ends with a line counting the calls it made."
+    )
+
+
+def check_llm(client) -> str:
+    """Make one tiny call and say which model answered. Raises if the API is unreachable."""
+    from hog_sim.core.models import Model
+    from hog_sim.llm.client import structured_call
+
+    class Ping(Model):
+        reply: str
+
+    result = structured_call(
+        client,
+        output_type=Ping,
+        system="You are a connectivity check.",
+        prompt="Reply with the single word: connected",
+        model="claude-opus-5-5",
+        prompt_version="ping-1",
+        effort="low",
+        max_tokens=2000,
+        max_attempts=1,
+    )
+    record = client.usage.records[-1]
+    served = record.served_model or record.model
+    return (
+        f"Claude is connected. {served} replied {result.reply!r} "
+        f"({record.input_tokens} tokens in, {record.output_tokens} out, "
+        f"{record.latency_s:.1f}s)."
+    )
+
+
+def _usage_line(client, since: int) -> str:
+    calls = client.usage.records[since:]
+    served = sorted({r.served_model or r.model for r in calls})
+    tokens_in = sum(r.input_tokens for r in calls)
+    tokens_out = sum(r.output_tokens for r in calls)
+    return (
+        f"  [Claude: {len(calls)} calls this turn via {', '.join(served) or 'none'}, "
+        f"{tokens_in} tokens in, {tokens_out} out; "
+        f"${client.usage.total_cost_usd:.2f} so far]"
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Head of Government Simulator")
     parser.add_argument("--save", default="saves/game.db")
@@ -55,17 +137,32 @@ def main(argv: list[str] | None = None) -> None:
         help="use Claude for scenarios, interpretation and outcomes (needs ANTHROPIC_API_KEY "
         "and `uv sync --extra llm`)",
     )
+    parser.add_argument(
+        "--check-llm",
+        action="store_true",
+        help="make one small call to Claude to confirm the key works, then exit",
+    )
     args = parser.parse_args(argv)
+
+    if args.check_llm:
+        print(check_llm(_llm_client()))
+        return
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
     store = SaveStore(args.save)
+    client = None
     if args.llm:
+        from hog_sim.forecasting.candidates import ForecastConfig
         from hog_sim.game.llm_plugins import llm_plugins
-        from hog_sim.llm.client import AnthropicClient
+        from hog_sim.llm.client import ModelConfig
 
-        plugins = llm_plugins(AnthropicClient())
+        client = _llm_client()
+        model_config, forecast_config = ModelConfig(), ForecastConfig()
+        plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
+        print(_llm_banner(model_config, forecast_config))
     else:
         plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
+        print(OFFLINE_BANNER)
     game_id = store.latest_game() if args.resume else None
     if game_id:
         config, start, records = store.load(game_id)
@@ -84,6 +181,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"\n== {s.title} ==\n{s.briefing}")
             for option in s.suggested_options:
                 print(f"  - {option}")
+            calls_before = len(client.usage.records) if client else 0
             while True:
                 response = input("\nYour response> ")
                 try:
@@ -95,6 +193,8 @@ def main(argv: list[str] | None = None) -> None:
             for line in getattr(game.interpreter, "dropped", lambda: [])():
                 print(f"  (not possible: {line})")
             print("\n" + _report(record))
+            if client:
+                print(_usage_line(client, calls_before))
         print("\n" + _dashboard(game.start, game.state))
     except (EOFError, KeyboardInterrupt):
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")

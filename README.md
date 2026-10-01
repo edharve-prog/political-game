@@ -16,8 +16,13 @@ uv run pytest
 uv run ruff check .
 uv run hog-sim            # play in the terminal (offline, rule-based stand-ins)
 uv run hog-sim --resume   # continue the last save
-uv sync --extra llm && uv run hog-sim --llm   # play with Claude (needs ANTHROPIC_API_KEY)
+uv run --extra llm hog-sim --check-llm   # one small call to confirm Claude is reachable
+uv run --extra llm hog-sim --llm         # play with Claude (needs ANTHROPIC_API_KEY)
 ```
+
+The game prints its mode at startup. Without `--llm` it says OFFLINE PRACTICE: five built-in
+scenarios and keyword matching, no Claude. With `--llm` it names the Claude model, and each turn
+ends with a line counting the Claude calls, tokens and cost so far.
 
 ## Layout
 
