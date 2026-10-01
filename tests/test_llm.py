@@ -330,3 +330,39 @@ def test_generate_scenario_checks_list_sizes(summary, bad) -> None:
     client = FakeClient([bad, draft()])
     generate_scenario(summary, client)
     assert len(client.requests) == 2
+
+
+# --- Game loop adapters ----------------------------------------------------
+
+
+def test_scenario_source_feeds_history_into_prompt(world: WorldState) -> None:
+    from hog_sim.core.models import Outcome
+    from hog_sim.llm.adapters import LLMScenarioSource
+
+    past = SimpleNamespace(
+        turn=3,
+        scenario=GeneratedScenario(**draft()),
+        outcome=Outcome(narrative="Bills capped; suppliers bailed out", probability=0.6),
+    )
+    client = FakeClient([draft()])
+    scenario = LLMScenarioSource(client).next_scenario(world, [past])
+    assert scenario.source == "generated"
+    assert "Bills capped; suppliers bailed out" in client.requests[0].messages[0].content
+
+
+def test_interpreter_adapter_drops_infeasible_actions(world: WorldState) -> None:
+    from hog_sim.llm.adapters import LLMInterpreter
+
+    world.institutions["institution:legislature"].support = 0.3
+    reply = {
+        "actions": [
+            action(),
+            action(kind="diplomatic", target="country:eu", magnitude=0.4),
+        ]
+    }
+    adapter = LLMInterpreter(FakeClient([reply]))
+    actions = adapter.interpret(
+        "Tax energy, warm up to the EU", world, GeneratedScenario(**draft())
+    )
+    assert [a.kind for a in actions] == ["diplomatic"]
+    assert not adapter.last_feasibility.checks[0].feasible

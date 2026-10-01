@@ -33,6 +33,11 @@ check_feasibility(actions, state, role="prime_minister") -> FeasibilityReport
 ```
 Differences from §6a: `interpret` takes a `StateSummary` (not a raw state) and returns an `Interpretation` (actions plus an optional clarifying question). `GeneratedScenario` subclasses the core `Scenario` to add stakeholder positions, so core models are unchanged.
 
+## Game loop adapters
+`llm/adapters.py` has `LLMScenarioSource` and `LLMInterpreter`, which satisfy the `ScenarioSource` and `Interpreter` protocols in `game/interfaces.py` (Project 8 branch). The interpreter adapter drops infeasible actions and keeps the interpretation and feasibility report of the last call for the interface to show. Checked by playing turns of the Project 8 `Game` with these adapters and a fake client.
+
+Follow-ups once Projects 3 and 8 merge: have generated scenarios emit `shocks` (the `Shock` model lives on the Project 3 branch), and persist `stakeholder_positions` (a `TurnRecord` currently saves the scenario as a plain `Scenario`).
+
 ## Tasks
 - [x] Client protocol, fake and recording clients, Anthropic client
 - [x] Validate-and-retry loop with error feedback
@@ -40,6 +45,7 @@ Differences from §6a: `interpret` takes a `StateSummary` (not a raw state) and 
 - [x] Scenario generator
 - [x] Interpreter
 - [x] Feasibility check
+- [x] Game loop adapters
 - [x] 20 eval cases (`llm/eval_cases.py`) with a scorer and live runner (`python -m hog_sim.llm.evaluate`)
 - [ ] Live run of the eval with an API key; commit `tests/cassettes/interpreter.json`
 
