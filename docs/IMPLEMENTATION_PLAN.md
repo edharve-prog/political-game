@@ -316,7 +316,7 @@ Smallest thing that is fun and proves the architecture:
 | 0 | Foundations | Done | Skeleton, core schemas, CI on main |
 | 1 | World Model & State | In review | See projects/01-world-model.md |
 | 2 | Seed Data | Not started | |
-| 3 | Simulation Engine | Not started | |
+| 3 | Simulation Engine | In review | See projects/03-simulation-engine.md |
 | 4 | Population & Popularity | Not started | |
 | 5 | LLM: Scenarios & Interpretation | Not started | |
 | 6 | Outcome Forecasting & Selection | Not started | |
