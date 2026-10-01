@@ -14,6 +14,8 @@ class GameConfig(Model):
     turn_length_months: int = 1
     selection_mode: Literal["argmax", "sample"] = "sample"
     election_turn: int = 24
+    horizon: int = 24  # turns the engine looks ahead
+    k_draws: int = 100  # Monte Carlo draws per forecast
 
 
 def make_rng(seed: int, turn: int = 0, stream: str = "") -> random.Random:

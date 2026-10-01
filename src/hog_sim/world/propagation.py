@@ -22,10 +22,8 @@ from __future__ import annotations
 from collections import defaultdict
 from statistics import fmean, quantiles
 
-from pydantic import Field
-
 from hog_sim.core.config import make_rng
-from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction
+from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import WorldState
 
 DAMPING = 0.9
@@ -61,13 +59,6 @@ def scale(state: WorldState, node_id: str) -> float:
             return 0.1
         case _:
             return INDICATOR_UNIT_SCALE.get(node.unit, 1.0)
-
-
-class Shock(Model):
-    node: str
-    delta: float = Field(description="Impulse in standard steps")
-    start_turn: int = Field(0, ge=0, description="Turns from now")
-    duration_turns: int = Field(1, ge=1)
 
 
 class NodeForecast(Model):

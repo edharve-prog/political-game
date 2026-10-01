@@ -9,6 +9,9 @@ dependencies = [
     "networkx>=3.2",
 ]
 
+[project.scripts]
+hog-sim = "hog_sim.ui.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",

@@ -14,6 +14,8 @@ gets its own file under `docs/projects/` when it is picked up.
 uv sync
 uv run pytest
 uv run ruff check .
+uv run hog-sim            # play in the terminal (offline, rule-based stand-ins)
+uv run hog-sim --resume   # continue the last save
 ```
 
 ## Layout
