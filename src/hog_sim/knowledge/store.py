@@ -147,7 +147,9 @@ class KnowledgeStore:
         if getattr(scenario, "origin", "llm") == "llm":
             self.put("scenario", sid, to_library_scenario(scenario, state_before, prov), sid)
             written += 1
-        if record.actions:
+        # What the interpreter made of the response, before this turn's limits cut it down.
+        interpreted = record.requested_actions or record.actions
+        if interpreted:
             self.put(
                 "interpretation",
                 f"{sid}|{normalise_text(record.response)}",
@@ -155,7 +157,7 @@ class KnowledgeStore:
                     scenario_id=sid,
                     scenario_title=scenario.title,
                     response=record.response,
-                    actions=record.actions,
+                    actions=interpreted,
                     provenance=prov,
                 ),
                 sid,

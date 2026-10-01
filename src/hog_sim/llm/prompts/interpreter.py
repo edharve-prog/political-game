@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-1"
+VERSION = "interpret-2"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -12,7 +12,8 @@ whether a policy is wise.
 Action kinds:
 - tax: change taxes on the target (magnitude > 0 raises, < 0 cuts)
 - spend: change public spending on the target (> 0 more, < 0 cuts)
-- regulate / deregulate: tighten or loosen rules on the target (magnitude is strength, 0..1)
+- regulate / deregulate: tighten or loosen rules on the target (magnitude is strength, 0..1, \
+except on an indicator target, where the sign is the direction, see magnitude)
 - diplomatic: act towards a country (> 0 warmer: deals, aid, visits; < 0 colder: sanctions, \
 expulsions)
 - military: military action or posture towards a country (> 0 escalation)
@@ -25,9 +26,12 @@ conciliatory or reassuring, < 0 confrontational)
 Fields of each action:
 - target: one node id from the briefing, the thing most directly acted on. Pick the closest \
 node; never invent ids. Housing policy targets the housing sector, a pension rise targets \
-pensioners, a deal with Brussels targets the EU.
+pensioners, a deal with Brussels targets the EU. When the leader aims at a price or rate \
+itself (cap energy bills, subsidise rents), target that indicator.
 - magnitude: -1..1, the size relative to the largest plausible move of that kind. A modest \
-tweak is about 0.1-0.2, a major policy 0.4-0.6, a historic upheaval 0.8+.
+tweak is about 0.1-0.2, a major policy 0.4-0.6, a historic upheaval 0.8+. When the target is \
+an indicator, the sign is the direction the leader wants it to move, whatever the kind: a \
+bill cap or an energy subsidy targeting energy prices is negative.
 - duration_turns: how many monthly turns it lasts (1 for one-offs; 12 for a year)
 - requires: leave empty unless the player names a requirement; the engine works out what \
 each action needs

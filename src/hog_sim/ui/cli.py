@@ -52,7 +52,7 @@ def _previous(game: Game) -> WorldState:
 
 
 def _report(record: TurnRecord) -> str:
-    lines = [record.outcome.narrative]
+    lines = [f"Note: {n}" for n in record.notes] + [record.outcome.narrative]
     lines += [f"  (action: {a.kind} {a.target} {a.magnitude:+.2f})" for a in record.actions]
     if record.election:
         e = record.election

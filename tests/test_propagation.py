@@ -50,7 +50,23 @@ def test_effects_settle_rather_than_explode(world) -> None:
 
 def test_shock_duration_and_start(world) -> None:
     run = simulate(world, [Shock(node="sector:public", delta=1, start_turn=2, duration_turns=3)], 8)
-    assert run["sector:public"] == [0, 0, 1, 2, 3, 3, 3, 3]
+    # One step a turn for three turns, each turn keeping 0.9 of the push, then fading
+    assert run["sector:public"] == pytest.approx([0, 0, 1, 1.9, 2.71, 2.439, 2.1951, 1.97559])
+
+
+def test_held_shock_stays_put_then_fades(world) -> None:
+    held = Shock(node="sector:public", delta=1, duration_turns=4, hold=True)
+    run = simulate(world, [held], 7)
+    assert run["sector:public"] == pytest.approx([1, 1, 1, 1, 0.9, 0.81, 0.729])
+
+
+def test_a_held_driver_keeps_what_it_drives_moved(world) -> None:
+    held = Shock(node="sector:energy", delta=1, duration_turns=12, hold=True)
+    run = simulate(world, [held], 24)
+    prices = run["indicator:energy_prices"]
+    assert prices[0] < 0
+    assert prices[5] == pytest.approx(prices[0])
+    assert abs(prices[-1]) < abs(prices[0]) / 3
 
 
 def test_monte_carlo_is_reproducible_and_brackets_mean(world) -> None:

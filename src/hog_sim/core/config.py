@@ -16,6 +16,7 @@ class GameConfig(Model):
     election_turn: int = 24
     horizon: int = 24  # turns the engine looks ahead
     k_draws: int = 100  # Monte Carlo draws per forecast
+    capital_per_turn: float = 1.5  # political capital a turn's actions may use (policy/limits)
 
 
 def make_rng(seed: int, turn: int = 0, stream: str = "") -> random.Random:

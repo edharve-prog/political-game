@@ -10,7 +10,7 @@ live in the logged outcome, replay reproduces them exactly.
 
 from __future__ import annotations
 
-from hog_sim.core.models import Edge, EdgeKind, GraphChange, NodeKind
+from hog_sim.core.models import Edge, EdgeKind, GraphChange, NodeKind, PolicyAction
 from hog_sim.core.state import WorldState
 
 MAX_CHANGES = 3
@@ -120,6 +120,33 @@ def validate_graph_changes(state: WorldState, changes: list[GraphChange]) -> lis
         seen.add(target)
         problems += [f"graph_changes[{i}]: {p}" for p in check_graph_change(state, change)]
     return problems
+
+
+# What the player's own foreign policy does to the target country's standing, per unit of
+# magnitude: diplomacy moves the relationship its way; military action sours it and
+# unsettles the country.
+DIPLOMATIC_RELATIONSHIP = 0.1
+MILITARY_RELATIONSHIP = -0.15
+MILITARY_STABILITY = -0.05
+
+
+def action_changes(state: WorldState, actions: list[PolicyAction]) -> list[GraphChange]:
+    """Node changes implied by diplomatic and military actions towards foreign countries."""
+    changes = []
+    for a in actions:
+        if a.target not in state.countries or a.target == state.player_country:
+            continue
+        if a.kind == "diplomatic" and a.magnitude:
+            changes.append(_attr(a.target, "relationship", DIPLOMATIC_RELATIONSHIP * a.magnitude))
+        elif a.kind == "military" and a.magnitude:
+            size = abs(a.magnitude)
+            changes.append(_attr(a.target, "relationship", MILITARY_RELATIONSHIP * size))
+            changes.append(_attr(a.target, "stability", MILITARY_STABILITY * size))
+    return changes
+
+
+def _attr(node: str, attr: str, delta: float) -> GraphChange:
+    return GraphChange(kind="node_attr", node=node, attr=attr, delta=delta, reason="player action")
 
 
 def apply_graph_changes(state: WorldState, changes: list[GraphChange]) -> WorldState:

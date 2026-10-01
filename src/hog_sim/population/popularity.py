@@ -6,7 +6,7 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(CARES_ABOUT weight * indicator change in standard steps)
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
-           + sum(active event effects, halving every half_life_turns)
+           + sum(active event effects, held for hold_turns then halving every half_life_turns)
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
 The last term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
@@ -21,15 +21,15 @@ several turns rather than all at once, and approval drifts back to lean once it 
 
 from __future__ import annotations
 
-from hog_sim.core.models import EdgeKind, Model
+from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
-from hog_sim.world.propagation import METRICS, scale
+from hog_sim.world.propagation import METRICS, action_factor, scale
 
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
 DEFICIT_ID = "indicator:deficit"
-DEFICIT_TOLERANCE = 6.0  # % of GDP voters accept before credibility suffers
+DEFICIT_TOLERANCE = 5.5  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.015  # approval lost per point of deficit above the tolerance
 
 
@@ -39,8 +39,35 @@ def _steps(state: WorldState, reference: WorldState, node_id: str) -> float:
     return (getattr(node, field) - getattr(ref, field)) / scale(reference, node_id)
 
 
-def _event_weight(age: int, half_life: float) -> float:
-    return 0.5 ** (age / half_life)
+def _event_weight(age: int, half_life: float, hold: int = 0) -> float:
+    return 0.5 ** (max(0, age - hold) / half_life)
+
+
+# A policy aimed straight at a group (a pension rise, a tax on landlords) moves that group's
+# target approval by this much per standard step, for as long as the policy runs.
+GROUP_STEP = 0.05
+
+
+def policy_events(actions: list[PolicyAction]) -> list[ApprovalEvent]:
+    """Approval events for actions targeting population groups.
+
+    The effect holds at full strength for the action's duration, then fades with the usual
+    half-life, so a lasting benefit keeps its voters for as long as it is paid for.
+    """
+    events = []
+    for action in actions:
+        if not action.target.startswith("group:"):
+            continue
+        effect = action_factor(action) * action.magnitude * GROUP_STEP
+        if effect:
+            events.append(
+                ApprovalEvent(
+                    name=f"{action.kind} {action.target}",
+                    group_effects={action.target: effect},
+                    hold_turns=action.duration_turns,
+                )
+            )
+    return events
 
 
 def target_approval(state: WorldState, reference: WorldState) -> dict[str, float]:
@@ -59,7 +86,7 @@ def target_approval(state: WorldState, reference: WorldState) -> dict[str, float
         penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
         targets = {gid: t - penalty for gid, t in targets.items()}
     for event in state.events:
-        w = _event_weight(event.age_turns, event.half_life_turns)
+        w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
         for gid, effect in event.group_effects.items():
             if gid in targets:
                 targets[gid] += effect * w
@@ -80,7 +107,7 @@ def step_approval(state: WorldState, reference: WorldState) -> WorldState:
         e
         for e in new.events
         if max(map(abs, e.group_effects.values()), default=0)
-        * _event_weight(e.age_turns, e.half_life_turns)
+        * _event_weight(e.age_turns, e.half_life_turns, e.hold_turns)
         >= EVENT_FLOOR
     ]
     return new

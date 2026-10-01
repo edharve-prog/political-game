@@ -74,7 +74,8 @@ class CannedScenarios:
 
 # Keyword -> node id. Checked in order; first match wins.
 _TARGETS = [
-    (r"energy|gas|electric|bills?", "sector:energy"),
+    (r"\bbills?\b|price cap|\bcap\b", "indicator:energy_prices"),
+    (r"energy|gas|electric", "sector:energy"),
     (r"bank|financ|city", "sector:finance"),
     (r"manufactur|industr|factor|export", "sector:manufacturing"),
     (r"hous|home|rent|planning|build", "sector:housing"),
@@ -100,7 +101,11 @@ class KeywordInterpreter:
             )
         size = next((m for pat, m in _SIZE if re.search(pat, t)), 0.5)
 
-        if target.startswith("country:"):
+        if target.startswith("indicator:"):
+            # Aimed at a price itself: the player wants it down unless they say otherwise.
+            kind = "regulate" if re.search(r"\bcap|freez|limit|regulat", t) else "spend"
+            size = size if re.search(r"\braise|\bincrease|\bhigher", t) else -size
+        elif target.startswith("country:"):
             kind = "diplomatic"
             size = -size if re.search(r"retaliat|sanction|tariff", t) else size
         elif re.search(r"\bcut\w*\b.*\btax|\btax\w*\b.*\bcut", t):
