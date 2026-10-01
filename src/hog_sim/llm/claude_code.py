@@ -9,15 +9,32 @@ playing on your own machine: anyone else running the game needs their own sign-i
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import time
 from collections.abc import Callable
 from typing import Any
 
-from hog_sim.llm.client import CallRecord, LLMError, LLMRequest, LLMResponse, Usage, UsageLog
+from hog_sim.llm.client import (
+    CallRecord,
+    LLMError,
+    LLMRequest,
+    LLMResponse,
+    LLMUnavailable,
+    Usage,
+    UsageLog,
+)
 
 SIGN_IN_HELP = "Run `claude` once and sign in with /login, then try again."
+
+# Claude Code prefers an API key over its own sign-in when one is in the environment. This
+# route exists to use the player's subscription, so keep API credentials away from it.
+HIDDEN_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+
+
+def subscription_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in HIDDEN_ENV}
 
 
 class ClaudeCodeClient:
@@ -89,16 +106,21 @@ class ClaudeCodeClient:
                 text=True,
                 encoding="utf-8",
                 timeout=self.timeout_s,
+                env=subscription_env(),
             )
         except subprocess.TimeoutExpired as exc:
-            raise LLMError(f"Claude Code did not answer within {self.timeout_s:.0f}s") from exc
+            raise LLMUnavailable(
+                f"Claude Code: no answer within {self.timeout_s:.0f}s; try again"
+            ) from exc
         try:
             out = json.loads(proc.stdout)
         except json.JSONDecodeError:
             detail = (proc.stderr or proc.stdout or "").strip()[:500]
-            raise LLMError(f"Claude Code failed: {detail or 'no output'}. {SIGN_IN_HELP}") from None
+            raise LLMUnavailable(
+                f"Claude Code failed: {detail or 'no output'}. {SIGN_IN_HELP}"
+            ) from None
         if out.get("is_error"):
-            raise LLMError(f"Claude Code returned an error: {out.get('result')}. {SIGN_IN_HELP}")
+            raise LLMUnavailable(f"Claude Code: {out.get('result')}. {SIGN_IN_HELP}")
 
         structured = out.get("structured_output")
         text = json.dumps(structured) if structured is not None else _strip_fence(out["result"])

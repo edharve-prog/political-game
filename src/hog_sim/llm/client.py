@@ -166,6 +166,40 @@ class CassetteMiss(LLMError):
     pass
 
 
+class LLMUnavailable(LLMError):
+    """Claude could not be reached: no credit, bad credentials, rate limits, outages."""
+
+
+OTHER_ROUTE_HINT = "To use your Claude subscription instead, run with --provider claude-code."
+
+
+def describe_api_error(exc: Exception) -> str:
+    """One line saying what went wrong with an Anthropic API call and what to do about it."""
+    status = getattr(exc, "status_code", None)
+    body = getattr(exc, "body", None)
+    message = ""
+    if isinstance(body, dict):
+        message = (body.get("error") or {}).get("message", "")
+    message = message or str(exc)
+    if "credit balance" in message.lower():
+        what = "your Anthropic API account has no credit left (Console > Plans & Billing)"
+    elif status == 401:
+        what = (
+            "the API key or sign-in was rejected; check ANTHROPIC_API_KEY or run `ant auth login`"
+        )
+    elif status == 403:
+        what = f"the API account is not allowed to make this call ({message})"
+    elif status == 429:
+        what = "the API rate limit was hit; wait a minute and try again"
+    elif status is not None and status >= 500:
+        what = f"the Anthropic API had a server error ({status}); try again shortly"
+    elif status is None:
+        what = f"could not reach the Anthropic API ({message})"
+    else:
+        what = f"the Anthropic API rejected the request ({status}: {message})"
+    return f"Anthropic API: {what}. {OTHER_ROUTE_HINT}"
+
+
 # --- Clients ---------------------------------------------------------------
 
 
@@ -291,18 +325,23 @@ class AnthropicClient:
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         start = time.perf_counter()
-        response = self._client.beta.messages.create(
-            model=request.model,
-            max_tokens=request.max_tokens,
-            system=request.system,
-            messages=[m.model_dump() for m in request.messages],
-            output_config={
-                "effort": request.effort,
-                "format": {"type": "json_schema", "schema": request.output_schema},
-            },
-            betas=[self.FALLBACK_BETA],
-            fallbacks="default",
-        )
+        try:
+            response = self._client.beta.messages.create(
+                model=request.model,
+                max_tokens=request.max_tokens,
+                system=request.system,
+                messages=[m.model_dump() for m in request.messages],
+                output_config={
+                    "effort": request.effort,
+                    "format": {"type": "json_schema", "schema": request.output_schema},
+                },
+                betas=[self.FALLBACK_BETA],
+                fallbacks="default",
+            )
+        except Exception as exc:
+            if not _is_api_error(exc):
+                raise
+            raise LLMUnavailable(describe_api_error(exc)) from exc
         if response.stop_reason == "refusal":
             details = getattr(response, "stop_details", None)
             raise LLMRefusal(f"{request.schema_name} refused: {details}")
@@ -319,6 +358,14 @@ class AnthropicClient:
         if response.stop_reason == "max_tokens":
             log.warning("%s hit max_tokens; output is likely truncated", request.schema_name)
         return result
+
+
+def _is_api_error(exc: Exception) -> bool:
+    try:
+        import anthropic
+    except ImportError:  # pragma: no cover - only a stubbed client gets here without the SDK
+        return False
+    return isinstance(exc, anthropic.APIError)
 
 
 # --- Structured calls ------------------------------------------------------
