@@ -7,6 +7,7 @@ from pathlib import Path
 
 from hog_sim.core.config import GameConfig
 from hog_sim.core.state import WorldState
+from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
@@ -48,11 +49,23 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--save", default="saves/game.db")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="use Claude for scenarios, interpretation and outcomes (needs ANTHROPIC_API_KEY "
+        "and `uv sync --extra llm`)",
+    )
     args = parser.parse_args(argv)
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
     store = SaveStore(args.save)
-    plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
+    if args.llm:
+        from hog_sim.game.llm_plugins import llm_plugins
+        from hog_sim.llm.client import AnthropicClient
+
+        plugins = llm_plugins(AnthropicClient())
+    else:
+        plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
     game_id = store.latest_game() if args.resume else None
     if game_id:
         config, start, records = store.load(game_id)
@@ -71,9 +84,16 @@ def main(argv: list[str] | None = None) -> None:
             print(f"\n== {s.title} ==\n{s.briefing}")
             for option in s.suggested_options:
                 print(f"  - {option}")
-            response = input("\nYour response> ")
-            record = game.play_turn(response)
+            while True:
+                response = input("\nYour response> ")
+                try:
+                    record = game.play_turn(response)
+                    break
+                except NeedsClarification as ask:
+                    print(f"\nYour advisers ask: {ask.question}")
             store.save_turn(game_id, record)
+            for line in getattr(game.interpreter, "dropped", lambda: [])():
+                print(f"  (not possible: {line})")
             print("\n" + _report(record))
         print("\n" + _dashboard(game.start, game.state))
     except (EOFError, KeyboardInterrupt):

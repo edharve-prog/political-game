@@ -31,3 +31,14 @@ class Forecaster(Protocol):
         actions: list[PolicyAction],
         engine: DeltaDistribution,
     ) -> list[Outcome]: ...
+
+
+class NeedsClarification(Exception):  # noqa: N818 - reads as a message, not an error
+    """Raised by an interpreter before any state changes when the response is too vague.
+
+    The interface shows ``question`` and asks again; the turn is not played.
+    """
+
+    def __init__(self, question: str) -> None:
+        super().__init__(question)
+        self.question = question
