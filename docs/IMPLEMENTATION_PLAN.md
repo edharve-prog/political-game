@@ -262,7 +262,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Stability tests: long no-action runs shouldn't explode or flatline.
   - LLM output quality checks: diversity of candidates, consistency, rate of validation failures.
   - Calibration of outcome probabilities over many simulated turns.
-  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread.
+  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; fix in review as PR #13 (deficit shocks from spend and tax, debt penalty above a 6% deficit).
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
 
 ### Project 12 — Stretch Goals
