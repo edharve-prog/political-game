@@ -1,0 +1,251 @@
+"""LLM-backed outcome forecasting: propose candidates, judge them, score and convert.
+
+``LLMForecaster`` satisfies the game loop's ``Forecaster`` protocol:
+
+1. The engine's Monte Carlo forecast for the actions is summarised for the prompt.
+2. One call proposes ``n_candidates`` outcomes (``CandidateDraft``).
+3. A separate judge call estimates each candidate's probability (optional, for cost).
+4. ``scoring.combine`` blends engine consistency, the judge and base rates.
+5. Each candidate becomes an ``Outcome``: approval effects become ``ApprovalEvent``s and
+   knock-on events become ``Shock``s. The engine's numbers stay authoritative; a
+   candidate's claimed indicator shifts are only kept for display and logs.
+"""
+
+from __future__ import annotations
+
+from pydantic import Field
+
+from hog_sim.core.models import ApprovalEvent, Model, Outcome, PolicyAction, Scenario, Shock
+from hog_sim.core.state import WorldState
+from hog_sim.forecasting.scoring import (
+    CandidateScores,
+    EventTag,
+    ScoreWeights,
+    base_rate,
+    combine,
+    consistency,
+)
+from hog_sim.llm.client import Effort, LLMClient, structured_call
+from hog_sim.llm.prompts import judge as judge_prompt
+from hog_sim.llm.prompts import outcomes as outcomes_prompt
+from hog_sim.llm.scenario_gen import scenario_text
+from hog_sim.llm.summary import StateSummary, summarise_state
+from hog_sim.policy.feasibility import Role
+from hog_sim.world.propagation import DeltaDistribution
+
+CLAIM_TURN = 2  # candidates claim indicator changes three turns out (index 2)
+MAX_GROUP_EFFECT = 0.1
+MAX_SHOCK_STEPS = 1.0
+
+
+class Shift(Model):
+    node: str
+    change: float
+
+
+class GroupEffect(Model):
+    group: str
+    change: float = Field(ge=-MAX_GROUP_EFFECT, le=MAX_GROUP_EFFECT)
+
+
+class NewShock(Model):
+    node: str
+    steps: float = Field(ge=-MAX_SHOCK_STEPS, le=MAX_SHOCK_STEPS)
+
+
+class CandidateDraft(Model):
+    title: str
+    narrative: str
+    indicator_shifts: list[Shift]
+    group_effects: list[GroupEffect]
+    new_shocks: list[NewShock]
+    event_tags: list[EventTag]
+    self_probability: float = Field(ge=0, le=1)
+
+
+class CandidateSet(Model):
+    candidates: list[CandidateDraft]
+
+
+class Judgement(Model):
+    index: int
+    probability: float = Field(ge=0, le=1)
+    reason: str
+
+
+class Verdict(Model):
+    judgements: list[Judgement]
+
+
+class ForecastConfig(Model):
+    outcome_model: str = "claude-opus-5-5"
+    outcome_effort: Effort = "medium"
+    judge_model: str = "claude-opus-5-5"
+    judge_effort: Effort = "medium"
+    n_candidates: int = Field(4, ge=2, le=8)
+    use_judge: bool = True
+    weights: ScoreWeights = Field(default_factory=ScoreWeights)
+    max_tokens: int = 16000
+    max_attempts: int = Field(3, ge=1)
+
+
+# --- Prompt text -----------------------------------------------------------
+
+
+def actions_text(actions: list[PolicyAction]) -> str:
+    if not actions:
+        return "- none"
+    return "\n".join(
+        f"- {a.kind} {a.target} magnitude {a.magnitude:+.2f} for {a.duration_turns} turn(s)"
+        + (f": {a.rationale}" if a.rationale else "")
+        for a in actions
+    )
+
+
+def engine_text(state: WorldState, engine: DeltaDistribution, turn: int = CLAIM_TURN) -> str:
+    turn = min(turn, engine.horizon - 1)
+    lines = [f"Expected change by {turn + 1} turns from now (10-90% range):"]
+    for ind in state.indicators.values():
+        f = engine.nodes[ind.id]
+        if abs(f.mean[turn]) < 1e-3 and abs(f.p90[turn] - f.p10[turn]) < 1e-3:
+            continue
+        lines.append(
+            f"- {ind.id}: {f.mean[turn]:+.2f} {ind.unit} ({f.p10[turn]:+.2f} to {f.p90[turn]:+.2f})"
+        )
+    if len(lines) == 1:
+        lines.append("- no material change in any indicator")
+    return "\n".join(lines)
+
+
+def candidates_text(candidates: list[CandidateDraft]) -> str:
+    blocks = []
+    for i, c in enumerate(candidates):
+        shifts = ", ".join(f"{s.node} {s.change:+.2f}" for s in c.indicator_shifts) or "none"
+        blocks.append(
+            f"[{i}] {c.title}\n{c.narrative}\nClaimed shifts: {shifts}\n"
+            f"Events: {', '.join(c.event_tags)}"
+        )
+    return "\n\n".join(blocks)
+
+
+# --- Semantic checks -------------------------------------------------------
+
+
+def check_candidates(result: CandidateSet, summary: StateSummary, n: int) -> list[str]:
+    problems = []
+    if len(result.candidates) != n:
+        problems.append(f"give exactly {n} candidates")
+    catalogue = summary.catalogue
+    indicators = {i.id for i in summary.indicators}
+    groups = {g.id for g in summary.groups}
+    for i, c in enumerate(result.candidates):
+        bad = [s.node for s in c.indicator_shifts if s.node not in indicators]
+        bad += [g.group for g in c.group_effects if g.group not in groups]
+        bad += [s.node for s in c.new_shocks if s.node not in catalogue]
+        if bad:
+            problems.append(f"candidates[{i}]: unknown ids {sorted(set(bad))}")
+        if not c.event_tags:
+            problems.append(f"candidates[{i}]: event_tags is empty; use ['none']")
+    titles = [c.title.strip().lower() for c in result.candidates]
+    if len(set(titles)) != len(titles):
+        problems.append("candidates must be distinct")
+    return problems
+
+
+def check_verdict(result: Verdict, n: int) -> list[str]:
+    indices = sorted(j.index for j in result.judgements)
+    if indices != list(range(n)):
+        return [f"judge every candidate exactly once, indices 0..{n - 1}"]
+    return []
+
+
+# --- Forecaster ------------------------------------------------------------
+
+
+class LLMForecaster:
+    def __init__(
+        self,
+        client: LLMClient,
+        role: Role = "prime_minister",
+        config: ForecastConfig | None = None,
+    ) -> None:
+        self.client = client
+        self.role = role
+        self.config = config or ForecastConfig()
+
+    def forecast(
+        self,
+        state: WorldState,
+        scenario: Scenario,
+        actions: list[PolicyAction],
+        engine: DeltaDistribution,
+    ) -> list[Outcome]:
+        cfg = self.config
+        summary = summarise_state(state, self.role)
+        context = outcomes_prompt.render(
+            summary.to_prompt(),
+            scenario_text(scenario),
+            actions_text(actions),
+            engine_text(state, engine),
+            cfg.n_candidates,
+        )
+        drafts = structured_call(
+            self.client,
+            output_type=CandidateSet,
+            system=outcomes_prompt.SYSTEM,
+            prompt=context,
+            model=cfg.outcome_model,
+            prompt_version=outcomes_prompt.VERSION,
+            effort=cfg.outcome_effort,
+            max_tokens=cfg.max_tokens,
+            max_attempts=cfg.max_attempts,
+            check=lambda r: check_candidates(r, summary, cfg.n_candidates),
+        ).candidates
+
+        judged = self._judge(context, drafts) if cfg.use_judge else None
+        turn = min(CLAIM_TURN, engine.horizon - 1)
+        scores = combine(
+            [
+                CandidateScores(
+                    consistency=consistency(
+                        {s.node: s.change for s in d.indicator_shifts}, engine, turn
+                    ),
+                    judge=judged[i] if judged else d.self_probability,
+                    base_rate=base_rate(list(d.event_tags)),
+                    self_reported=d.self_probability,
+                )
+                for i, d in enumerate(drafts)
+            ],
+            cfg.weights,
+        )
+        return [to_outcome(d, s) for d, s in zip(drafts, scores, strict=True)]
+
+    def _judge(self, context: str, drafts: list[CandidateDraft]) -> list[float]:
+        cfg = self.config
+        verdict = structured_call(
+            self.client,
+            output_type=Verdict,
+            system=judge_prompt.SYSTEM,
+            prompt=judge_prompt.render(context, candidates_text(drafts)),
+            model=cfg.judge_model,
+            prompt_version=judge_prompt.VERSION,
+            effort=cfg.judge_effort,
+            max_tokens=cfg.max_tokens,
+            max_attempts=cfg.max_attempts,
+            check=lambda r: check_verdict(r, len(drafts)),
+        )
+        by_index = {j.index: j.probability for j in verdict.judgements}
+        return [by_index[i] for i in range(len(drafts))]
+
+
+def to_outcome(draft: CandidateDraft, scores: CandidateScores) -> Outcome:
+    effects = {g.group: g.change for g in draft.group_effects if g.change}
+    return Outcome(
+        narrative=f"{draft.title}. {draft.narrative}",
+        indicator_deltas={s.node: s.change for s in draft.indicator_shifts},
+        events=[t for t in draft.event_tags if t != "none"],
+        approval_events=[ApprovalEvent(name=draft.title, group_effects=effects)] if effects else [],
+        shocks=[Shock(node=s.node, delta=s.steps) for s in draft.new_shocks if s.steps],
+        probability=scores.probability,
+        scores=scores.model_dump(exclude={"probability"}),
+    )

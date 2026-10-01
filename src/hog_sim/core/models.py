@@ -157,3 +157,6 @@ class Outcome(Model):
     approval_events: list[ApprovalEvent] = Field(default_factory=list)
     shocks: list[Shock] = Field(default_factory=list, description="New shocks the outcome triggers")
     probability: float = Field(ge=0, le=1)
+    scores: dict[str, float] = Field(
+        default_factory=dict, description="Score breakdown behind probability, for logs and UI"
+    )

@@ -1,0 +1,111 @@
+"""Plausibility scoring for candidate outcomes.
+
+Each candidate gets three scores, each in (0, 1]:
+
+* **consistency**: how well its claimed indicator shifts fit the engine's Monte Carlo
+  distribution. Each claim is treated as a draw from a normal fitted to the engine's
+  10th/90th percentiles; the score is the geometric mean of exp(-z^2 / 2) over its claims.
+* **judge**: an independent LLM estimate of its probability (``forecasting/candidates.py``).
+* **base_rate**: how common its tagged events are in practice (``BASE_RATES``).
+
+``combine`` blends them log-linearly with ``ScoreWeights`` and normalises to probabilities.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Literal
+
+from hog_sim.core.models import Model
+from hog_sim.world.propagation import DeltaDistribution
+
+EventTag = Literal[
+    "none",
+    "market_selloff",
+    "market_rally",
+    "strike",
+    "protest",
+    "backbench_rebellion",
+    "legal_challenge",
+    "foreign_retaliation",
+    "foreign_praise",
+    "media_backlash",
+    "media_praise",
+    "business_investment",
+    "capital_flight",
+]
+
+# Rough chance that a policy response of this game's scale sets off each kind of event
+# within a few months. Placeholders to be calibrated in Project 11.
+BASE_RATES: dict[str, float] = {
+    "none": 0.5,
+    "market_selloff": 0.08,
+    "market_rally": 0.08,
+    "strike": 0.15,
+    "protest": 0.2,
+    "backbench_rebellion": 0.15,
+    "legal_challenge": 0.07,
+    "foreign_retaliation": 0.1,
+    "foreign_praise": 0.15,
+    "media_backlash": 0.35,
+    "media_praise": 0.25,
+    "business_investment": 0.12,
+    "capital_flight": 0.04,
+}
+
+# 10th to 90th percentile of a normal spans 2 * 1.2816 standard deviations.
+_P10_P90_SPAN = 2 * 1.2816
+_FLOOR = 1e-6
+
+
+class ScoreWeights(Model):
+    consistency: float = 0.4
+    judge: float = 0.4
+    base_rate: float = 0.2
+
+
+class CandidateScores(Model):
+    consistency: float
+    judge: float
+    base_rate: float
+    self_reported: float
+    probability: float = 0.0
+
+
+def consistency(claims: dict[str, float], engine: DeltaDistribution, turn: int) -> float:
+    """Fit of claimed native-unit changes at ``turn`` to the engine's distribution."""
+    logs = []
+    for node, claimed in claims.items():
+        forecast = engine.nodes.get(node)
+        if forecast is None:
+            continue
+        mean = forecast.mean[turn]
+        sd = (forecast.p90[turn] - forecast.p10[turn]) / _P10_P90_SPAN
+        # Nodes the engine is certain about still tolerate small claims: at least 5% of the
+        # expected move, or a tenth of a unit.
+        sd = max(sd, 0.05 * abs(mean), 0.1)
+        z = (claimed - mean) / sd
+        logs.append(-(z**2) / 2)
+    return math.exp(sum(logs) / len(logs)) if logs else 1.0
+
+
+def base_rate(tags: list[str]) -> float:
+    """Geometric mean of the tags' base rates; untagged counts as a quiet outcome."""
+    rates = [BASE_RATES.get(t, 0.1) for t in tags] or [BASE_RATES["none"]]
+    return math.exp(sum(math.log(r) for r in rates) / len(rates))
+
+
+def combine(scores: list[CandidateScores], weights: ScoreWeights) -> list[CandidateScores]:
+    """Blend each candidate's scores and normalise to probabilities that sum to 1."""
+    logits = [
+        weights.consistency * math.log(max(s.consistency, _FLOOR))
+        + weights.judge * math.log(max(s.judge, _FLOOR))
+        + weights.base_rate * math.log(max(s.base_rate, _FLOOR))
+        for s in scores
+    ]
+    top = max(logits)
+    raw = [math.exp(x - top) for x in logits]
+    total = sum(raw)
+    return [
+        s.model_copy(update={"probability": r / total}) for s, r in zip(scores, raw, strict=True)
+    ]

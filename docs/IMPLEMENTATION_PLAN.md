@@ -284,7 +284,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 3 | Simulation Engine | 1 | `propagate(state, shocks, horizon, k_draws, seed) -> DeltaDistribution`, `simulate()`, `actions_to_shocks()`, `apply_deltas()` |
 | 4 | Population & Popularity | 1, 3 | `step_approval(state, reference)`, `target_approval()`, `national_approval()`, `vote_intention()`, `run_election()` |
 | 5 | LLM: Scenarios & Interpretation | 0, 1 | `summarise_state(state) -> StateSummary`, `generate_scenario(summary, client) -> GeneratedScenario`, `interpret(text, summary, client) -> Interpretation` (actions + optional clarifying question), `policy/feasibility.py: check_feasibility(actions, state, role) -> FeasibilityReport` |
-| 6 | Forecasting & Selection | 3, 4, 5 | `Forecaster.forecast(state, scenario, actions, engine) -> [Outcome]`, `select(candidates, mode, rng) -> index` |
+| 6 | Forecasting & Selection | 3, 4, 5 | `LLMForecaster.forecast(state, scenario, actions, engine) -> [Outcome]` (ensemble: engine consistency, LLM judge, base rates), `select(candidates, mode, rng) -> index`, `game/llm_plugins.llm_plugins(client)` |
 | 7 | News Ingestion | 1, 5 | `fetch_seeds(state) -> [ScenarioSeed]` with compatibility score |
 | 8 | Game Loop & Persistence | 3–6 | `Game.play_turn()`, `Game.resume()`, `replay()`, `SaveStore`; plug-in protocols in `game/interfaces.py` (Project 5 needs small adapters: its `interpret` takes a `StateSummary` and returns an `Interpretation`) |
 | 9 | Goals & Modes | 4, 8 | `check_goals(state, mode) -> Progress / Win / Loss` |
@@ -314,14 +314,14 @@ Smallest thing that is fun and proves the architecture:
 | # | Project | Status | Notes |
 |---|---|---|---|
 | 0 | Foundations | Done | Skeleton, core schemas, CI on main |
-| 1 | World Model & State | In review (PR #1) | See projects/01-world-model.md |
+| 1 | World Model & State | Done (PR #1) | See projects/01-world-model.md |
 | 2 | Seed Data | Not started | |
-| 3 | Simulation Engine | In review (PR #2) | See projects/03-simulation-engine.md |
-| 4 | Population & Popularity | In review (PR #3) | See projects/04-popularity.md |
-| 5 | LLM: Scenarios & Interpretation | In review (PR #5) | See projects/05-llm-layer.md |
-| 6 | Outcome Forecasting & Selection | Not started | |
+| 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
+| 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
+| 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
+| 6 | Outcome Forecasting & Selection | In review (PR #6) | See projects/06-forecasting.md; needs a live 30-turn review |
 | 7 | News Ingestion | Not started | |
-| 8 | Game Loop & Persistence | In review (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
+| 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |

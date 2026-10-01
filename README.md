@@ -16,6 +16,7 @@ uv run pytest
 uv run ruff check .
 uv run hog-sim            # play in the terminal (offline, rule-based stand-ins)
 uv run hog-sim --resume   # continue the last save
+uv sync --extra llm && uv run hog-sim --llm   # play with Claude (needs ANTHROPIC_API_KEY)
 ```
 
 ## Layout
