@@ -313,8 +313,8 @@ Smallest thing that is fun and proves the architecture:
 
 | # | Project | Status | Notes |
 |---|---|---|---|
-| 0 | Foundations | Not started | |
-| 1 | World Model & State | Not started | |
+| 0 | Foundations | Done | Skeleton, core schemas, CI on main |
+| 1 | World Model & State | In review | See projects/01-world-model.md |
 | 2 | Seed Data | Not started | |
 | 3 | Simulation Engine | Not started | |
 | 4 | Population & Popularity | Not started | |
