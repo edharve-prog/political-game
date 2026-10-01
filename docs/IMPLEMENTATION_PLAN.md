@@ -321,7 +321,7 @@ Smallest thing that is fun and proves the architecture:
 | 5 | LLM: Scenarios & Interpretation | Not started | |
 | 6 | Outcome Forecasting & Selection | Not started | |
 | 7 | News Ingestion | Not started | |
-| 8 | Game Loop & Persistence | Not started | |
+| 8 | Game Loop & Persistence | In review | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |

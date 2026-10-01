@@ -30,6 +30,10 @@ class WorldState(Model):
     indicators: dict[str, Indicator] = Field(default_factory=dict)
     edges: list[Edge] = Field(default_factory=list)
     events: list[ApprovalEvent] = Field(default_factory=list)
+    pending: dict[int, dict[str, float]] = Field(
+        default_factory=dict,
+        description="Effects still in flight: absolute turn -> node id -> native-unit change",
+    )
 
     @model_validator(mode="after")
     def _check_references(self) -> WorldState:

@@ -119,6 +119,15 @@ class PolicyAction(Model):
     rationale: str = ""
 
 
+class Shock(Model):
+    """An impulse to one node, in standard steps (see world/propagation.py)."""
+
+    node: str
+    delta: float = Field(description="Impulse in standard steps")
+    start_turn: int = Field(0, ge=0, description="Turns from now")
+    duration_turns: int = Field(1, ge=1)
+
+
 class ApprovalEvent(Model):
     """A one-off hit or boost to some groups' approval that fades over time."""
 
@@ -135,10 +144,16 @@ class Scenario(Model):
     urgency: float = Field(ge=0, le=1)
     source: Literal["news", "generated", "scheduled"] = "generated"
     suggested_options: list[str] = Field(default_factory=list)
+    shocks: list[Shock] = Field(default_factory=list, description="Exogenous shocks it brings")
 
 
 class Outcome(Model):
     narrative: str
-    indicator_deltas: dict[str, float] = Field(default_factory=dict)
+    indicator_deltas: dict[str, float] = Field(
+        default_factory=dict,
+        description="Claimed native-unit changes; the engine's are authoritative",
+    )
     events: list[str] = Field(default_factory=list)
+    approval_events: list[ApprovalEvent] = Field(default_factory=list)
+    shocks: list[Shock] = Field(default_factory=list, description="New shocks the outcome triggers")
     probability: float = Field(ge=0, le=1)
