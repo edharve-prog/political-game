@@ -198,6 +198,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Periodic elections with seat model (simple uniform swing for MVP).
 - **Deliverables:** `population/popularity.py`; dashboard-ready per-group time series.
 - **Done when:** Running the toy world for 24 turns with no actions gives stable approval; a known-unpopular action moves the expected groups in the expected direction.
+- **Later (back-end review enhancements 10–11):** issue salience, habituation, enthusiasm-driven turnout; multi-party vote shares with swing by group, and noisy polls shown instead of exact vote intention.
 
 ### Project 5 — LLM Layer: Scenarios & Interpretation
 - **Goal:** Natural-language in and out, structured data in the middle.
@@ -239,6 +240,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Goal:** Wire everything into a playable loop.
 - **Scope:** Turn orchestration; save/load (SQLite: one row per turn with state snapshot, scenario, response, candidates, chosen outcome); institutions as constraints and actors (legislature votes, central bank reacts to inflation, media frames events, courts can block); scenario source selection (news vs generated vs scheduled events like budgets/elections).
 - **Done when:** A full 12-turn game can be played, saved mid-way, resumed, and replayed deterministically from the log.
+- **Later (back-end review M6, L3):** resuming shows the saved scenario instead of generating a new one; saves stop storing ever-growing histories in every turn.
 
 ### Project 9 — Goals, Game Modes & Fail States
 - **Goal:** Give the player something to aim for.
@@ -262,7 +264,8 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Stability tests: long no-action runs shouldn't explode or flatline.
   - LLM output quality checks: diversity of candidates, consistency, rate of validation failures.
   - Calibration of outcome probabilities over many simulated turns.
-  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; fix in review as PR #13 (deficit shocks from spend and tax, debt penalty above a 6% deficit); PR #12 records indicator and group history so the effect is visible turn by turn.
+  - **Wider balance issues** (back-end review, 2026-10-01) moved to Project 16.
+  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; addressed by PR #13 (merged: deficit shocks from spend and tax, debt penalty above a 6% deficit); PR #12 (merged) records indicator and group history so the effect is visible turn by turn.
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
 
 ### Project 12 — Stretch Goals
@@ -291,6 +294,13 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Design:** [projects/15-llm-knowledge-store.md](projects/15-llm-knowledge-store.md).
 - **Done when:** see the design doc.
 
+### Project 16 — Engine Balance & Economic Realism
+- **Goal:** No single repeated action wins; indicators stay plausible; every lever has a cost and moves things the way the player meant.
+- **Why:** The back-end review's 45 scripted games found "huge deregulation of energy" wins 5/5 (energy index 100 → 3.4), spending runs the deficit to 17%, and the starting position loses with no action. See [review/backend-review.md](review/backend-review.md).
+- **First batch (approved 2026-10-01):** EB-1 balance test in CI; EB-2 feasibility in offline play (C3); EB-3 bounds, mean reversion, spending as a flow and costs for every lever (C1, C2, H3); EB-4 actions move indicators the right way, Bank of England edge, lasting group benefits (H1, H2).
+- **Backlog:** EB-5 to EB-13 in [backlog/engine-balance.md](backlog/engine-balance.md).
+- **Done when:** The balance test passes in CI, no indicator leaves its bounds over 120 turns, and each action kind moves its intended indicator in the stated direction.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -312,6 +322,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 13 | Scenario Depth | 2, 5, 8 | `Storyline`, `InTray` in `WorldState`; `generate_turn(summary, storylines, client) -> InTray`; offline `ScenarioLibrary` |
 | 14 | Response Builder | 5, 6, 10 | `ResponsePackage` (picked options + text + delivery), confirm/edit step in `Game`, `advise(question, summary, client) -> [Option]` |
 | 15 | Knowledge Store | 1, 3, 5, 6, 8, 13 | `KnowledgeStore` (`harvest_turn`, `library_scenarios`, `interpretations`, `outcomes`, `graph_changes`, JSONL export/import); `GraphChange` + `validate_graph_changes()`/`apply_graph_changes()` in `world/changes.py`; `Outcome.graph_changes`; `recall()`/`Recaller` → `llm_plugins(recaller=...)`; `StoredInterpreter`, `StoredForecaster` |
+| 16 | Engine Balance & Realism | 3, 4, 5, 8 | Indicator bounds/equilibrium/persistence; lever costs; direction-aware `actions_to_shocks`; feasibility in `Game.play_turn`; balance test |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -348,9 +359,10 @@ Smallest thing that is fun and proves the architecture:
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
-| 13 | Scenario Depth | In progress (SD-3 part 1: PR #11) | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
+| 13 | Scenario Depth | In progress (SD-3 offline part done, PR #11) | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | Backlog | Stories RB-1 to RB-7 in backlog/scenarios-and-responses.md |
-| 15 | LLM Knowledge Store | In review (PR #14, stacked on #11) | See projects/15-llm-knowledge-store.md |
+| 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
+| 16 | Engine Balance & Realism | In progress (first batch EB-1 to EB-4) | Built by the back-end review thread; see backlog/engine-balance.md |
 
 ---
 
@@ -375,6 +387,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | LLM graph changes are whitelisted and capped (≤3 per outcome; attrs ±0.2; edge weight ±0.1 or 25%; new edges ≤0.3) and applied in `resolve()` | Keeps the engine in charge and replay exact |
 | 2026-10-01 | Carrying graph changes across games deferred to Project 11 | Needs calibration first |
 | 2026-10-01 | Stored Claude scenarios feed the SD-3 library as `LibraryScenario(origin="llm")` | One scenario format for handwritten, LLM and news |
+| 2026-10-01 | Project 16 for engine balance; first batch is a CI balance test, offline feasibility, a bounded economy with lever costs, and correct action direction | Back-end review found a dominant free strategy and unbounded indicators; Ed approved |
 | 2026-10-01 | Richer scenarios and responses become Projects 13 and 14; P1 order SD-3, RB-2, RB-1, SD-1, SD-2, RB-3, RB-4 | Ed's first play-through found scenarios basic and repeating and responses hard to combine |
 
 ---
