@@ -1,0 +1,155 @@
+"""Compress a WorldState into the short briefing every prompt starts from.
+
+The LLM never sees raw state. It sees this summary: what is under stress, who is angry,
+where abroad is tense, what happened recently, and the catalogue of node ids it may refer
+to. Outputs are then checked against that catalogue.
+"""
+
+from __future__ import annotations
+
+from pydantic import Field
+
+from hog_sim.core.models import Model
+from hog_sim.core.state import WorldState
+
+ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
+
+
+class IndicatorLine(Model):
+    id: str
+    name: str
+    value: float
+    unit: str
+    change: float | None = Field(None, description="Relative change over the recent window")
+
+
+class GroupLine(Model):
+    id: str
+    name: str
+    approval: float
+    population_share: float
+
+
+class CountryLine(Model):
+    id: str
+    name: str
+    relationship: float
+    stability: float
+
+
+class InstitutionLine(Model):
+    id: str
+    name: str
+    support: float
+    independence: float
+
+
+class StateSummary(Model):
+    turn: int
+    role: str
+    player_country: str
+    indicators: list[IndicatorLine]
+    stressed_indicators: list[str]
+    groups: list[GroupLine]
+    angry_groups: list[str]
+    foreign: list[CountryLine]
+    foreign_tensions: list[str]
+    institutions: list[InstitutionLine]
+    recent_events: list[str] = Field(default_factory=list)
+    catalogue: dict[str, str] = Field(description="Every node id the model may reference -> name")
+
+    def to_prompt(self) -> str:
+        lines = [
+            f"Turn {self.turn}. You are briefing the {ROLE_TITLES.get(self.role, self.role)} "
+            f"of {self.catalogue[self.player_country]}.",
+            "",
+            "Indicators:",
+        ]
+        for i in self.indicators:
+            change = f" ({i.change:+.0%} recently)" if i.change is not None else ""
+            stress = "  [STRESSED]" if i.id in self.stressed_indicators else ""
+            unit = i.unit if i.unit.startswith("%") or not i.unit else f" {i.unit}"
+            lines.append(f"- {i.id} {i.name}: {i.value:g}{unit}{change}{stress}")
+        lines += ["", "Population groups (approval of government, 0-1):"]
+        for g in self.groups:
+            angry = "  [ANGRY]" if g.id in self.angry_groups else ""
+            lines.append(
+                f"- {g.id} {g.name}: {g.approval:.2f}, {g.population_share:.0%} of voters{angry}"
+            )
+        lines += ["", "Foreign countries (relationship -1..1, stability 0..1):"]
+        for c in self.foreign:
+            tense = "  [TENSE]" if c.id in self.foreign_tensions else ""
+            lines.append(f"- {c.id} {c.name}: {c.relationship:+.2f}, {c.stability:.2f}{tense}")
+        lines += ["", "Institutions (support for government, independence):"]
+        for inst in self.institutions:
+            lines.append(f"- {inst.id} {inst.name}: {inst.support:.2f}, {inst.independence:.2f}")
+        other = sorted(
+            node_id
+            for node_id in self.catalogue
+            if node_id.startswith("sector:") or node_id == self.player_country
+        )
+        lines += ["", "Other nodes:"]
+        lines += [f"- {node_id} {self.catalogue[node_id]}" for node_id in other]
+        if self.recent_events:
+            lines += ["", "Recent events (most recent last):"]
+            lines += [f"- {e}" for e in self.recent_events]
+        return "\n".join(lines)
+
+
+def summarise_state(
+    state: WorldState,
+    role: str = "prime_minister",
+    recent_events: list[str] | None = None,
+    *,
+    window: int = 3,
+    stress_threshold: float = 0.05,
+    angry_below: float = 0.4,
+    max_events: int = 8,
+) -> StateSummary:
+    """Summarise ``state`` for a prompt.
+
+    An indicator is stressed when it moved by at least ``stress_threshold`` (relative) over
+    the last ``window`` turns of history. A group is angry below ``angry_below`` approval. A
+    foreign country is tense with a negative relationship or stability under 0.4.
+    """
+    indicators = []
+    stressed = []
+    for ind in state.indicators.values():
+        change = None
+        if ind.history:
+            past = ind.history[-window] if len(ind.history) >= window else ind.history[0]
+            if past:
+                change = (ind.value - past) / abs(past)
+        indicators.append(
+            IndicatorLine(id=ind.id, name=ind.name, value=ind.value, unit=ind.unit, change=change)
+        )
+        if change is not None and abs(change) >= stress_threshold:
+            stressed.append(ind.id)
+
+    groups = sorted(state.groups.values(), key=lambda g: g.approval)
+    foreign = [c for c in state.countries.values() if c.id != state.player_country]
+    return StateSummary(
+        turn=state.turn,
+        role=role,
+        player_country=state.player_country,
+        indicators=indicators,
+        stressed_indicators=stressed,
+        groups=[
+            GroupLine(
+                id=g.id, name=g.name, approval=g.approval, population_share=g.population_share
+            )
+            for g in groups
+        ],
+        angry_groups=[g.id for g in groups if g.approval < angry_below],
+        foreign=[
+            CountryLine(id=c.id, name=c.name, relationship=c.relationship, stability=c.stability)
+            for c in foreign
+        ],
+        foreign_tensions=[c.id for c in foreign if c.relationship < 0 or c.stability < 0.4],
+        institutions=[
+            InstitutionLine(id=i.id, name=i.name, support=i.support, independence=i.independence)
+            for i in state.institutions.values()
+        ],
+        recent_events=(recent_events or [])[-max_events:],
+        catalogue={node.id: node.name for node in state.nodes()},
+    )

@@ -12,6 +12,11 @@ dependencies = [
 [project.scripts]
 hog-sim = "hog_sim.ui.cli:main"
 
+[project.optional-dependencies]
+llm = [
+    "anthropic>=1.11.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8",
