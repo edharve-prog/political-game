@@ -1,6 +1,6 @@
 import pytest
 
-from hog_sim.core.models import PolicyAction
+from hog_sim.core.models import Edge, EdgeKind, PolicyAction
 from hog_sim.core.state import WorldState
 from hog_sim.policy.feasibility import check_feasibility, requirements_for
 from hog_sim.world.seed.toy import toy_world
@@ -62,6 +62,20 @@ def test_central_bank_is_independent(world: WorldState) -> None:
     )
     assert [c.feasible for c in report.checks] == [False, False, True]
     assert "Bank of England" in report.checks[0].blockers[0]
+
+
+def test_indicator_drivers_do_not_hide_the_central_bank(world: WorldState) -> None:
+    # The bank's reaction to inflation is modelled as inflation DRIVES Bank Rate.
+    world.edges.append(
+        Edge(
+            source="indicator:inflation",
+            target="indicator:interest_rate",
+            kind=EdgeKind.DRIVES,
+            weight=0.5,
+        )
+    )
+    check = only(check_feasibility([act("regulate", "indicator:interest_rate")], world))
+    assert not check.feasible
 
 
 def test_spending_needs_fiscal_headroom(world: WorldState) -> None:

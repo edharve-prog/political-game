@@ -160,15 +160,15 @@ def _legislature_name(role: Role, legislature: Institution | None) -> str:
 def _independent_controller(target: str, state: WorldState) -> Institution | None:
     """The independent institution that owns ``target``, if any.
 
-    Either the target is that institution, or it is an indicator whose only direct lever is
-    that institution. Other indicators feeding it (e.g. inflation -> Bank Rate, the bank's
-    reaction function) are not levers, so they are ignored.
+    Either the target is that institution, or it is an indicator whose only non-indicator
+    driver is that institution.
     """
     inst = state.institutions.get(target)
     if inst is not None:
         return inst if inst.independence >= INDEPENDENCE_THRESHOLD else None
     if target not in state.indicators:
         return None
+    # Indicators that feed the target (inflation -> Bank Rate) are not levers, so ignore them.
     drivers = [
         e.source
         for e in state.edges
