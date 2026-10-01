@@ -1,0 +1,27 @@
+[
+  {
+    "id": "housing-crunch",
+    "category": "housing",
+    "title": "Housing crunch",
+    "briefing": "Rents and house prices hit records and young voters are angry.",
+    "affected_nodes": [
+      "indicator:house_prices",
+      "sector:housing",
+      "group:young_renters"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Spend on housebuilding",
+      "Deregulate planning",
+      "Do nothing"
+    ],
+    "shocks": [
+      {
+        "node": "indicator:house_prices",
+        "delta": 0.8,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  }
+]

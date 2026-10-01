@@ -1,0 +1,26 @@
+[
+  {
+    "id": "trade-dispute-with-china",
+    "category": "foreign_affairs",
+    "title": "Trade dispute with China",
+    "briefing": "China slaps tariffs on British exports after a diplomatic row.",
+    "affected_nodes": [
+      "country:china",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Negotiate",
+      "Retaliate",
+      "Support manufacturers"
+    ],
+    "shocks": [
+      {
+        "node": "sector:manufacturing",
+        "delta": -0.8,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  }
+]

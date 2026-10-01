@@ -1,0 +1,49 @@
+[
+  {
+    "id": "inflation-surprise",
+    "category": "economy",
+    "title": "Inflation surprise",
+    "briefing": "Monthly figures show prices rising faster than forecast; markets expect rates to rise.",
+    "affected_nodes": [
+      "indicator:inflation",
+      "indicator:interest_rate"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Cut public spending",
+      "Back the central bank",
+      "Do nothing"
+    ],
+    "shocks": [
+      {
+        "node": "indicator:inflation",
+        "delta": 0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "indicator:inflation": {
+        "op": ">",
+        "value": 2.5
+      }
+    }
+  },
+  {
+    "id": "public-sector-pay-row",
+    "category": "economy",
+    "title": "Public sector pay row",
+    "briefing": "Unions threaten strikes across schools and hospitals over pay.",
+    "affected_nodes": [
+      "sector:public",
+      "group:public_workers"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Fund a pay rise",
+      "Hold firm",
+      "Negotiate"
+    ],
+    "shocks": []
+  }
+]

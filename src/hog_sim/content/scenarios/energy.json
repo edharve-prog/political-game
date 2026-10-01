@@ -1,0 +1,26 @@
+[
+  {
+    "id": "gas-prices-spike",
+    "category": "energy",
+    "title": "Gas prices spike",
+    "briefing": "A cold snap and supply outages in Europe push wholesale gas prices up sharply.",
+    "affected_nodes": [
+      "indicator:energy_prices",
+      "sector:energy"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Cap household bills",
+      "Tax energy windfall profits",
+      "Wait it out"
+    ],
+    "shocks": [
+      {
+        "node": "indicator:energy_prices",
+        "delta": 1.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  }
+]
