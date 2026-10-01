@@ -272,6 +272,18 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - Multiple starting countries / historical start dates.
 - Multiplayer (players as different countries).
 
+### Project 13 — Scenario Depth
+- **Goal:** Scenarios that feel like a living political world: ongoing storylines, several issues per turn, variety, recurring characters, pledges and a political calendar.
+- **Scope:** `Storyline` and in-tray (2–4 issues) in `WorldState`; anti-repetition and a 12-category issue taxonomy; a 60+ scenario offline library; fictional recurring cast with loyalty; pledges; calendar events. Builds on Project 5's generator and Project 2's bigger world.
+- **Backlog:** stories SD-1 to SD-8 in [backlog/scenarios-and-responses.md](backlog/scenarios-and-responses.md).
+- **Done when:** In a 30-turn Claude game, at least one storyline spans 3+ turns, no category supplies more than 25% of lead issues, and no two lead titles are near-duplicates; offline play doesn't repeat within 15 turns.
+
+### Project 14 — Response Builder
+- **Goal:** Expressive responses: pick and combine options, review and edit the interpreted actions, ask advisers for new options, and have the delivery (framing, consultation, timing) shape the outcome.
+- **Scope:** numbered option picking plus free text; a confirm/edit step before resolve; `advise` command; delivery fields from the interpreter fed into Project 6 scoring; a saved policy library; new action kinds for Project 9's revolution goals.
+- **Backlog:** stories RB-1 to RB-7 in [backlog/scenarios-and-responses.md](backlog/scenarios-and-responses.md).
+- **Done when:** A player can build, review and commit a multi-part package in one turn; the same actions delivered differently give measurably different outcome probabilities on a fixture.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -290,6 +302,8 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 9 | Goals & Modes | 4, 8 | `check_goals(state, mode) -> Progress / Win / Loss` |
 | 10 | Interface | 8 | CLI, later web UI |
 | 11 | Evaluation & Calibration | 3, 4, 6 | Backtest suite, tuned weights |
+| 13 | Scenario Depth | 2, 5, 8 | `Storyline`, `InTray` in `WorldState`; `generate_turn(summary, storylines, client) -> InTray`; offline `ScenarioLibrary` |
+| 14 | Response Builder | 5, 6, 10 | `ResponsePackage` (picked options + text + delivery), confirm/edit step in `Game`, `advise(question, summary, client) -> [Option]` |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -319,13 +333,15 @@ Smallest thing that is fun and proves the architecture:
 | 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
 | 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
 | 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
-| 6 | Outcome Forecasting & Selection | In review (PR #6) | See projects/06-forecasting.md; needs a live 30-turn review |
+| 6 | Outcome Forecasting & Selection | Done (PR #6) | See projects/06-forecasting.md; needs a live 30-turn review |
 | 7 | News Ingestion | Not started | |
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
+| 13 | Scenario Depth | Backlog | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
+| 14 | Response Builder | Backlog | Stories RB-1 to RB-7 in backlog/scenarios-and-responses.md |
 
 ---
 
@@ -344,12 +360,14 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | Engine works in normalised standard steps; effects in flight live in `WorldState.pending` | Comparable edge weights; lagged effects survive across turns and saves |
 | 2026-10-01 | Turns split into decide (may call LLM) and resolve (deterministic, from the log) | Exact replay without LLM calls |
 | 2026-10-01 | The LLM reads a `StateSummary`, never the WorldState; feasibility is deterministic engine code | Keeps the LLM out of the numbers |
+| 2026-10-01 | Startup shows the mode (offline practice or Claude with its model); `--llm` without a key exits with help (PR #7) | Ed couldn't tell whether Claude was in use |
+| 2026-10-01 | Richer scenarios and responses become Projects 13 and 14; P1 order SD-3, RB-2, RB-1, SD-1, SD-2, RB-3, RB-4 | Ed's first play-through found scenarios basic and repeating and responses hard to combine |
 
 ---
 
 ## 10. Open Questions
 
-- Free text only, or free text plus suggested options each turn?
+- ~~Free text only, or free text plus suggested options each turn?~~ Both, combinable (RB-1).
 - Turn length: fixed monthly, or variable (crises compress time)?
 - How much should the player see of the forecast candidates — hidden, or shown as "advisor briefings" before committing?
 - How to handle sensitive real-world content from news (wars, attacks) — tone, filtering, opt-outs.
