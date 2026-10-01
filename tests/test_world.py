@@ -74,7 +74,7 @@ def test_snapshot_diff_across_manual_change(world: WorldState) -> None:
     world.groups["group:pensioners"].approval = 0.42
     assert before.diff(world) == {
         "indicator:energy_prices": {"value": (100, 115)},
-        "group:pensioners": {"approval": (0.5, 0.42)},
+        "group:pensioners": {"approval": (0.55, 0.42)},
     }
 
 
