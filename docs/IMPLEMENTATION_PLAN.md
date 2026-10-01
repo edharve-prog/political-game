@@ -314,14 +314,14 @@ Smallest thing that is fun and proves the architecture:
 | # | Project | Status | Notes |
 |---|---|---|---|
 | 0 | Foundations | Done | Skeleton, core schemas, CI on main |
-| 1 | World Model & State | In review (PR #1) | See projects/01-world-model.md |
+| 1 | World Model & State | Done (PR #1) | See projects/01-world-model.md |
 | 2 | Seed Data | Not started | |
-| 3 | Simulation Engine | In review (PR #2) | See projects/03-simulation-engine.md |
-| 4 | Population & Popularity | In review (PR #3) | See projects/04-popularity.md |
-| 5 | LLM: Scenarios & Interpretation | In review (PR #5) | See projects/05-llm-layer.md |
+| 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
+| 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
+| 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
 | 6 | Outcome Forecasting & Selection | In review (PR #6) | See projects/06-forecasting.md; needs a live 30-turn review |
 | 7 | News Ingestion | Not started | |
-| 8 | Game Loop & Persistence | In review (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
+| 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
