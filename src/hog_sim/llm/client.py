@@ -89,6 +89,7 @@ class Usage(Model):
 class LLMResponse(Model):
     text: str
     usage: Usage = Field(default_factory=Usage)
+    served_model: str | None = None  # the model that answered, if the client reports it
 
 
 class CallRecord(Model):
@@ -99,6 +100,7 @@ class CallRecord(Model):
     output_tokens: int
     latency_s: float
     cached: bool = False
+    served_model: str | None = None
 
     @property
     def cost_usd(self) -> float:
@@ -176,6 +178,7 @@ def _record(client: LLMClient, request: LLMRequest, response: LLMResponse, start
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             latency_s=time.perf_counter() - start,
+            served_model=response.served_model,
         )
     )
 
@@ -310,6 +313,7 @@ class AnthropicClient:
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
             ),
+            served_model=getattr(response, "model", None),
         )
         _record(self, request, result, start)
         if response.stop_reason == "max_tokens":
