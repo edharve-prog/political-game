@@ -21,10 +21,14 @@ from hog_sim.policy.feasibility import FeasibilityReport, Role, check_feasibilit
 
 
 def recent_events(history: Sequence[Any], limit: int = 8) -> list[str]:
-    """One line per past turn: the scenario title and what came of it."""
+    """One line per past turn: the scenario title, the leader's response and what came of it."""
     events = []
     for record in list(history)[-limit:]:
         line = f"Turn {record.turn}: {record.scenario.title}"
+        response = getattr(record, "response", None)
+        if response:
+            text = " ".join(response.split())
+            line += f"; the leader responded: {text[:200]}"
         outcome = getattr(record, "outcome", None)
         if outcome is not None:
             line += f" -> {outcome.narrative}"
