@@ -51,27 +51,20 @@ OFFLINE_BANNER = (
 )
 
 
-def _llm_client():
-    """An AnthropicClient, or exit with a plain explanation of what is missing."""
+def _llm_client(provider: str):
+    """A client for ``provider``, or exit with a plain explanation of what is missing."""
+    from hog_sim.llm.client import LLMError
+    from hog_sim.llm.providers import make_client
+
     try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        raise SystemExit(
-            "--llm needs the Claude SDK. Install it with: uv sync --extra llm"
-        ) from None
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise SystemExit(
-            "--llm needs an API key. Set ANTHROPIC_API_KEY first, for example\n"
-            '  PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."\n'
-            "  cmd:         set ANTHROPIC_API_KEY=sk-ant-...\n"
-            "  bash/zsh:    export ANTHROPIC_API_KEY=sk-ant-..."
-        )
-    from hog_sim.llm.client import AnthropicClient
-
-    return AnthropicClient()
+        return make_client(provider)
+    except LLMError as exc:
+        raise SystemExit(str(exc)) from None
 
 
-def _llm_banner(model_config, forecast_config) -> str:
+def _llm_banner(model_config, forecast_config, provider: str) -> str:
+    from hog_sim.llm.providers import describe
+
     models = sorted(
         {
             model_config.scenario_model,
@@ -81,8 +74,9 @@ def _llm_banner(model_config, forecast_config) -> str:
         }
     )
     return (
-        f"Mode: CLAUDE ({', '.join(models)}). Scenarios, your responses and outcomes are\n"
-        "written by Claude. Each turn ends with a line counting the calls it made."
+        f"Mode: CLAUDE ({', '.join(models)}) via {describe(provider)}.\n"
+        "Scenarios, your responses and outcomes are written by Claude. Each turn ends with\n"
+        "a line counting the calls it made."
     )
 
 
@@ -119,14 +113,22 @@ def _usage_line(client, since: int) -> str:
     served = sorted({r.served_model or r.model for r in calls})
     tokens_in = sum(r.input_tokens for r in calls)
     tokens_out = sum(r.output_tokens for r in calls)
+    spend = (
+        "counts against your Claude plan"
+        if getattr(client, "subscription", False)
+        else f"${client.usage.total_cost_usd:.2f} so far"
+    )
     return (
         f"  [Claude: {len(calls)} calls this turn via {', '.join(served) or 'none'}, "
-        f"{tokens_in} tokens in, {tokens_out} out; "
-        f"${client.usage.total_cost_usd:.2f} so far]"
+        f"{tokens_in} tokens in, {tokens_out} out; {spend}]"
     )
 
 
 def main(argv: list[str] | None = None) -> None:
+    from hog_sim.core.env import load_env
+    from hog_sim.llm.providers import PROVIDERS
+
+    load_env()
     parser = argparse.ArgumentParser(description="Head of Government Simulator")
     parser.add_argument("--save", default="saves/game.db")
     parser.add_argument("--resume", action="store_true")
@@ -134,18 +136,27 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--llm",
         action="store_true",
-        help="use Claude for scenarios, interpretation and outcomes (needs ANTHROPIC_API_KEY "
-        "and `uv sync --extra llm`)",
+        help="use Claude for scenarios, interpretation and outcomes",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        default=os.environ.get("HOG_SIM_PROVIDER", "auto"),
+        help="how to reach Claude: api (API key or `ant auth login`), claude-code (your "
+        "Claude Code sign-in), or auto (api if credentials exist, else claude-code)",
     )
     parser.add_argument(
         "--check-llm",
         action="store_true",
-        help="make one small call to Claude to confirm the key works, then exit",
+        help="make one small call to Claude to confirm the connection works, then exit",
     )
     args = parser.parse_args(argv)
 
     if args.check_llm:
-        print(check_llm(_llm_client()))
+        from hog_sim.llm.providers import describe
+
+        client, provider = _llm_client(args.provider)
+        print(check_llm(client) + f" Connected via {describe(provider)}.")
         return
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
@@ -156,10 +167,10 @@ def main(argv: list[str] | None = None) -> None:
         from hog_sim.game.llm_plugins import llm_plugins
         from hog_sim.llm.client import ModelConfig
 
-        client = _llm_client()
+        client, provider = _llm_client(args.provider)
         model_config, forecast_config = ModelConfig(), ForecastConfig()
         plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
-        print(_llm_banner(model_config, forecast_config))
+        print(_llm_banner(model_config, forecast_config, provider))
     else:
         plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
         print(OFFLINE_BANNER)
