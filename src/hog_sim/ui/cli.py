@@ -125,6 +125,16 @@ def _usage_line(client, since: int) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from hog_sim.llm.client import LLMUnavailable
+
+    try:
+        _main(argv)
+    except LLMUnavailable as exc:
+        # Turns already played are saved; the message says which route failed and why.
+        raise SystemExit(f"Could not reach Claude. {exc}") from None
+
+
+def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
     from hog_sim.llm.providers import PROVIDERS
 

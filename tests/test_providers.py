@@ -196,7 +196,7 @@ def test_claude_code_timeout() -> None:
     def slow(argv, input, **kwargs):
         raise subprocess.TimeoutExpired(argv, 1)
 
-    with pytest.raises(LLMError, match="did not answer"):
+    with pytest.raises(LLMError, match="no answer within"):
         ClaudeCodeClient("/usr/bin/claude", runner=slow, timeout_s=1).complete(request())
 
 
@@ -206,3 +206,86 @@ def test_missing_claude_code(monkeypatch) -> None:
     monkeypatch.setattr(cc.shutil, "which", lambda name: None)
     with pytest.raises(LLMError, match="not installed"):
         ClaudeCodeClient()
+
+
+# --- Connection errors -------------------------------------------------------
+
+
+def api_error(status: int, message: str):
+    anthropic = pytest.importorskip("anthropic")
+    import httpx2
+
+    req = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    body = {"type": "error", "error": {"type": "invalid_request_error", "message": message}}
+    return anthropic.APIStatusError(
+        message, response=httpx2.Response(status, request=req), body=body
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "message", "expected"),
+    [
+        (400, "Your credit balance is too low to access the Anthropic API.", "no credit"),
+        (401, "invalid x-api-key", "rejected"),
+        (429, "rate limited", "rate limit"),
+        (529, "overloaded", "server error"),
+    ],
+)
+def test_api_errors_become_one_line_with_the_other_route(status, message, expected) -> None:
+    from hog_sim.llm.client import AnthropicClient, LLMUnavailable
+
+    exc = api_error(status, message)
+
+    def fail(**kwargs):
+        raise exc
+
+    sdk = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=fail)))
+    with pytest.raises(LLMUnavailable) as caught:
+        AnthropicClient(sdk).complete(request())
+    text = str(caught.value)
+    assert expected in text and "--provider claude-code" in text
+    assert "\n" not in text
+
+
+def test_non_api_errors_are_not_swallowed() -> None:
+    from hog_sim.llm.client import AnthropicClient
+
+    def fail(**kwargs):
+        raise ValueError("bug")
+
+    sdk = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=fail)))
+    with pytest.raises(ValueError):
+        AnthropicClient(sdk).complete(request())
+
+
+def test_claude_code_does_not_see_api_keys(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-no-credit")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "tok")
+    seen = {}
+
+    def runner(argv, input, env, **kwargs):
+        seen.update(env)
+        return SimpleNamespace(stdout=cli_output(structured={}), stderr="", returncode=0)
+
+    ClaudeCodeClient("/usr/bin/claude", runner=runner).complete(request())
+    assert "ANTHROPIC_API_KEY" not in seen and "ANTHROPIC_AUTH_TOKEN" not in seen
+    assert "PATH" in seen
+
+
+def test_cli_prints_one_line_instead_of_a_traceback(monkeypatch) -> None:
+    from hog_sim.llm.client import LLMUnavailable
+    from hog_sim.ui import cli
+
+    class Broken:
+        def __init__(self) -> None:
+            from hog_sim.llm.client import UsageLog
+
+            self.usage = UsageLog()
+
+        def complete(self, request):
+            raise LLMUnavailable("Anthropic API: your Anthropic API account has no credit left.")
+
+    monkeypatch.setattr(cli, "_llm_client", lambda provider: (Broken(), "api"))
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--check-llm"])
+    assert str(exc.value).startswith("Could not reach Claude. Anthropic API: ")
