@@ -22,19 +22,30 @@ from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.world.seed.toy import toy_world
 
 
-def _dashboard(start: WorldState, state: WorldState) -> str:
-    lines = [f"Turn {state.turn}"]
+def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None = None) -> str:
+    """Current scores, with the change since the last turn and since the game began."""
+    previous = previous or start
+    lines = [f"Turn {state.turn}" + ("" if state.turn == 0 else "    (last turn, since start)")]
     for ind in state.indicators.values():
-        delta = ind.value - start.indicators[ind.id].value
-        lines.append(f"  {ind.name:<26}{ind.value:>8.2f} {ind.unit:<6} ({delta:+.2f})")
+        last = ind.value - previous.indicators[ind.id].value
+        total = ind.value - start.indicators[ind.id].value
+        lines.append(f"  {ind.name:<26}{ind.value:>8.2f} {ind.unit:<6} ({last:+.2f}, {total:+.2f})")
     lines.append("  Approval")
     for g in state.groups.values():
-        lines.append(f"    {g.name:<24}{g.approval * 100:>6.1f}%")
+        last = (g.approval - previous.groups[g.id].approval) * 100
+        total = (g.approval - start.groups[g.id].approval) * 100
+        lines.append(f"    {g.name:<24}{g.approval * 100:>6.1f}%  ({last:+.1f}, {total:+.1f})")
+    national, vote = national_approval(state), vote_intention(state)
     lines.append(
-        f"  National {national_approval(state) * 100:.1f}%  ·  "
-        f"Vote intention {vote_intention(state) * 100:.1f}%"
+        f"  National {national * 100:.1f}% ({(national - national_approval(previous)) * 100:+.1f})"
+        f"  ·  Vote intention {vote * 100:.1f}% ({(vote - vote_intention(previous)) * 100:+.1f})"
     )
     return "\n".join(lines)
+
+
+def _previous(game: Game) -> WorldState:
+    """The state before the last turn played, so the dashboard can show what it changed."""
+    return game.history[-2].state_after if len(game.history) >= 2 else game.start
 
 
 def _report(record: TurnRecord) -> str:
@@ -224,7 +235,7 @@ def _main(argv: list[str] | None) -> None:
 
     try:
         while not game.over:
-            print("\n" + _dashboard(game.start, game.state))
+            print("\n" + _dashboard(game.start, game.state, _previous(game)))
             s = game.scenario
             print(f"\n== {s.title} ==\n{s.briefing}")
             for option in s.suggested_options:
@@ -243,7 +254,7 @@ def _main(argv: list[str] | None) -> None:
             print("\n" + _report(record))
             if client:
                 print(_usage_line(client, calls_before))
-        print("\n" + _dashboard(game.start, game.state))
+        print("\n" + _dashboard(game.start, game.state, _previous(game)))
     except (EOFError, KeyboardInterrupt):
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")
     finally:

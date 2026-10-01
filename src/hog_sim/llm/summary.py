@@ -28,6 +28,7 @@ class GroupLine(Model):
     name: str
     approval: float
     population_share: float
+    change: float | None = Field(None, description="Approval change over the recent window")
 
 
 class CountryLine(Model):
@@ -52,6 +53,9 @@ class StateSummary(Model):
     stressed_indicators: list[str]
     groups: list[GroupLine]
     angry_groups: list[str]
+    turning_groups: list[str] = Field(
+        default_factory=list, description="Groups whose approval fell sharply recently"
+    )
     foreign: list[CountryLine]
     foreign_tensions: list[str]
     institutions: list[InstitutionLine]
@@ -72,9 +76,12 @@ class StateSummary(Model):
             lines.append(f"- {i.id} {i.name}: {i.value:g}{unit}{change}{stress}")
         lines += ["", "Population groups (approval of government, 0-1):"]
         for g in self.groups:
+            change = f" ({g.change:+.2f} recently)" if g.change is not None else ""
             angry = "  [ANGRY]" if g.id in self.angry_groups else ""
+            turning = "  [TURNING AGAINST YOU]" if g.id in self.turning_groups else ""
             lines.append(
-                f"- {g.id} {g.name}: {g.approval:.2f}, {g.population_share:.0%} of voters{angry}"
+                f"- {g.id} {g.name}: {g.approval:.2f}{change}, "
+                f"{g.population_share:.0%} of voters{angry}{turning}"
             )
         lines += ["", "Foreign countries (relationship -1..1, stability 0..1):"]
         for c in self.foreign:
@@ -104,13 +111,15 @@ def summarise_state(
     window: int = 3,
     stress_threshold: float = 0.05,
     angry_below: float = 0.4,
+    turning_drop: float = 0.02,
     max_events: int = 8,
 ) -> StateSummary:
     """Summarise ``state`` for a prompt.
 
     An indicator is stressed when it moved by at least ``stress_threshold`` (relative) over
-    the last ``window`` turns of history. A group is angry below ``angry_below`` approval. A
-    foreign country is tense with a negative relationship or stability under 0.4.
+    the last ``window`` turns of history. A group is angry below ``angry_below`` approval and
+    turning when its approval fell by at least ``turning_drop`` over the window. A foreign
+    country is tense with a negative relationship or stability under 0.4.
     """
     indicators = []
     stressed = []
@@ -127,6 +136,11 @@ def summarise_state(
             stressed.append(ind.id)
 
     groups = sorted(state.groups.values(), key=lambda g: g.approval)
+    group_change = {
+        g.id: g.approval - (g.history[-window] if len(g.history) >= window else g.history[0])
+        for g in groups
+        if g.history
+    }
     foreign = [c for c in state.countries.values() if c.id != state.player_country]
     return StateSummary(
         turn=state.turn,
@@ -136,11 +150,16 @@ def summarise_state(
         stressed_indicators=stressed,
         groups=[
             GroupLine(
-                id=g.id, name=g.name, approval=g.approval, population_share=g.population_share
+                id=g.id,
+                name=g.name,
+                approval=g.approval,
+                population_share=g.population_share,
+                change=group_change.get(g.id),
             )
             for g in groups
         ],
         angry_groups=[g.id for g in groups if g.approval < angry_below],
+        turning_groups=[g.id for g in groups if group_change.get(g.id, 0.0) <= -turning_drop],
         foreign=[
             CountryLine(id=c.id, name=c.name, relationship=c.relationship, stability=c.stability)
             for c in foreign

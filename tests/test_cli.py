@@ -77,3 +77,20 @@ def test_check_llm_reports_the_model() -> None:
 
     client = FakeClient([{"reply": "connected"}])
     assert "claude-opus-5-5 replied 'connected'" in check_llm(client)
+
+
+def test_dashboard_shows_score_changes() -> None:
+    from hog_sim.world.seed.toy import toy_world
+
+    start = toy_world()
+    previous = start.snapshot()
+    previous.turn = 1
+    previous.groups["group:pensioners"].approval = 0.53
+    state = previous.snapshot()
+    state.turn = 2
+    state.groups["group:pensioners"].approval = 0.50
+    state.indicators["indicator:inflation"].value = 4.0
+    out = cli._dashboard(start, state, previous)
+    assert "(last turn, since start)" in out
+    assert "50.0%  (-3.0, -5.0)" in out
+    assert "(+0.50, +0.50)" in out
