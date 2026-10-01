@@ -17,12 +17,28 @@ uv run ruff check .
 uv run hog-sim            # play in the terminal (offline, rule-based stand-ins)
 uv run hog-sim --resume   # continue the last save
 uv run --extra llm hog-sim --check-llm   # one small call to confirm Claude is reachable
-uv run --extra llm hog-sim --llm         # play with Claude (needs ANTHROPIC_API_KEY)
+uv run --extra llm hog-sim --llm         # play with Claude (see "Connecting to Claude")
 ```
 
 The game prints its mode at startup. Without `--llm` it says OFFLINE PRACTICE: five built-in
 scenarios and keyword matching, no Claude. With `--llm` it names the Claude model, and each turn
 ends with a line counting the Claude calls, tokens and cost so far.
+
+## Connecting to Claude
+
+`--llm` reaches Claude in one of two ways, chosen with `--provider` (default `auto`):
+
+- **`claude-code`: your Claude subscription, no key.** Install [Claude Code](https://claude.com/claude-code),
+  run `claude` once and sign in. The game then runs Claude Code in headless mode (`claude -p`),
+  so calls count against your plan's usage limits. This is for playing on your own machine;
+  anyone else needs their own sign-in.
+- **`api`: the Anthropic API**, billed per token to a [Console](https://console.anthropic.com)
+  account. Either put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file next to `pyproject.toml`
+  (see `.env.example`; the file is git-ignored, so no environment variables to set on Windows),
+  or sign in through the browser with the `ant` CLI: `ant auth login`.
+
+`auto` uses the API when a key or `ant` sign-in exists, otherwise Claude Code. Check the
+connection with `hog-sim --check-llm`; it says which route it used.
 
 ## Layout
 
