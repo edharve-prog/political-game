@@ -1,0 +1,245 @@
+[
+  {
+    "id": "junior-doctors-vote-for-indefinite-strike",
+    "category": "health",
+    "title": "Junior doctors vote for indefinite strike",
+    "briefing": "The resident doctors' union has announced that 91 per cent of members voted for strike action on a 68 per cent turnout, with an indefinite walkout to begin in three weeks. The union is seeking a 26 per cent rise to restore pay to 2008 levels; the pay review body recommended six per cent. Health service leaders estimate each week of strikes cancels 80,000 appointments and procedures. Meeting the union halfway would cost £1.8bn a year and set a precedent for nurses and consultants, whose own ballots open next month.",
+    "affected_nodes": [
+      "sector:public",
+      "group:public_workers",
+      "group:pensioners"
+    ],
+    "urgency": 0.85,
+    "suggested_options": [
+      "Negotiate a multi-year pay deal with the union.",
+      "Fund the pay review body award in full and no more.",
+      "Regulate strikes with minimum service levels in hospitals."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:public_workers",
+        "stance": 0.9,
+        "statement": "We are worth more than this, and patients know it."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.4,
+        "statement": "Get the doctors back so operations go ahead."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "Settling high sets the benchmark for every union."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:public",
+        "delta": -0.5,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ],
+    "conditions": {
+      "group:public_workers": {
+        "op": "<",
+        "value": 0.45
+      }
+    }
+  },
+  {
+    "id": "leaked-report-shows-record-emergency-waits",
+    "category": "health",
+    "title": "Leaked report shows record emergency waits",
+    "briefing": "An internal performance report leaked to a national newspaper shows that 1 in 8 emergency patients waited more than twelve hours last month, the highest on record, and ambulance handover delays averaged 90 minutes in four regions. The report links 300 excess deaths to the delays. Hospital chiefs say the root cause is 13,000 patients medically fit for discharge but stuck in beds for lack of social care. Ministers must decide whether to push emergency money to hospitals, to social care, or to tie new funding to targets.",
+    "affected_nodes": [
+      "sector:public",
+      "group:pensioners",
+      "indicator:deficit"
+    ],
+    "urgency": 0.7,
+    "suggested_options": [
+      "Fund social care places to free up hospital beds.",
+      "Spend emergency winter money on hospitals and ambulances.",
+      "Regulate trusts with tougher targets and published league tables."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.8,
+        "statement": "People are dying in corridors."
+      },
+      {
+        "node": "group:public_workers",
+        "stance": 0.6,
+        "statement": "Targets without staff are meaningless."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Emergency funding keeps becoming permanent."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "group:pensioners": {
+        "op": "<",
+        "value": 0.4
+      }
+    }
+  },
+  {
+    "id": "care-home-operator-meadowcare-on-brink-of-collapse",
+    "category": "health",
+    "title": "Care home operator Meadowcare on brink of collapse",
+    "briefing": "Meadowcare, which runs 340 care homes housing 14,000 residents, has told the care regulator it will breach its banking covenants in six weeks. Its private equity owners will not inject more capital, and councils say they cannot absorb its residents if homes close. The regulator's market oversight team recommends a short-term rescue loan while a buyer is sought. Unions argue that the sector's debt-heavy ownership model is the real problem and want tighter rules on care home finances.",
+    "affected_nodes": [
+      "sector:public",
+      "group:pensioners",
+      "indicator:deficit"
+    ],
+    "urgency": 0.75,
+    "suggested_options": [
+      "Fund a short-term rescue loan to keep homes open.",
+      "Regulate care home finances with limits on debt.",
+      "Negotiate with the banks to extend Meadowcare's covenants.",
+      "Wait and let councils manage any closures."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.9,
+        "statement": "Moving frail residents can kill them."
+      },
+      {
+        "node": "sector:finance",
+        "stance": -0.3,
+        "statement": "Lenders need certainty before extending credit."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.4,
+        "statement": "Bailing out private equity sets a bad precedent."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:interest_rate": {
+        "op": ">",
+        "value": 4
+      }
+    }
+  },
+  {
+    "id": "winter-flu-wave-overwhelms-hospitals",
+    "category": "health",
+    "title": "Winter flu wave overwhelms hospitals",
+    "briefing": "The health security agency reports the earliest and steepest flu season in a decade, with hospital admissions doubling in a fortnight and bed occupancy above 97 per cent. Vaccine uptake among the over-65s is eight points below last year. Trusts are cancelling planned operations and three have declared critical incidents. Clinicians want a public campaign encouraging masks in crowded places and a vaccine drive; the Health Secretary is wary of measures that recall the pandemic. Extra winter funding would come from next year's capital budget.",
+    "affected_nodes": [
+      "sector:public",
+      "group:pensioners",
+      "group:public_workers"
+    ],
+    "urgency": 0.8,
+    "suggested_options": [
+      "Fund a mass vaccination drive and extra winter beds.",
+      "Regulate hospital visiting and encourage masks in crowded places.",
+      "Cut planned operations to free beds for flu patients."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:public_workers",
+        "stance": 0.7,
+        "statement": "Staff are exhausted and sick themselves."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.6,
+        "statement": "Make the jab easy to get."
+      },
+      {
+        "node": "group:business",
+        "stance": -0.4,
+        "statement": "No return to restrictions, please."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:public",
+        "delta": -0.4,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "court-rules-weight-loss-drug-rationing-unlawful",
+    "category": "health",
+    "title": "Court rules weight-loss drug rationing unlawful",
+    "briefing": "The High Court has ruled that the health service's policy of restricting a new weight-loss injection to patients with the most severe obesity is unlawful because it ignored its own clinical guidance. Officials estimate that offering the drug to all eligible patients would cost £2.5bn a year at current prices, though manufacturers have hinted at a volume discount. Clinicians argue it would reduce diabetes and heart disease over time. The government has 28 days to decide whether to appeal.",
+    "affected_nodes": [
+      "sector:public",
+      "indicator:deficit",
+      "group:pensioners"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Negotiate a volume price deal with the manufacturers.",
+      "Fund wider access to the drug from the health budget.",
+      "Regulate access through a phased rollout and appeal the ruling."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:pensioners",
+        "stance": 0.5,
+        "statement": "Patients should get what the guidance says."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.6,
+        "statement": "This would be the most expensive drug programme ever."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.4,
+        "statement": "A healthier workforce is a more productive one."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "drugmaker-offers-to-build-vaccine-plant-in-the-north",
+    "category": "health",
+    "title": "Drugmaker offers to build vaccine plant in the North",
+    "briefing": "Corvane Biologics has offered to build a £1.2bn vaccine manufacturing plant near Sunderland, creating 1,500 jobs, if the government commits to a ten-year supply contract and a capital grant of £200m. Officials say a domestic plant would strengthen pandemic preparedness. The firm has also been courted by the Netherlands and Ireland, and wants an answer within the quarter. Critics note the firm's lobbying for higher prices for its existing medicines in the health service.",
+    "affected_nodes": [
+      "sector:manufacturing",
+      "sector:public",
+      "group:business"
+    ],
+    "urgency": 0.35,
+    "suggested_options": [
+      "Fund the capital grant and sign the supply contract.",
+      "Negotiate a smaller grant tied to medicine price concessions.",
+      "Cut the offer loose and let the firm go elsewhere."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.8,
+        "statement": "This is exactly the industry we should be winning."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.3,
+        "statement": "Long contracts lock in future spending."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.6,
+        "statement": "It would anchor a life sciences cluster."
+      }
+    ],
+    "shocks": []
+  }
+]

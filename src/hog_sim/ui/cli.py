@@ -10,13 +10,14 @@ import argparse
 import os
 from pathlib import Path
 
+from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
 from hog_sim.core.state import WorldState
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
-from hog_sim.game.stubs import CannedScenarios, EngineForecaster, KeywordInterpreter
+from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.world.seed.toy import toy_world
 
@@ -50,7 +51,7 @@ def _report(record: TurnRecord) -> str:
 
 
 OFFLINE_BANNER = (
-    "Mode: OFFLINE PRACTICE. Scenarios come from a short built-in list and responses are\n"
+    "Mode: OFFLINE PRACTICE. Scenarios come from a built-in library and responses are\n"
     "matched by keywords; Claude is not used."
 )
 
@@ -208,7 +209,7 @@ def _main(argv: list[str] | None) -> None:
         plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
-        plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
+        plugins = (ScenarioLibrary.load(seed=args.seed), KeywordInterpreter(), EngineForecaster())
         print(OFFLINE_BANNER)
     game_id = store.latest_game() if args.resume else None
     if game_id:

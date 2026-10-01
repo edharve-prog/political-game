@@ -1,0 +1,209 @@
+[
+  {
+    "id": "trade-dispute-with-china",
+    "category": "foreign_affairs",
+    "title": "Trade dispute with China",
+    "briefing": "China slaps tariffs on British exports after a diplomatic row.",
+    "affected_nodes": [
+      "country:china",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Negotiate",
+      "Retaliate",
+      "Support manufacturers"
+    ],
+    "shocks": [
+      {
+        "node": "sector:manufacturing",
+        "delta": -0.8,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "eu-offers-veterinary-deal-in-exchange-for-rule-alignment",
+    "category": "foreign_affairs",
+    "title": "EU offers veterinary deal in exchange for rule alignment",
+    "briefing": "The European Commission has tabled a draft agreement that would remove most border checks on food and plant exports if Britain agrees to follow EU rules in that area and accept a role for the European Court in disputes. Exporters estimate it would save them £1.5bn a year and revive trade with the continent. Sceptic backbenchers call it a betrayal of sovereignty and say it would block trade deals elsewhere. Negotiators need a mandate before the next round of talks in Brussels in a fortnight.",
+    "affected_nodes": [
+      "country:eu",
+      "group:business",
+      "sector:manufacturing"
+    ],
+    "urgency": 0.45,
+    "suggested_options": [
+      "Negotiate the veterinary agreement with the EU.",
+      "Negotiate with Europe for a narrower deal without court oversight.",
+      "Hold firm and decline alignment."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.8,
+        "statement": "Paperwork at the border is killing small exporters."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.5,
+        "statement": "We did not leave to become rule-takers."
+      },
+      {
+        "node": "country:eu",
+        "stance": 0.5,
+        "statement": "Alignment is the price of frictionless trade."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "chinese-bid-for-british-chip-designer",
+    "category": "foreign_affairs",
+    "title": "Chinese bid for British chip designer",
+    "briefing": "Halcyon Semiconductor, a Cambridge chip designer with 900 staff, has accepted a £3.2bn takeover offer from a Shenzhen-based group with links to state investment funds. The security services have advised that Halcyon's power-management designs are used in military drones. Blocking the deal would require a national security order, and Halcyon's backers say no other buyer has emerged. The Chinese embassy has warned that a block would be treated as discrimination, and ministers are due to sign trade protocols with Beijing next month.",
+    "affected_nodes": [
+      "country:china",
+      "sector:manufacturing",
+      "sector:finance"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Ban the takeover with a national security order.",
+      "Negotiate conditions with China to keep the designs in the UK.",
+      "Fund a British investor consortium to make a rival bid."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:finance",
+        "stance": -0.4,
+        "statement": "Blocking bids scares off investors."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": 0.6,
+        "statement": "We cannot sell our defence supply chain."
+      },
+      {
+        "node": "country:china",
+        "stance": -0.7,
+        "statement": "This is a commercial deal and should be judged as one."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "eu-carbon-border-levy-hits-british-exporters",
+    "category": "foreign_affairs",
+    "title": "EU carbon border levy hits British exporters",
+    "briefing": "The EU's carbon border adjustment enters its charging phase next quarter, and British steel, cement and fertiliser exporters face levies of up to €90 a tonne unless the UK links its own carbon market with the EU's. Industry bodies say £4bn of exports are at risk. Linking the schemes would mean accepting EU oversight of the UK carbon price and raising it by about a third, which would increase costs for heavy industry at home. A British border levy of our own is an alternative but would take two years to introduce.",
+    "affected_nodes": [
+      "country:eu",
+      "sector:manufacturing",
+      "group:business"
+    ],
+    "urgency": 0.5,
+    "suggested_options": [
+      "Negotiate a link between the UK and EU carbon markets.",
+      "Subsidise exporters to cover the levy for two years.",
+      "Tax carbon-intensive imports with a British border levy."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "sector:manufacturing",
+        "stance": 0.7,
+        "statement": "Without a deal we are priced out of our biggest market."
+      },
+      {
+        "node": "country:eu",
+        "stance": 0.4,
+        "statement": "Linking is the cleanest solution."
+      },
+      {
+        "node": "group:business",
+        "stance": 0.3,
+        "statement": "Firms need certainty before the charges begin."
+      }
+    ],
+    "shocks": [
+      {
+        "node": "sector:manufacturing",
+        "delta": -0.4,
+        "start_turn": 0,
+        "duration_turns": 1
+      }
+    ]
+  },
+  {
+    "id": "chinese-premier-proposes-a-state-visit",
+    "category": "foreign_affairs",
+    "title": "Chinese premier proposes a state visit",
+    "briefing": "The Chinese premier has proposed an official visit to London in the spring, offering to sign £8bn of investment agreements in renewables, ports and life sciences. Officials see a chance to reopen agricultural exports closed since last year's dispute. Human rights groups and a cross-party group of fifty MPs have demanded the visit be conditional on the release of a detained British journalist. Allies have privately questioned whether the investments touch sensitive infrastructure. The embassy wants an answer within a week.",
+    "affected_nodes": [
+      "country:china",
+      "institution:legislature",
+      "group:business"
+    ],
+    "urgency": 0.35,
+    "suggested_options": [
+      "Negotiate the visit and the investment package with China.",
+      "Negotiate with China to make the visit conditional on the journalist's release.",
+      "Ban Chinese investment in ports and energy and decline the visit."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "group:business",
+        "stance": 0.7,
+        "statement": "Engagement brings orders and jobs."
+      },
+      {
+        "node": "institution:legislature",
+        "stance": -0.6,
+        "statement": "We should not roll out the red carpet while a Briton is detained."
+      },
+      {
+        "node": "country:china",
+        "stance": 0.8,
+        "statement": "The relationship is ready for a new chapter."
+      }
+    ],
+    "shocks": []
+  },
+  {
+    "id": "backbench-rebellion-over-aid-budget-cut",
+    "category": "foreign_affairs",
+    "title": "Backbench rebellion over aid budget cut",
+    "briefing": "The Foreign Secretary has proposed cutting the overseas aid budget from 0.5 to 0.3 per cent of national income to fund higher defence spending. Sixty government backbenchers, led by two former development ministers, have tabled an amendment to the finance bill to block it, and the government's majority is 48. Aid charities warn that vaccination and famine programmes in East Africa would close. The Treasury says the saving is £4.5bn a year and is already counted in the spending plans.",
+    "affected_nodes": [
+      "institution:legislature",
+      "indicator:deficit",
+      "country:uk"
+    ],
+    "urgency": 0.6,
+    "suggested_options": [
+      "Cut the aid budget and whip hard against the rebels.",
+      "Negotiate a slower cut with the rebel leaders.",
+      "Fund aid at current levels and find savings elsewhere."
+    ],
+    "stakeholder_positions": [
+      {
+        "node": "institution:legislature",
+        "stance": -0.7,
+        "statement": "Breaking the aid pledge shames the country."
+      },
+      {
+        "node": "group:pensioners",
+        "stance": 0.3,
+        "statement": "Charity begins at home."
+      }
+    ],
+    "shocks": [],
+    "conditions": {
+      "indicator:deficit": {
+        "op": ">",
+        "value": 5
+      }
+    }
+  }
+]
