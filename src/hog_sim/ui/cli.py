@@ -1,4 +1,8 @@
-"""Minimal text interface: ``uv run hog-sim`` (add ``--resume`` to continue the last save)."""
+"""Minimal text interface: ``uv run hog-sim`` (add ``--resume`` to continue the last save).
+
+The game plays with Claude whenever it can reach it, and drops to offline practice (canned
+scenarios, keyword matching) only when it can't, or when asked to with ``--offline``.
+"""
 
 from __future__ import annotations
 
@@ -47,8 +51,10 @@ def _report(record: TurnRecord) -> str:
 
 OFFLINE_BANNER = (
     "Mode: OFFLINE PRACTICE. Scenarios come from a short built-in list and responses are\n"
-    "matched by keywords; Claude is not used. Run with --llm to play with Claude."
+    "matched by keywords; Claude is not used."
 )
+
+NO_CLAUDE_NOTE = "Could not reach Claude, so this game is offline practice."
 
 
 def _llm_client(provider: str):
@@ -62,7 +68,7 @@ def _llm_client(provider: str):
         raise SystemExit(str(exc)) from None
 
 
-def _llm_banner(model_config, forecast_config, provider: str) -> str:
+def _llm_banner(model_config, forecast_config, provider: str, note: str | None = None) -> str:
     from hog_sim.llm.providers import describe
 
     models = sorted(
@@ -74,7 +80,8 @@ def _llm_banner(model_config, forecast_config, provider: str) -> str:
         }
     )
     return (
-        f"Mode: CLAUDE ({', '.join(models)}) via {describe(provider)}.\n"
+        (f"{note}\n" if note else "")
+        + f"Mode: CLAUDE ({', '.join(models)}) via {describe(provider)}.\n"
         "Scenarios, your responses and outcomes are written by Claude. Each turn ends with\n"
         "a line counting the calls it made."
     )
@@ -136,24 +143,32 @@ def main(argv: list[str] | None = None) -> None:
 
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
-    from hog_sim.llm.providers import PROVIDERS
+    from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
     load_env()
     parser = argparse.ArgumentParser(description="Head of Government Simulator")
     parser.add_argument("--save", default="saves/game.db")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--llm",
         action="store_true",
-        help="use Claude for scenarios, interpretation and outcomes",
+        help="insist on Claude: stop with an explanation instead of falling back to offline "
+        "practice (Claude is already used by default whenever it can be reached)",
+    )
+    mode.add_argument(
+        "--offline",
+        action="store_true",
+        help="offline practice: built-in scenarios and keyword matching, no Claude",
     )
     parser.add_argument(
         "--provider",
         choices=PROVIDERS,
-        default=os.environ.get("HOG_SIM_PROVIDER", "auto"),
-        help="how to reach Claude: api (API key or `ant auth login`), claude-code (your "
-        "Claude Code sign-in), or auto (api if credentials exist, else claude-code)",
+        default=os.environ.get("HOG_SIM_PROVIDER", DEFAULT_PROVIDER),
+        help="how to reach Claude: claude-code (the default: your Claude Code sign-in, "
+        "falling back to the API when Claude Code is missing or signed out and an API key "
+        "exists) or api (API key or `ant auth login`)",
     )
     parser.add_argument(
         "--check-llm",
@@ -165,22 +180,33 @@ def _main(argv: list[str] | None) -> None:
     if args.check_llm:
         from hog_sim.llm.providers import describe
 
-        client, provider = _llm_client(args.provider)
+        client, provider, note = _llm_client(args.provider)
+        if note:
+            print(note)
         print(check_llm(client) + f" Connected via {describe(provider)}.")
         return
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
     store = SaveStore(args.save)
     client = None
-    if args.llm:
+    if not args.offline:
+        from hog_sim.llm.client import LLMError
+        from hog_sim.llm.providers import make_client
+
+        try:
+            client, provider, note = make_client(args.provider)
+        except LLMError as exc:
+            if args.llm:
+                raise SystemExit(str(exc)) from None
+            print(f"{NO_CLAUDE_NOTE}\n{exc}\n")
+    if client:
         from hog_sim.forecasting.candidates import ForecastConfig
         from hog_sim.game.llm_plugins import llm_plugins
         from hog_sim.llm.client import ModelConfig
 
-        client, provider = _llm_client(args.provider)
         model_config, forecast_config = ModelConfig(), ForecastConfig()
         plugins = llm_plugins(client, model_config=model_config, forecast_config=forecast_config)
-        print(_llm_banner(model_config, forecast_config, provider))
+        print(_llm_banner(model_config, forecast_config, provider, note))
     else:
         plugins = (CannedScenarios(args.seed), KeywordInterpreter(), EngineForecaster())
         print(OFFLINE_BANNER)

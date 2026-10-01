@@ -170,7 +170,10 @@ class LLMUnavailable(LLMError):
     """Claude could not be reached: no credit, bad credentials, rate limits, outages."""
 
 
-OTHER_ROUTE_HINT = "To use your Claude subscription instead, run with --provider claude-code."
+OTHER_ROUTE_HINT = (
+    "To use your Claude subscription instead, install Claude Code and sign in by running "
+    "`claude`; the game uses it by default unless --provider api is set."
+)
 
 
 def describe_api_error(exc: Exception) -> str:
