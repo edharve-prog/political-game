@@ -50,6 +50,7 @@ def test_query_helpers(graph) -> None:
     assert drivers_of(graph, "indicator:inflation") == {
         "indicator:energy_prices": 0.3,
         "indicator:interest_rate": -0.4,
+        "indicator:deficit": 0.1,
     }
     assert set(groups_caring_about(graph, "indicator:house_prices")) == {
         "group:pensioners",

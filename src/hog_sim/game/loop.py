@@ -46,7 +46,7 @@ def resolve(
     config: GameConfig,
 ) -> WorldState:
     """Apply one turn's chosen outcome and advance the clock. Deterministic."""
-    shocks = actions_to_shocks(actions) + scenario.shocks + outcome.shocks
+    shocks = actions_to_shocks(actions, state) + scenario.shocks + outcome.shocks
     trajectory = simulate(state, shocks, config.horizon)
 
     pending = {t: dict(d) for t, d in state.pending.items()}
@@ -114,7 +114,7 @@ class Game:
             raise RuntimeError("the game is over")
         state, scenario, cfg = self.state, self.scenario, self.config
         actions = self.interpreter.interpret(response, state, scenario)
-        shocks = actions_to_shocks(actions) + scenario.shocks
+        shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
         candidates = self.forecaster.forecast(state, scenario, actions, engine)
         chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))

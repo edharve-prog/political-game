@@ -151,3 +151,30 @@ def test_replay_still_matches_with_history() -> None:
     for response in RESPONSES[:4]:
         game.play_turn(response)
     assert replay(game.start, game.config, game.history) == game.state
+
+
+def test_unfunded_spending_loses_to_funded_spending() -> None:
+    """Spending on everything should not buy an election; paying for it should do better."""
+    from hog_sim.population.popularity import vote_intention
+
+    def play(responses):
+        game, _ = new_game(seed=1, election_turn=24)
+        for i in range(24):
+            game.play_turn(responses[i % len(responses)])
+        return vote_intention(game.state), game.state.indicators["indicator:deficit"].value
+
+    unfunded = [
+        "huge spending on public pay rise",
+        "huge spend on housebuilding",
+        "huge subsidy for energy",
+    ]
+    funded = [
+        "huge subsidy for energy",
+        "huge spending on public pay rise",
+        "huge tax on banks",
+        "huge tax on banks",
+    ]
+    vote_unfunded, deficit_unfunded = play(unfunded)
+    vote_funded, deficit_funded = play(funded)
+    assert deficit_unfunded > deficit_funded + 5
+    assert vote_funded > vote_unfunded

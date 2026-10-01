@@ -85,3 +85,16 @@ def test_election(world) -> None:
     result = run_election(world)
     assert result.total_seats == 650
     assert result.majority == (result.vote_share > 0.5)
+
+
+def test_high_deficit_costs_every_group(world) -> None:
+    from hog_sim.population.popularity import DEFICIT_TOLERANCE
+
+    base = target_approval(world, reference=toy_world())
+    world.indicators["indicator:deficit"].value = DEFICIT_TOLERANCE  # at tolerance: no penalty
+    at = target_approval(world, reference=toy_world())
+    world.indicators["indicator:deficit"].value = DEFICIT_TOLERANCE + 5
+    above = target_approval(world, reference=toy_world())
+    for gid in world.groups:
+        assert above[gid] < at[gid]
+    assert at["group:young_renters"] == base["group:young_renters"]  # renters ignore deficit
