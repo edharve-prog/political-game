@@ -30,9 +30,9 @@ PROVIDERS: tuple[str, ...] = ("claude-code", "api", "auto")
 DEFAULT_PROVIDER = "claude-code"
 
 NO_BACKEND_HELP = """\
---llm needs a way to reach Claude. Pick one:
+The game needs a way to reach Claude. Pick one:
   1. Your Claude subscription: install Claude Code (https://claude.com/claude-code),
-     run `claude` once and sign in. Then: hog-sim --llm
+     run `claude` once and sign in. Then: hog-sim
   2. An API key from https://console.anthropic.com: put this line in a file called .env
      next to pyproject.toml:
          ANTHROPIC_API_KEY=sk-ant-...
