@@ -262,6 +262,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Stability tests: long no-action runs shouldn't explode or flatline.
   - LLM output quality checks: diversity of candidates, consistency, rate of validation failures.
   - Calibration of outcome probabilities over many simulated turns.
+  - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread.
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
 
 ### Project 12 — Stretch Goals
@@ -383,6 +384,7 @@ Smallest thing that is fun and proves the architecture:
 |---|---|
 | LLM outputs drift or contradict state | Strict schemas, engine as source of truth, state summary in every prompt |
 | Runaway feedback loops | Damping, caps, stability tests |
+| Dominant strategies (e.g. spend on everything, see Project 11) | Real costs for deficits, backtests against unpopular-but-necessary episodes |
 | Game becomes solvable/deterministic | Sampling selection mode, hidden variables, random events |
 | Cost/latency per turn too high | Caching, smaller models for classification, batch candidate generation in one call |
 | News incompatible with game world | Divergence filter; adapt rather than import |
