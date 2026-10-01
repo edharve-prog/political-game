@@ -281,12 +281,12 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 0 | Foundations | — | Package layout, `core/models.py` schemas, config, seeded RNG |
 | 1 | World Model & State | 0 | `WorldState`, `snapshot()`/`diff()`, graph query helpers |
 | 2 | Seed Data | 1 | `load_start_state(country, date) -> WorldState` |
-| 3 | Simulation Engine | 1 | `propagate(state, actions, shocks, k_draws) -> DeltaDistribution` |
-| 4 | Population & Popularity | 1, 3 | `approval(state) -> {group: score}`, `vote_intention()`, `run_election()` |
-| 5 | LLM: Scenarios & Interpretation | 0, 1 | `generate_scenario(summary) -> Scenario`, `interpret(text, state) -> [PolicyAction]`, `check_feasibility()` |
-| 6 | Forecasting & Selection | 3, 4, 5 | `forecast(state, actions) -> [Candidate]`, `select(candidates, mode) -> Outcome` |
+| 3 | Simulation Engine | 1 | `propagate(state, shocks, horizon, k_draws, seed) -> DeltaDistribution`, `simulate()`, `actions_to_shocks()`, `apply_deltas()` |
+| 4 | Population & Popularity | 1, 3 | `step_approval(state, reference)`, `target_approval()`, `national_approval()`, `vote_intention()`, `run_election()` |
+| 5 | LLM: Scenarios & Interpretation | 0, 1 | `summarise_state(state) -> StateSummary`, `generate_scenario(summary, client) -> GeneratedScenario`, `interpret(text, summary, client) -> Interpretation` (actions + optional clarifying question), `policy/feasibility.py: check_feasibility(actions, state, role) -> FeasibilityReport` |
+| 6 | Forecasting & Selection | 3, 4, 5 | `Forecaster.forecast(state, scenario, actions, engine) -> [Outcome]`, `select(candidates, mode, rng) -> index` |
 | 7 | News Ingestion | 1, 5 | `fetch_seeds(state) -> [ScenarioSeed]` with compatibility score |
-| 8 | Game Loop & Persistence | 3–6 | `play_turn()`, save/load, deterministic replay |
+| 8 | Game Loop & Persistence | 3–6 | `Game.play_turn()`, `Game.resume()`, `replay()`, `SaveStore`; plug-in protocols in `game/interfaces.py` (Project 5 needs small adapters: its `interpret` takes a `StateSummary` and returns an `Interpretation`) |
 | 9 | Goals & Modes | 4, 8 | `check_goals(state, mode) -> Progress / Win / Loss` |
 | 10 | Interface | 8 | CLI, later web UI |
 | 11 | Evaluation & Calibration | 3, 4, 6 | Backtest suite, tuned weights |
@@ -314,14 +314,14 @@ Smallest thing that is fun and proves the architecture:
 | # | Project | Status | Notes |
 |---|---|---|---|
 | 0 | Foundations | Done | Skeleton, core schemas, CI on main |
-| 1 | World Model & State | In review | See projects/01-world-model.md |
+| 1 | World Model & State | In review (PR #1) | See projects/01-world-model.md |
 | 2 | Seed Data | Not started | |
-| 3 | Simulation Engine | In review | See projects/03-simulation-engine.md |
-| 4 | Population & Popularity | In review | See projects/04-popularity.md |
-| 5 | LLM: Scenarios & Interpretation | Not started | |
+| 3 | Simulation Engine | In review (PR #2) | See projects/03-simulation-engine.md |
+| 4 | Population & Popularity | In review (PR #3) | See projects/04-popularity.md |
+| 5 | LLM: Scenarios & Interpretation | In review (PR #5) | See projects/05-llm-layer.md |
 | 6 | Outcome Forecasting & Selection | Not started | |
 | 7 | News Ingestion | Not started | |
-| 8 | Game Loop & Persistence | In review | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
+| 8 | Game Loop & Persistence | In review (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
@@ -341,6 +341,9 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | Engine calibrated against historical backtests (Project 11) | Checks direction and size of effects against real episodes |
 | 2026-10-01 | MVP: UK PM, generated scenarios only, free text, group popularity, one election at turn 24, CLI | Prove the core loop before seed data, news and revolution modes |
 | 2026-10-01 | Start with Project 0 and Project 1 together (schemas first) | Every other project is written against these models |
+| 2026-10-01 | Engine works in normalised standard steps; effects in flight live in `WorldState.pending` | Comparable edge weights; lagged effects survive across turns and saves |
+| 2026-10-01 | Turns split into decide (may call LLM) and resolve (deterministic, from the log) | Exact replay without LLM calls |
+| 2026-10-01 | The LLM reads a `StateSummary`, never the WorldState; feasibility is deterministic engine code | Keeps the LLM out of the numbers |
 
 ---
 
