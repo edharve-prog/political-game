@@ -27,6 +27,9 @@ LIMITS = {
     "max_single_lever_win_share": 0.34,  # a bot pulling one lever every turn
     "max_do_nothing_win_share": 0.0,
     "max_share_of_turns_at_a_bound": 0.1,  # bounds are a backstop, not what keeps things sane
+    # Acting must not be punished on average: the lever bots' mean vote may trail doing
+    # nothing by at most this much (EB-7).
+    "max_acting_penalty": 0.005,
 }
 
 
@@ -154,6 +157,15 @@ def table(results: list[BotResult]) -> str:
 def problems(results: list[BotResult]) -> list[str]:
     """Every way the results break ``LIMITS``; empty when the game is balanced enough."""
     found = []
+    nothing = next((r for r in results if r.name == "do nothing"), None)
+    levers = [r for r in results if r.lever]
+    if nothing and levers:
+        acting = fmean(fmean(g.vote_share for g in r.games) for r in levers)
+        idle = fmean(g.vote_share for g in nothing.games)
+        if idle - acting > LIMITS["max_acting_penalty"]:
+            found.append(
+                f"acting averages {acting:.1%} of the vote against {idle:.1%} for doing nothing"
+            )
     for r in results:
         if r.lever and r.win_share > LIMITS["max_single_lever_win_share"]:
             found.append(f"{r.name!r} wins {r.win_share:.0%} of games")
