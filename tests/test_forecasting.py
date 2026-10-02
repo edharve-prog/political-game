@@ -160,6 +160,7 @@ def scripted_responder(engine):
     """Answers every LLM call the game makes, by schema."""
     scenario = ScenarioDraft(
         title="Energy bills soar",
+        category="energy",
         briefing="Bills are up and pensioners are worried.",
         affected_nodes=["indicator:energy_prices", "group:pensioners"],
         urgency=0.7,

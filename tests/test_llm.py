@@ -39,6 +39,7 @@ def summary(world: WorldState):
 def draft(**overrides) -> dict:
     data = {
         "title": "Energy firms warn of winter blackouts",
+        "category": "energy",
         "briefing": "Three suppliers say they cannot buy enough gas for winter.",
         "affected_nodes": ["sector:energy", "indicator:energy_prices", "group:pensioners"],
         "urgency": 0.8,
@@ -110,7 +111,7 @@ def test_usage_is_logged(summary) -> None:
     generate_scenario(summary, client)
     record = client.usage.records[0]
     assert record.schema_name == "ScenarioDraft"
-    assert record.prompt_version == "scenario-1"
+    assert record.prompt_version == "scenario-2"
 
 
 # --- Recording -------------------------------------------------------------
@@ -387,3 +388,25 @@ def test_adapters_drive_the_game_loop(world: WorldState) -> None:
         record = game.play_turn("Windfall tax on energy firms")
         assert [a.kind for a in record.actions] == ["tax"]
     assert game.state.turn == 2
+
+
+def test_scenario_prompt_lists_recent_scenarios_and_keeps_category(world: WorldState) -> None:
+    from hog_sim.core.config import GameConfig
+    from hog_sim.game.loop import Game
+    from hog_sim.game.stubs import EngineForecaster
+    from hog_sim.llm.adapters import LLMInterpreter, LLMScenarioSource
+
+    def responder(request: LLMRequest) -> dict:
+        if request.schema_name == "ScenarioDraft":
+            return draft()
+        return {"actions": [action()]}
+
+    client = FakeClient(responder=responder)
+    game = Game(
+        GameConfig(), world, LLMScenarioSource(client), LLMInterpreter(client), EngineForecaster()
+    )
+    game.play_turn("Windfall tax on energy firms")
+    assert game.history[0].scenario.category == "energy"
+    prompts = [r.messages[0].content for r in client.requests if r.schema_name == "ScenarioDraft"]
+    assert "Recent scenarios" not in prompts[0]
+    assert "- [energy] Energy firms warn of winter blackouts" in prompts[-1]

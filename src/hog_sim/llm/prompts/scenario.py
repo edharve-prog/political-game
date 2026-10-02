@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-1"
+VERSION = "scenario-2"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -17,11 +17,16 @@ events are the raw material; do not invent a crisis the numbers cannot explain
 - are concrete: a named event with a trigger (a strike ballot, a supplier collapse, a leaked \
 report, a summit invitation), not a general mood
 - carry a real trade-off, so no option pleases everyone
-- do not repeat a recent event unless it is escalating
+- vary the ground: across a game the leader should face the economy, energy, housing, health, \
+education, crime and justice, immigration, defence and security, foreign affairs, environment \
+and disasters, party politics and scandal, and media and technology. Do not repeat a recent \
+scenario or stay in the same category two turns running unless that story is sharply escalating
 - refer to foreign leaders by role ("the Chinese premier"), never by a real person's name
 
 Fields:
 - title: a headline, under 12 words
+- category: one of economy, energy, housing, health, education, crime_justice, immigration, \
+defence_security, foreign_affairs, environment_disasters, party_scandal, media_technology
 - briefing: 80-200 words in the voice of a civil service briefing note
 - affected_nodes: node ids from the briefing, most affected first; only ids that appear there
 - urgency: 0 (can wait months) to 1 (needs an answer today)
@@ -32,5 +37,6 @@ statement of what they want
 """
 
 
-def render(summary_prompt: str) -> str:
-    return f"{summary_prompt}\n\nWrite this turn's scenario."
+def render(summary_prompt: str, recent: str = "") -> str:
+    recent_block = f"\n\n{recent}" if recent else ""
+    return f"{summary_prompt}{recent_block}\n\nWrite this turn's scenario."

@@ -24,25 +24,11 @@ from typing import Literal, get_args
 from pydantic import Field
 
 from hog_sim.core.config import make_rng
-from hog_sim.core.models import Model
+from hog_sim.core.models import Category, Model
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.llm.scenario_gen import GeneratedScenario
 
-Category = Literal[
-    "economy",
-    "energy",
-    "housing",
-    "health",
-    "education",
-    "crime_justice",
-    "immigration",
-    "defence_security",
-    "foreign_affairs",
-    "environment_disasters",
-    "party_scandal",
-    "media_technology",
-]
 CATEGORIES: tuple[str, ...] = get_args(Category)
 
 BUILTIN_DIR = Path(__file__).parent / "scenarios"

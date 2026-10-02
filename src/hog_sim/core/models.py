@@ -188,6 +188,23 @@ class GraphChange(Model):
         return f"{verb} {self.source} -{self.edge_kind}-> {self.target} {self.delta:+.2f}"
 
 
+# Issue categories for scenarios (backlog story SD-3).
+Category = Literal[
+    "economy",
+    "energy",
+    "housing",
+    "health",
+    "education",
+    "crime_justice",
+    "immigration",
+    "defence_security",
+    "foreign_affairs",
+    "environment_disasters",
+    "party_scandal",
+    "media_technology",
+]
+
+
 class Scenario(Model):
     title: str
     briefing: str
@@ -196,6 +213,7 @@ class Scenario(Model):
     source: Literal["news", "generated", "scheduled"] = "generated"
     suggested_options: list[str] = Field(default_factory=list)
     shocks: list[Shock] = Field(default_factory=list, description="Exogenous shocks it brings")
+    category: Category | None = None
 
 
 class Outcome(Model):

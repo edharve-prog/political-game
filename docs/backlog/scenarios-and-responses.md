@@ -48,7 +48,7 @@ As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioriti
   combined.
 - Replay reproduces the same state from the log.
 
-### SD-3 Scenario variety and anti-repetition (P1, offline part done in PR #11)
+### SD-3 Scenario variety and anti-repetition (P1, done: offline in PR #11, Claude mode in PR #17)
 As a player, I want each turn to feel different from the last.
 - The scenario prompt receives the last 8 scenario titles and categories and must avoid them
   unless it is continuing an existing storyline (SD-1).
