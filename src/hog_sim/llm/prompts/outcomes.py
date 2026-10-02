@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-2"
+VERSION = "outcomes-3"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -37,6 +37,8 @@ briefing's world by at most 0.1 (set source, target, edge_kind, delta); "add_edg
 new link such as a new trade tie or rivalry, weight within 0.3 and lag 0-6 turns (set source, \
 target, edge_kind, delta, lag). Leave unused fields null and lag 0. Give a one-line reason.
 - event_tags: from the allowed list; use "none" for a quiet outcome
+- resolves_storyline: true only when this outcome settles the issue for good (a deal \
+signed, the strike called off, the bill passed). Most outcomes leave the story open to come back
 - self_probability: your own estimate that this candidate is what happens, 0..1. The \
 candidates' probabilities should add up to about 1.
 

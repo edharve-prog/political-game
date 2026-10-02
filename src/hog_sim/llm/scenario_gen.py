@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pydantic import Field
 
-from hog_sim.core.models import Category, Model, Scenario
+from hog_sim.core.models import Category, Model, Scenario, Storyline
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import scenario as prompt
 from hog_sim.llm.summary import StateSummary
+from hog_sim.world.storylines import new_storyline_id
 
 
 class StakeholderPosition(Model):
@@ -31,14 +34,20 @@ class ScenarioDraft(Model):
     # List lengths are checked in check_draft: structured outputs only accept minItems 0 or 1.
     suggested_options: list[str]
     stakeholder_positions: list[StakeholderPosition]
+    storyline: str = Field(description="Id of the open storyline this continues, or 'new'")
 
 
 # Variety is asked for in the prompt, not enforced here: a failed check would stop the turn.
 RECENT_TURNS = 8
 
 
-def check_draft(draft: ScenarioDraft, catalogue: dict[str, str]) -> list[str]:
+def check_draft(
+    draft: ScenarioDraft, catalogue: dict[str, str], storylines: Sequence[Storyline] = ()
+) -> list[str]:
     problems = []
+    ids = [s.id for s in storylines]
+    if draft.storyline != "new" and draft.storyline not in ids:
+        problems.append(f"storyline must be 'new' or one of {ids}")
     if not draft.affected_nodes:
         problems.append("affected_nodes is empty")
     if not 2 <= len(draft.suggested_options) <= 4:
@@ -61,22 +70,30 @@ def generate_scenario(
     client: LLMClient,
     config: ModelConfig | None = None,
     recent: list[Scenario] | None = None,
+    storylines: list[Storyline] | None = None,
+    storylines_prompt: str = "",
 ) -> GeneratedScenario:
+    """``storylines`` are the open ones the draft may continue; ``storylines_prompt`` shows
+    them with their history (``world.storylines.storylines_text``)."""
     config = config or ModelConfig()
     recent = list(recent or [])[-RECENT_TURNS:]
+    storylines = list(storylines or [])
     draft = structured_call(
         client,
         output_type=ScenarioDraft,
         system=prompt.SYSTEM,
-        prompt=prompt.render(summary.to_prompt(), recent_text(recent)),
+        prompt=prompt.render(summary.to_prompt(), recent_text(recent), storylines_prompt),
         model=config.scenario_model,
         prompt_version=prompt.VERSION,
         effort=config.scenario_effort,
         max_tokens=config.max_tokens,
         max_attempts=config.max_attempts,
-        check=lambda d: check_draft(d, summary.catalogue),
+        check=lambda d: check_draft(d, summary.catalogue, storylines),
     )
-    return GeneratedScenario(source="generated", **draft.model_dump())
+    fields = draft.model_dump()
+    if draft.storyline == "new":
+        fields["storyline"] = new_storyline_id(draft.title, summary.turn)
+    return GeneratedScenario(source="generated", **fields)
 
 
 def recent_text(recent: list[Scenario]) -> str:
@@ -90,6 +107,8 @@ def recent_text(recent: list[Scenario]) -> str:
 def scenario_text(scenario: Scenario) -> str:
     """Plain-text rendering used when a scenario is passed back into a prompt."""
     lines = [scenario.title, "", scenario.briefing]
+    if scenario.storyline:
+        lines += ["", "This is part of an ongoing storyline."]
     if scenario.suggested_options:
         lines += ["", "Options on the table:"] + [f"- {o}" for o in scenario.suggested_options]
     return "\n".join(lines)

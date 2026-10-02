@@ -123,6 +123,7 @@ def candidates(engine, changes=(CHINA_COOLS,)):
             new_shocks=[],
             graph_changes=[change_draft(c) for c in changes],
             event_tags=["none"],
+            resolves_storyline=False,
             self_probability=p,
         )
 
@@ -135,6 +136,7 @@ SCENARIO = ScenarioDraft(
     briefing="Bills are up and pensioners are worried.",
     affected_nodes=["indicator:energy_prices", "group:pensioners", "sector:energy"],
     urgency=0.7,
+    storyline="new",
     suggested_options=["Tax windfall profits", "Do nothing"],
     stakeholder_positions=[
         StakeholderPosition(node="group:pensioners", stance=0.8, statement="Help us."),

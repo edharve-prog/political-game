@@ -93,7 +93,8 @@ def to_library_scenario(
     scenario: Scenario, state: WorldState, provenance: Provenance
 ) -> LibraryScenario:
     data = scenario.model_dump()
-    for extra in ("id", "category", "conditions", "weight", "origin", "provenance"):
+    # A storyline id belongs to the game it came from, so library copies stand alone.
+    for extra in ("id", "category", "conditions", "weight", "origin", "provenance", "storyline"):
         data.pop(extra, None)
     return LibraryScenario(
         **data,

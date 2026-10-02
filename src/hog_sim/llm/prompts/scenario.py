@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-2"
+VERSION = "scenario-3"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -21,6 +21,10 @@ report, a summit invitation), not a general mood
 education, crime and justice, immigration, defence and security, foreign affairs, environment \
 and disasters, party politics and scandal, and media and technology. Do not repeat a recent \
 scenario or stay in the same category two turns running unless that story is sharply escalating
+- build stories, not one-offs: when the briefing lists open storylines, continue one whose \
+pressure is high or that the leader has not faced for a few turns, showing how it has moved on \
+since its last stage and how the leader's earlier response shaped it. Open a new storyline \
+when nothing open is pressing; with five or more open, continue one
 - refer to foreign leaders by role ("the Chinese premier"), never by a real person's name
 
 Fields:
@@ -31,12 +35,13 @@ defence_security, foreign_affairs, environment_disasters, party_scandal, media_t
 - affected_nodes: node ids from the briefing, most affected first; only ids that appear there
 - urgency: 0 (can wait months) to 1 (needs an answer today)
 - suggested_options: 2-4 short, distinct responses the leader could take, each one sentence
+- storyline: the id of the open storyline this continues, or "new"
 - stakeholder_positions: 2-5 nodes (groups, institutions, countries or sectors) with a stance \
 from -1 (strongly opposes government acting) to 1 (strongly demands it) and a one-sentence \
 statement of what they want
 """
 
 
-def render(summary_prompt: str, recent: str = "") -> str:
-    recent_block = f"\n\n{recent}" if recent else ""
-    return f"{summary_prompt}{recent_block}\n\nWrite this turn's scenario."
+def render(summary_prompt: str, recent: str = "", storylines: str = "") -> str:
+    blocks = "".join(f"\n\n{b}" for b in (recent, storylines) if b)
+    return f"{summary_prompt}{blocks}\n\nWrite this turn's scenario."

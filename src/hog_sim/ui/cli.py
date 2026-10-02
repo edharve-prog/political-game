@@ -357,7 +357,21 @@ def _main(argv: list[str] | None) -> None:
         while not game.over:
             print("\n" + _dashboard(game.start, game.state, _previous(game)))
             s = game.scenario
-            print(f"\n== {s.title} ==\n{s.briefing}")
+            print(f"\n== {s.title} ==")
+            story = game.state.storylines.get(s.storyline or "")
+            if story is not None:
+                print(f"(Continues: {story.title}, now at stage {story.stage + 1})")
+            print(s.briefing)
+            ignored = [
+                t
+                for t in game.state.storylines.values()
+                if t.open and t.id != s.storyline and game.state.turn - t.last_addressed >= 2
+            ]
+            if ignored:
+                print(
+                    "Still unresolved: "
+                    + "; ".join(f"{t.title} (stage {t.stage})" for t in ignored)
+                )
             for i, option in enumerate(s.suggested_options, 1):
                 print(f"  {i}. {option}")
             calls_before = len(client.usage.records) if client else 0

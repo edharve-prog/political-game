@@ -54,6 +54,7 @@ def draft(title, inflation, tags=("none",), p=0.25, effects=(), shocks=(), chang
         new_shocks=[NewShock(node=n, steps=s) for n, s in shocks],
         graph_changes=list(changes),
         event_tags=list(tags),
+        resolves_storyline=False,
         self_probability=p,
     )
 
@@ -164,6 +165,7 @@ def scripted_responder(engine):
         briefing="Bills are up and pensioners are worried.",
         affected_nodes=["indicator:energy_prices", "group:pensioners"],
         urgency=0.7,
+        storyline="new",
         suggested_options=["Tax windfall profits", "Do nothing"],
         stakeholder_positions=[
             StakeholderPosition(node="group:pensioners", stance=0.8, statement="Help us."),

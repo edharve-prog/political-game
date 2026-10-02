@@ -93,6 +93,7 @@ class CandidateDraft(Model):
     new_shocks: list[NewShock]
     graph_changes: list[GraphChangeDraft]
     event_tags: list[EventTag]
+    resolves_storyline: bool
     self_probability: float = Field(ge=0, le=1)
 
 
@@ -296,6 +297,7 @@ def to_outcome(draft: CandidateDraft, scores: CandidateScores) -> Outcome:
         approval_events=[ApprovalEvent(name=draft.title, group_effects=effects)] if effects else [],
         shocks=[Shock(node=s.node, delta=s.steps) for s in draft.new_shocks if s.steps],
         graph_changes=[g.to_change() for g in draft.graph_changes],
+        resolves_storyline=draft.resolves_storyline,
         probability=scores.probability,
         scores=scores.model_dump(exclude={"probability"}),
     )

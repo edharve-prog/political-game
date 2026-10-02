@@ -40,6 +40,7 @@ def draft(**overrides) -> dict:
     data = {
         "title": "Energy firms warn of winter blackouts",
         "category": "energy",
+        "storyline": "new",
         "briefing": "Three suppliers say they cannot buy enough gas for winter.",
         "affected_nodes": ["sector:energy", "indicator:energy_prices", "group:pensioners"],
         "urgency": 0.8,
@@ -111,7 +112,7 @@ def test_usage_is_logged(summary) -> None:
     generate_scenario(summary, client)
     record = client.usage.records[0]
     assert record.schema_name == "ScenarioDraft"
-    assert record.prompt_version == "scenario-2"
+    assert record.prompt_version == "scenario-3"
 
 
 # --- Recording -------------------------------------------------------------

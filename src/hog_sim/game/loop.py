@@ -15,6 +15,8 @@ Before anything is forecast, ``policy.limits.constrain`` applies feasibility, di
 returns and the political-capital budget in every mode; the record keeps the actions that
 were actually applied and notes saying why any were cut.
 
+Storylines (issues that run across turns) move in resolve too: see ``world/storylines.py``.
+
 Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
 node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
 """
@@ -33,6 +35,7 @@ from hog_sim.policy.limits import constrain
 from hog_sim.population.popularity import policy_events, run_election, step_approval
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
+from hog_sim.world.storylines import advance_storylines
 
 
 def _record_history(state: WorldState) -> WorldState:
@@ -79,6 +82,7 @@ def resolve(
     new = apply_graph_changes(new, action_changes(new, actions))
     new = apply_graph_changes(new, outcome.graph_changes)
     new = step_approval(new, reference=start)
+    new = advance_storylines(new, state.turn, scenario, outcome)
     new.turn = state.turn + 1
     return new
 
