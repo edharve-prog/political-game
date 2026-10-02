@@ -67,6 +67,20 @@ class Institution(Node):
     independence: float = Field(0.5, ge=0, le=1)
 
 
+ActionKind = Literal[
+    "tax",
+    "spend",
+    "regulate",
+    "deregulate",
+    "diplomatic",
+    "military",
+    "communicate",
+    "legislate",
+    "appoint",
+    "do_nothing",
+]
+
+
 class Indicator(Node):
     value: float
     unit: str = ""
@@ -80,6 +94,11 @@ class Indicator(Node):
     )
     controlled_by: str | None = Field(
         None, description="Institution that sets this indicator, e.g. the central bank"
+    )
+    interventions: list[ActionKind] = Field(
+        default_factory=list,
+        description="Action kinds that may aim at this indicator directly (a price cap is "
+        "'regulate'); every other policy has to work through a sector, group or institution",
     )
     history: list[float] = Field(
         default_factory=list, description="Value at the start of each past turn, oldest first"
@@ -116,18 +135,7 @@ class Edge(Model):
 
 
 class PolicyAction(Model):
-    kind: Literal[
-        "tax",
-        "spend",
-        "regulate",
-        "deregulate",
-        "diplomatic",
-        "military",
-        "communicate",
-        "legislate",
-        "appoint",
-        "do_nothing",
-    ]
+    kind: ActionKind
     target: str
     magnitude: float = Field(ge=-1, le=1)
     duration_turns: int = Field(1, ge=1)

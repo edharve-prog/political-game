@@ -104,13 +104,15 @@ class DeltaDistribution(Model):
 # Sign of the first-order effect of each action kind on its target's primary metric. When
 # the target is an indicator, the action's magnitude already says which way the player wants
 # it to go ("cap bills" is energy prices, negative), so only the size of the factor is used.
+# Diplomatic and military actions do not push their target's growth this way: they move its
+# standing (``world/changes.action_changes``) and, where it makes sense, trade (``FOREIGN``).
 _ACTION_SIGN = {
     "tax": -1.0,
     "spend": 1.0,
     "regulate": -0.5,
     "deregulate": 0.5,
-    "diplomatic": 1.0,
-    "military": 1.0,
+    "diplomatic": 0.0,
+    "military": 0.0,
     "communicate": 0.2,
     "legislate": 1.0,
     "appoint": 0.5,
@@ -140,6 +142,38 @@ MIN_FISCAL_TURNS = 6
 REGULATION_OUTPUT_COST = 0.25
 
 
+# Foreign policy towards another country, in standard steps of its growth per unit of
+# magnitude. A deal or sanctions move trade only with a trading partner, in the direction of
+# the magnitude. Military escalation disrupts the target's economy (and, through trade, the
+# player's); de-escalation moves only the relationship.
+FOREIGN = {"diplomatic", "military"}
+DIPLOMATIC_TRADE_STEPS = 0.5
+MILITARY_DISRUPTION_STEPS = 1.0
+
+
+def _trades(state: WorldState, a: str, b: str) -> bool:
+    return any(
+        e.kind == EdgeKind.TRADES_WITH and {e.source, e.target} == {a, b} for e in state.edges
+    )
+
+
+def foreign_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
+    """Economic shocks from a diplomatic or military action towards a foreign country."""
+    if (
+        state is None
+        or action.target not in state.countries
+        or action.target == state.player_country
+    ):
+        return []
+    if action.kind == "diplomatic" and _trades(state, state.player_country, action.target):
+        delta = DIPLOMATIC_TRADE_STEPS * action.magnitude
+    elif action.kind == "military" and action.magnitude > 0:
+        delta = -MILITARY_DISRUPTION_STEPS * action.magnitude
+    else:
+        return []
+    return [Shock(node=action.target, delta=delta, duration_turns=action.duration_turns, hold=True)]
+
+
 def fiscal_size(action: PolicyAction) -> float:
     """Signed size of the action's budget move: positive spends more or taxes more.
 
@@ -163,6 +197,9 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
     shocks = []
     for action in actions:
         turns = action.duration_turns
+        if action.kind in FOREIGN:
+            shocks += foreign_shocks(action, state)
+            continue
         push = action_factor(action) * action.magnitude
         if push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))

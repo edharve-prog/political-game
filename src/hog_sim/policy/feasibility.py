@@ -13,6 +13,11 @@ Rules for the MVP:
   blocker above ``deficit_limit`` (deficit in % of GDP).
 - Independent institutions (independence >= 0.7) cannot be directed, and nor can the
   indicators only they drive (Bank Rate). Communicating with them is always allowed.
+- Each kind of action fits only some kinds of target (``COMPATIBLE``): diplomacy and military
+  action need a foreign country, appointments an institution. An indicator can be acted on
+  directly only by the interventions it declares (``Indicator.interventions``, such as a
+  price cap on energy bills); everything else has to work through a sector, group or
+  institution, so the world graph carries the trade-offs.
 """
 
 from __future__ import annotations
@@ -21,7 +26,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from hog_sim.core.models import EdgeKind, Institution, Model, PolicyAction
+from hog_sim.core.models import EdgeKind, Institution, Model, NodeKind, PolicyAction
 from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import fiscal_size
 
@@ -36,6 +41,45 @@ LEGISLATIVE_KINDS = {"tax", "spend", "legislate"}
 INDEPENDENCE_THRESHOLD = 0.7
 LEGISLATURE_ID = "institution:legislature"
 DEFICIT_ID = "indicator:deficit"
+
+
+# Action kinds each kind of target accepts (``do_nothing`` fits anything). Indicators take
+# only their own ``interventions``; the player's own country takes domestic policy only.
+_DOMESTIC = {"tax", "spend", "regulate", "deregulate", "legislate", "communicate"}
+COMPATIBLE: dict[NodeKind, set[str]] = {
+    NodeKind.COUNTRY: {"diplomatic", "military", "communicate"},
+    NodeKind.SECTOR: _DOMESTIC,
+    NodeKind.GROUP: _DOMESTIC,
+    NodeKind.INSTITUTION: {
+        "spend",
+        "regulate",
+        "deregulate",
+        "legislate",
+        "communicate",
+        "appoint",
+    },
+}
+
+
+def compatibility_problem(action: PolicyAction, state: WorldState) -> str | None:
+    """Why ``action`` cannot be aimed at its target, or None when it can."""
+    if action.kind == "do_nothing" or action.target not in set(state.node_ids()):
+        return None
+    node = state.node(action.target)
+    if node.kind == NodeKind.INDICATOR:
+        if action.kind in state.indicators[action.target].interventions:
+            return None
+        return (
+            f"{action.kind} cannot set {node.name} directly; act on a sector, group or "
+            "institution that drives it"
+        )
+    if action.target == state.player_country:
+        allowed = _DOMESTIC
+    else:
+        allowed = COMPATIBLE[node.kind]
+    if action.kind in allowed:
+        return None
+    return f"{action.kind} does not apply to {node.name}"
 
 
 class ActionCheck(Model):
@@ -129,6 +173,9 @@ def _check(
         controller = _independent_controller(action.target, state)
         if controller is not None:
             blockers.append(f"{controller.name} is independent of government")
+
+    if (problem := compatibility_problem(action, state)) is not None:
+        blockers.append(problem)
 
     return ActionCheck(
         action=action,

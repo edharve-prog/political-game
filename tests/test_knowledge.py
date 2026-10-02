@@ -106,6 +106,19 @@ def test_too_many_graph_changes(world) -> None:
     extra = CHINA_COOLS.model_copy(update={"node": "country:eu"})
     problems = validate_graph_changes(world, [CHINA_COOLS, EU_TIES, NEW_LINK, extra])
     assert any("at most 3" in p for p in problems)
+    # An outcome's changes are still capped when applied; the player's own are not.
+    nudges = [
+        CHINA_COOLS.model_copy(update={"node": n, "attr": "stability", "delta": -0.1})
+        for n in ("country:china", "country:eu", "country:china", "country:eu")
+    ]
+    capped = apply_graph_changes(world, nudges)
+    trusted = apply_graph_changes(world, nudges, trusted=True)
+    assert capped.countries["country:eu"].stability == pytest.approx(
+        world.countries["country:eu"].stability - 0.1
+    )
+    assert trusted.countries["country:eu"].stability == pytest.approx(
+        world.countries["country:eu"].stability - 0.2
+    )
 
 
 # --- a Claude game on a fake client ------------------------------------------
