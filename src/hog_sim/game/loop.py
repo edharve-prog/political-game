@@ -142,6 +142,12 @@ class Game:
     def over(self) -> bool:
         return self.state.turn >= self.config.election_turn
 
+    def add_options(self, options: list[str]) -> None:
+        """Add options to this turn's numbered list (advisers, story RB-3). The turn doesn't
+        advance, and resolve never reads options, so replay is unaffected."""
+        merged = list(dict.fromkeys([*self.scenario.suggested_options, *options]))
+        self.scenario = self.scenario.model_copy(update={"suggested_options": merged})
+
     def propose(self, response: str) -> Proposal:
         """Interpret ``response`` and apply this turn's limits, without changing anything.
 

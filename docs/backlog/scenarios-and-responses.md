@@ -41,7 +41,7 @@ As a player, I want issues to continue across turns, so my earlier decisions com
 - Note (PR #21): ignored storylines escalate after 3 idle turns. Offline library scenarios are
   still one-offs; giving them follow-up stages is a later content task.
 
-### SD-2 Several issues per turn (P1, done in PR #22 for Claude mode)
+### SD-2 Several issues per turn (P1, done in PR #22 for Claude mode, merged)
 As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioritise.
 - Each turn shows one lead issue plus 1 to 3 secondary items (one-paragraph briefings).
 - The player can respond to any subset. An item left alone has consequences: it carries
@@ -138,7 +138,7 @@ As a player, I want to see how my response was understood before the turn resolv
 - Only confirmed actions reach the engine. The log stores the confirmed list, so replay is
   unchanged.
 
-### RB-3 Ask advisers for new options (P1)
+### RB-3 Ask advisers for new options (P1, done in PR #23)
 As a player, I want to ask for more or different options ("what would the left of the party
 want?", "something cheaper").
 - The command `advise <question>` returns 2 to 4 new options from Claude, grounded in the

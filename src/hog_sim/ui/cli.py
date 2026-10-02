@@ -22,6 +22,7 @@ from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
+from hog_sim.llm.advisers import Advisers
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.seed.toy import toy_world
@@ -81,11 +82,16 @@ def _proposal_text(proposal: Proposal, dropped: list[str]) -> str:
     return "\n".join(lines)
 
 
-def _ask_for_turn(game: Game) -> Proposal | None:
-    """Build, review and confirm this turn's actions. ``None`` means start the response again."""
-    options = game.scenario.suggested_options
+def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | None:
+    """Build, review and confirm this turn's actions. ``None`` means start the response again.
+
+    ``advise <question>`` asks the advisers for more options instead (Claude mode only)."""
     while True:
-        raw = input("\nYour response (option numbers, words, or both: 1 3 + freeze fares)> ")
+        raw = input(RESPONSE_PROMPT)
+        if raw.strip().lower().split()[:1] == ["advise"]:
+            print(_advice(game, advisers, raw.strip()[len("advise") :].strip()))
+            continue
+        options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
             proposal = game.propose(response)
@@ -107,6 +113,31 @@ def _ask_for_turn(game: Game) -> Proposal | None:
             dropped = []
         except ValueError as err:
             print(f"  {err}")
+
+
+RESPONSE_PROMPT = (
+    "\nYour response (option numbers, words, or both: 1 3 + freeze fares; or advise <question>)> "
+)
+
+
+def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
+    """Ask the advisers and add their options to the numbered list."""
+    if advisers is None:
+        return "  Advisers need Claude; this game is offline practice."
+    if not question:
+        return "  Ask them something, for example: advise something cheaper"
+    from hog_sim.llm.client import LLMError
+
+    try:
+        advice = advisers.ask(question, game.state, game.scenario)
+    except LLMError as err:
+        return f"  The advisers couldn't answer: {err}"
+    start = len(game.scenario.suggested_options) + 1
+    game.add_options([a.option for a in advice])
+    lines = ["  Your advisers suggest:"]
+    for i, a in enumerate(advice, start):
+        lines += [f"  {i}. {a.option}", f"       Trade-off: {a.trade_off}"]
+    return "\n".join(lines)
 
 
 OFFLINE_BANNER = (
@@ -344,6 +375,7 @@ def _main(argv: list[str] | None) -> None:
     knowledge = KnowledgeStore(args.save)
     recaller = Recaller(knowledge)
     client = None
+    advisers = None
     if not args.offline:
         from hog_sim.llm.client import LLMError
         from hog_sim.llm.providers import make_client
@@ -366,6 +398,7 @@ def _main(argv: list[str] | None) -> None:
             forecast_config=forecast_config,
             recaller=recaller,
         )
+        advisers = Advisers(client, config=model_config)
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
         plugins = (
@@ -401,7 +434,7 @@ def _main(argv: list[str] | None) -> None:
             state_before = game.state
             proposal = None
             while proposal is None:
-                proposal = _ask_for_turn(game)
+                proposal = _ask_for_turn(game, advisers)
             record = game.commit(proposal)
             store.save_turn(game_id, record)
             if client:
