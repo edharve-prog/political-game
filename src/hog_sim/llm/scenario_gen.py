@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 from pydantic import Field
 
-from hog_sim.core.models import Category, Model, Scenario, Storyline
+from hog_sim.core.models import Category, Model, Scenario, SideIssue, Storyline
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import scenario as prompt
 from hog_sim.llm.summary import StateSummary
@@ -23,6 +23,15 @@ class GeneratedScenario(Scenario):
     stakeholder_positions: list[StakeholderPosition] = Field(default_factory=list)
 
 
+class SideIssueDraft(Model):
+    title: str
+    category: Category
+    briefing: str
+    affected_nodes: list[str]
+    urgency: float = Field(ge=0, le=1)
+    storyline: str = Field(description="Id of the open storyline this continues, or 'new'")
+
+
 class ScenarioDraft(Model):
     """What the model writes. ``source`` is not the model's to choose, so it is set here."""
 
@@ -35,6 +44,7 @@ class ScenarioDraft(Model):
     suggested_options: list[str]
     stakeholder_positions: list[StakeholderPosition]
     storyline: str = Field(description="Id of the open storyline this continues, or 'new'")
+    secondary: list[SideIssueDraft]
 
 
 # Variety is asked for in the prompt, not enforced here: a failed check would stop the turn.
@@ -46,8 +56,17 @@ def check_draft(
 ) -> list[str]:
     problems = []
     ids = [s.id for s in storylines]
-    if draft.storyline != "new" and draft.storyline not in ids:
-        problems.append(f"storyline must be 'new' or one of {ids}")
+    items = [draft, *draft.secondary]
+    if any(i.storyline != "new" and i.storyline not in ids for i in items):
+        problems.append(f"each storyline must be 'new' or one of {ids}")
+    continued = [i.storyline for i in items if i.storyline != "new"]
+    if len(set(continued)) != len(continued):
+        problems.append("each storyline may appear only once in the in-tray")
+    if not 1 <= len(draft.secondary) <= 3:
+        problems.append("give 1-3 secondary items")
+    titles = [i.title.strip().lower() for i in items]
+    if len(set(titles)) != len(titles):
+        problems.append("in-tray items need distinct titles")
     if not draft.affected_nodes:
         problems.append("affected_nodes is empty")
     if not 2 <= len(draft.suggested_options) <= 4:
@@ -56,6 +75,9 @@ def check_draft(
         problems.append("give 2-5 stakeholder_positions")
     unknown = [n for n in draft.affected_nodes if n not in catalogue]
     unknown += [s.node for s in draft.stakeholder_positions if s.node not in catalogue]
+    unknown += [n for i in draft.secondary for n in i.affected_nodes if n not in catalogue]
+    if any(not i.affected_nodes for i in draft.secondary):
+        problems.append("every secondary item needs affected_nodes")
     if unknown:
         problems.append(f"unknown node ids {sorted(set(unknown))}; use ids from the briefing")
     if len(set(draft.affected_nodes)) != len(draft.affected_nodes):
@@ -90,10 +112,22 @@ def generate_scenario(
         max_attempts=config.max_attempts,
         check=lambda d: check_draft(d, summary.catalogue, storylines),
     )
-    fields = draft.model_dump()
-    if draft.storyline == "new":
-        fields["storyline"] = new_storyline_id(draft.title, summary.turn)
-    return GeneratedScenario(source="generated", **fields)
+    fields = draft.model_dump(exclude={"secondary"})
+    fields["storyline"] = _storyline_id(draft.storyline, draft.title, summary.turn)
+    secondary = [
+        SideIssue(
+            **{
+                **item.model_dump(),
+                "storyline": _storyline_id(item.storyline, item.title, summary.turn),
+            }
+        )
+        for item in draft.secondary
+    ]
+    return GeneratedScenario(source="generated", secondary=secondary, **fields)
+
+
+def _storyline_id(storyline: str, title: str, turn: int) -> str:
+    return new_storyline_id(title, turn) if storyline == "new" else storyline
 
 
 def recent_text(recent: list[Scenario]) -> str:
@@ -109,6 +143,9 @@ def scenario_text(scenario: Scenario) -> str:
     lines = [scenario.title, "", scenario.briefing]
     if scenario.storyline:
         lines += ["", "This is part of an ongoing storyline."]
+    if scenario.secondary:
+        lines += ["", "Also in the in-tray this turn (the leader may act on any of them):"]
+        lines += [f"- {i.title}: {i.briefing}" for i in scenario.secondary]
     if scenario.suggested_options:
         lines += ["", "Options on the table:"] + [f"- {o}" for o in scenario.suggested_options]
     return "\n".join(lines)

@@ -28,7 +28,7 @@ from hog_sim.game.loop import Game, replay
 from hog_sim.game.stubs import CannedScenarios
 from hog_sim.llm.client import FakeClient, LLMOutputError
 from hog_sim.llm.interpreter import Interpretation
-from hog_sim.llm.scenario_gen import ScenarioDraft, StakeholderPosition
+from hog_sim.llm.scenario_gen import ScenarioDraft, SideIssueDraft, StakeholderPosition
 from hog_sim.world.propagation import actions_to_shocks, propagate
 from hog_sim.world.seed.toy import toy_world
 
@@ -166,6 +166,16 @@ def scripted_responder(engine):
         affected_nodes=["indicator:energy_prices", "group:pensioners"],
         urgency=0.7,
         storyline="new",
+        secondary=[
+            SideIssueDraft(
+                title="Rents climb again",
+                category="housing",
+                briefing="Young renters face another rise.",
+                affected_nodes=["sector:housing", "group:young_renters"],
+                urgency=0.4,
+                storyline="new",
+            )
+        ],
         suggested_options=["Tax windfall profits", "Do nothing"],
         stakeholder_positions=[
             StakeholderPosition(node="group:pensioners", stance=0.8, statement="Help us."),

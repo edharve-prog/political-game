@@ -26,7 +26,12 @@ from hog_sim.knowledge.recall import Recaller, recall
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.client import FakeClient
 from hog_sim.llm.interpreter import Interpretation
-from hog_sim.llm.scenario_gen import GeneratedScenario, ScenarioDraft, StakeholderPosition
+from hog_sim.llm.scenario_gen import (
+    GeneratedScenario,
+    ScenarioDraft,
+    SideIssueDraft,
+    StakeholderPosition,
+)
 from hog_sim.ui.cli import main
 from hog_sim.world.changes import apply_graph_changes, validate_graph_changes
 from hog_sim.world.propagation import actions_to_shocks, propagate
@@ -137,6 +142,16 @@ SCENARIO = ScenarioDraft(
     affected_nodes=["indicator:energy_prices", "group:pensioners", "sector:energy"],
     urgency=0.7,
     storyline="new",
+    secondary=[
+        SideIssueDraft(
+            title="Rents climb again",
+            category="housing",
+            briefing="Young renters face another rise.",
+            affected_nodes=["sector:housing", "group:young_renters"],
+            urgency=0.4,
+            storyline="new",
+        )
+    ],
     suggested_options=["Tax windfall profits", "Do nothing"],
     stakeholder_positions=[
         StakeholderPosition(node="group:pensioners", stance=0.8, statement="Help us."),

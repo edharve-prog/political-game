@@ -28,7 +28,7 @@ Priority: **P1** = needed before the 30-turn LLM review is worth doing, **P2** =
 
 Turn one-shot scenarios into ongoing stories that escalate, branch and come back.
 
-### SD-1 Storyline threads (P1, done in PR #21 for Claude mode)
+### SD-1 Storyline threads (P1, done in PR #21 for Claude mode, merged)
 As a player, I want issues to continue across turns, so my earlier decisions come back to me.
 - A `Storyline` record (id, title, stage, open/closed, linked nodes, turn opened, last turn
   touched) is saved in `WorldState` and survives save, resume and replay.
@@ -41,7 +41,7 @@ As a player, I want issues to continue across turns, so my earlier decisions com
 - Note (PR #21): ignored storylines escalate after 3 idle turns. Offline library scenarios are
   still one-offs; giving them follow-up stages is a later content task.
 
-### SD-2 Several issues per turn (P1)
+### SD-2 Several issues per turn (P1, done in PR #22 for Claude mode)
 As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioritise.
 - Each turn shows one lead issue plus 1 to 3 secondary items (one-paragraph briefings).
 - The player can respond to any subset. An item left alone has consequences: it carries
@@ -49,6 +49,8 @@ As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioriti
 - Engine resolution stays one deterministic step per turn, with all responses' actions
   combined.
 - Replay reproduces the same state from the log.
+- Note (PR #22): an item counts as acted on when an action targets one of its nodes. Minor
+  items (urgency under 0.3) left alone fade; others carry over and escalate as storylines.
 
 ### SD-3 Scenario variety and anti-repetition (P1, done: offline in PR #11, Claude mode in PR #17)
 As a player, I want each turn to feel different from the last.

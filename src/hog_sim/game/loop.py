@@ -88,7 +88,7 @@ def resolve(
     new = apply_graph_changes(new, action_changes(new, actions))
     new = apply_graph_changes(new, outcome.graph_changes)
     new = step_approval(new, reference=start)
-    new = advance_storylines(new, state.turn, scenario, outcome)
+    new = advance_storylines(new, state.turn, scenario, outcome, actions)
     new.turn = state.turn + 1
     return new
 

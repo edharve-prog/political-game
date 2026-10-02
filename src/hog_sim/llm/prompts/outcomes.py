@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-4"
+VERSION = "outcomes-5"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -20,7 +20,8 @@ candidate dramatic; quiet outcomes are common.
 
 Fields of each candidate:
 - title: under 10 words
-- narrative: 40-120 words, past tense, as a news summary written three months later
+- narrative: 40-120 words, past tense, as a news summary written three months later. When \
+the in-tray had other items the leader did not act on, say briefly what became of one
 - indicator_shifts: the change in each indicator you expect three turns from now, in the \
 indicator's own units, for indicators you have a view on (copy the engine's expectation when \
 you agree with it). Only indicator ids from the briefing.

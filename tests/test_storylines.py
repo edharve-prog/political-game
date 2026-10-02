@@ -59,6 +59,17 @@ def test_scenario_without_storyline_changes_nothing() -> None:
     assert advance_storylines(state, 0, scenario("One-off", None), outcome()) is state
 
 
+def side(title: str, urgency: float, storyline: str = "new", nodes=("sector:housing",)) -> dict:
+    return {
+        "title": title,
+        "category": "housing",
+        "briefing": "Something else needs attention.",
+        "affected_nodes": list(nodes),
+        "urgency": urgency,
+        "storyline": storyline,
+    }
+
+
 def claude_game(turns: int):
     """A FakeClient game whose scenario writer continues the top open storyline two turns
     in three, and otherwise opens a new one."""
@@ -83,6 +94,7 @@ def claude_game(turns: int):
                 {"node": "group:pensioners", "stance": 0.8, "statement": "Help us."},
                 {"node": "sector:energy", "stance": -0.5, "statement": "Hands off."},
             ],
+            "secondary": [side(f"Minor grumble {turn}", 0.2)],
         }
 
     client = FakeClient(responder=responder)
