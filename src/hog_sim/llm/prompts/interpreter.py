@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-2"
+VERSION = "interpret-3"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -42,6 +42,11 @@ Split compound responses into one action per distinct measure. If a measure cann
 mapped to any node, leave it out and list it in unmapped. If the response is too vague to act \
 on at all ("sort it out"), return no actions and ask one short clarifying_question; otherwise \
 clarifying_question is null.
+
+The leader may pick several of the suggested options, shown as lines starting "Option:", and \
+add their own words after "Also:". Treat all of it as one package. If two picks contradict \
+each other (cutting spending and spending more on the same thing), return no actions and ask \
+which one they mean.
 """
 
 

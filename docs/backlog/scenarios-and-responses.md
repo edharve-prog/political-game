@@ -115,7 +115,7 @@ As a player, I want more groups, sectors and countries, so policies hit people u
 Make responding expressive: pick, combine, tune and invent policies, and see how they were
 read.
 
-### RB-1 Pick and combine options (P1)
+### RB-1 Pick and combine options (P1, done in PR #19)
 As a player, I want to choose several suggested options and add my own words, so I can build
 a package.
 - Options are numbered. Input like `1 3 + also freeze rail fares` selects options 1 and 3 and
@@ -125,7 +125,7 @@ a package.
 - Contradictory picks (for example "cut spending" and "spend more on housing") get a
   clarifying question instead of silently cancelling each other out.
 
-### RB-2 Review before committing (P1)
+### RB-2 Review before committing (P1, done in PR #19)
 As a player, I want to see how my response was understood before the turn resolves.
 - After interpretation, the game shows the action list: kind, target, size, duration, and any
   blocked by feasibility with the reason.

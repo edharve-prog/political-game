@@ -21,8 +21,10 @@ node -> native change), so a policy's lagged tail keeps arriving after the turn 
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from hog_sim.core.config import GameConfig, make_rng
-from hog_sim.core.models import Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Model, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
@@ -81,6 +83,15 @@ def resolve(
     return new
 
 
+class Proposal(Model):
+    """A turn's interpreted actions before they are committed."""
+
+    response: str
+    requested: list[PolicyAction]
+    actions: list[PolicyAction]
+    notes: list[str] = Field(default_factory=list)
+
+
 class Game:
     def __init__(
         self,
@@ -121,19 +132,51 @@ class Game:
     def over(self) -> bool:
         return self.state.turn >= self.config.election_turn
 
-    def play_turn(self, response: str) -> TurnRecord:
+    def propose(self, response: str) -> Proposal:
+        """Interpret ``response`` and apply this turn's limits, without changing anything.
+
+        May raise ``NeedsClarification``. Show the result, let the player edit it, then
+        ``commit`` it (backlog story RB-2).
+        """
         if self.over:
             raise RuntimeError("the game is over")
-        state, scenario, cfg = self.state, self.scenario, self.config
-        requested = self.interpreter.interpret(response, state, scenario)
+        requested = self.interpreter.interpret(response, self.state, self.scenario)
+        return self._limit(response, requested)
+
+    def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
+        """The same proposal with the player's edited actions, re-checked against the limits."""
+        return self._limit(proposal.response, actions, proposal.requested)
+
+    def _limit(
+        self,
+        response: str,
+        actions: list[PolicyAction],
+        requested: list[PolicyAction] | None = None,
+    ) -> Proposal:
+        cfg = self.config
         limited = constrain(
-            requested,
-            state,
+            actions,
+            self.state,
             [r.actions for r in self.history],
             cfg.role,
             cfg.capital_per_turn,
         )
-        actions = limited.actions
+        return Proposal(
+            response=response,
+            requested=list(requested if requested is not None else actions),
+            actions=limited.actions,
+            notes=limited.notes,
+        )
+
+    def play_turn(self, response: str) -> TurnRecord:
+        return self.commit(self.propose(response))
+
+    def commit(self, proposal: Proposal) -> TurnRecord:
+        """Forecast, pick an outcome and resolve the turn with the proposal's actions."""
+        if self.over:
+            raise RuntimeError("the game is over")
+        state, scenario, cfg = self.state, self.scenario, self.config
+        actions = proposal.actions
         shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
         candidates = self.forecaster.forecast(state, scenario, actions, engine)
@@ -144,14 +187,14 @@ class Game:
         record = TurnRecord(
             turn=state.turn,
             scenario=scenario,
-            response=response,
+            response=proposal.response,
             actions=actions,
             candidates=candidates,
             chosen=chosen,
             state_after=new,
             election=election,
-            requested_actions=requested,
-            notes=limited.notes,
+            requested_actions=proposal.requested,
+            notes=proposal.notes,
         )
         self.state = new
         self.history.append(record)

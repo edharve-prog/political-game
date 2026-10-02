@@ -88,9 +88,17 @@ _SIZE = [(r"huge|major|big|massive", 0.9), (r"small|modest|slight", 0.25)]
 
 
 class KeywordInterpreter:
-    """Turns free text into at most one PolicyAction with keyword rules."""
+    """Turns free text into PolicyActions with keyword rules: one per line of a package built
+    from "Option:" and "Also:" lines (backlog story RB-1), otherwise one for the whole text."""
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
+        parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
+        if len(parts) < 2:
+            return self._one(text, state, scenario)
+        actions = [a for part in parts for a in self._one(part, state, scenario)]
+        return [a for a in actions if a.kind != "do_nothing"] or actions[:1]
+
+    def _one(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         t = text.lower()
         if not t.strip() or re.search(r"nothing|wait|hold firm", t):
             return [PolicyAction(kind="do_nothing", target=state.player_country, magnitude=0)]

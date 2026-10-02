@@ -14,7 +14,7 @@ from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
 from hog_sim.core.state import WorldState
 from hog_sim.game.interfaces import NeedsClarification
-from hog_sim.game.loop import Game
+from hog_sim.game.loop import Game, Proposal
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
@@ -22,6 +22,7 @@ from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.population.popularity import national_approval, vote_intention
+from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.seed.toy import toy_world
 
 
@@ -62,6 +63,48 @@ def _report(record: TurnRecord) -> str:
             f"{e.seats}/{e.total_seats} seats. {verdict}"
         )
     return "\n".join(lines)
+
+
+REVIEW_PROMPT = "\nEnter to confirm, or edit (drop 2 · 2 size 0.3 · 2 turns 4 · redo)> "
+
+
+def _proposal_text(proposal: Proposal, dropped: list[str]) -> str:
+    lines = ["\nYour advisers read that as:"]
+    if proposal.actions:
+        lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
+    else:
+        lines.append("  (no actions: this turn the government does nothing)")
+    lines += [f"  (not possible: {line})" for line in dropped]
+    lines += [f"  Note: {n}" for n in proposal.notes]
+    return "\n".join(lines)
+
+
+def _ask_for_turn(game: Game) -> Proposal | None:
+    """Build, review and confirm this turn's actions. ``None`` means start the response again."""
+    options = game.scenario.suggested_options
+    while True:
+        raw = input("\nYour response (option numbers, words, or both: 1 3 + freeze fares)> ")
+        try:
+            response = compose_response(raw, options)
+            proposal = game.propose(response)
+            break
+        except ValueError as err:
+            print(f"  {err}")
+        except NeedsClarification as ask:
+            print(f"\nYour advisers ask: {ask.question}")
+    dropped = getattr(game.interpreter, "dropped", lambda: [])()
+    while True:
+        print(_proposal_text(proposal, dropped))
+        command = input(REVIEW_PROMPT).strip()
+        if command.lower() in ("", "y", "yes", "ok"):
+            return proposal
+        if command.lower() == "redo":
+            return None
+        try:
+            proposal = game.revise(proposal, edit_actions(proposal.actions, command))
+            dropped = []
+        except ValueError as err:
+            print(f"  {err}")
 
 
 OFFLINE_BANNER = (
@@ -315,24 +358,19 @@ def _main(argv: list[str] | None) -> None:
             print("\n" + _dashboard(game.start, game.state, _previous(game)))
             s = game.scenario
             print(f"\n== {s.title} ==\n{s.briefing}")
-            for option in s.suggested_options:
-                print(f"  - {option}")
+            for i, option in enumerate(s.suggested_options, 1):
+                print(f"  {i}. {option}")
             calls_before = len(client.usage.records) if client else 0
             state_before = game.state
-            while True:
-                response = input("\nYour response> ")
-                try:
-                    record = game.play_turn(response)
-                    break
-                except NeedsClarification as ask:
-                    print(f"\nYour advisers ask: {ask.question}")
+            proposal = None
+            while proposal is None:
+                proposal = _ask_for_turn(game)
+            record = game.commit(proposal)
             store.save_turn(game_id, record)
             if client:
                 knowledge.harvest_turn(
                     game_id, record, state_before, _provenance(client, calls_before)
                 )
-            for line in getattr(game.interpreter, "dropped", lambda: [])():
-                print(f"  (not possible: {line})")
             print("\n" + _report(record))
             if client:
                 print(_usage_line(client, calls_before))
