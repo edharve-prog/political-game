@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from hog_sim.core.models import Model, Scenario
+from hog_sim.core.models import Category, Model, Scenario
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import scenario as prompt
 from hog_sim.llm.summary import StateSummary
@@ -24,12 +24,17 @@ class ScenarioDraft(Model):
     """What the model writes. ``source`` is not the model's to choose, so it is set here."""
 
     title: str
+    category: Category
     briefing: str
     affected_nodes: list[str]
     urgency: float = Field(ge=0, le=1)
     # List lengths are checked in check_draft: structured outputs only accept minItems 0 or 1.
     suggested_options: list[str]
     stakeholder_positions: list[StakeholderPosition]
+
+
+# Variety is asked for in the prompt, not enforced here: a failed check would stop the turn.
+RECENT_TURNS = 8
 
 
 def check_draft(draft: ScenarioDraft, catalogue: dict[str, str]) -> list[str]:
@@ -52,14 +57,18 @@ def check_draft(draft: ScenarioDraft, catalogue: dict[str, str]) -> list[str]:
 
 
 def generate_scenario(
-    summary: StateSummary, client: LLMClient, config: ModelConfig | None = None
+    summary: StateSummary,
+    client: LLMClient,
+    config: ModelConfig | None = None,
+    recent: list[Scenario] | None = None,
 ) -> GeneratedScenario:
     config = config or ModelConfig()
+    recent = list(recent or [])[-RECENT_TURNS:]
     draft = structured_call(
         client,
         output_type=ScenarioDraft,
         system=prompt.SYSTEM,
-        prompt=prompt.render(summary.to_prompt()),
+        prompt=prompt.render(summary.to_prompt(), recent_text(recent)),
         model=config.scenario_model,
         prompt_version=prompt.VERSION,
         effort=config.scenario_effort,
@@ -68,6 +77,14 @@ def generate_scenario(
         check=lambda d: check_draft(d, summary.catalogue),
     )
     return GeneratedScenario(source="generated", **draft.model_dump())
+
+
+def recent_text(recent: list[Scenario]) -> str:
+    if not recent:
+        return ""
+    lines = ["Recent scenarios (most recent last):"]
+    lines += [f"- [{s.category or 'uncategorised'}] {s.title}" for s in recent]
+    return "\n".join(lines)
 
 
 def scenario_text(scenario: Scenario) -> str:

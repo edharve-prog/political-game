@@ -7,7 +7,7 @@ building homes cut house prices to a quarter, and the starting position loses an
 when nothing is done. Ed approved Project 16 on 2026-10-01. Issue ids (C1–C4, H1–H5,
 M1–M6, L1–L3) and enhancement numbers refer to the review.
 
-## First batch (approved; being built by the "Back-end review and enhancements" thread)
+## First batch (done in PR #16)
 
 ### EB-1 Balance test in CI (enhancement 1)
 - Turn `balance_sim.py` into a pytest. It runs scripted strategy bots over several seeds,

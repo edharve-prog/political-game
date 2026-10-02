@@ -54,7 +54,8 @@ class LLMScenarioSource:
     def next_scenario(self, state: WorldState, history: Sequence[Any]) -> GeneratedScenario:
         precedents = self.recall(state) if self.recall else None
         summary = summarise_state(state, self.role, recent_events(history), precedents=precedents)
-        return generate_scenario(summary, self.client, self.config)
+        recent = [r.scenario for r in history]
+        return generate_scenario(summary, self.client, self.config, recent=recent)
 
 
 class LLMInterpreter:

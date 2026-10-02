@@ -131,6 +131,7 @@ def candidates(engine, changes=(CHINA_COOLS,)):
 
 SCENARIO = ScenarioDraft(
     title="Energy bills soar",
+    category="energy",
     briefing="Bills are up and pensioners are worried.",
     affected_nodes=["indicator:energy_prices", "group:pensioners", "sector:energy"],
     urgency=0.7,
@@ -268,7 +269,8 @@ def test_action_signature_ignores_size() -> None:
 
 def test_guess_category_reads_text_then_nodes() -> None:
     scenario = GeneratedScenario(source="generated", **SCENARIO.model_dump())
-    assert guess_category(scenario) == "energy"
+    assert guess_category(scenario) == "energy"  # its own category
+    scenario = scenario.model_copy(update={"category": None})
     nurses = scenario.model_copy(update={"title": "Nurses walk out", "briefing": "NHS pay."})
     assert guess_category(nurses) == "health"
     quiet = scenario.model_copy(update={"title": "A quiet month", "briefing": "Little news."})
