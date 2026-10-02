@@ -146,7 +146,7 @@ want?", "something cheaper").
 - New options join the numbered list and can be combined as in RB-1.
 - Asking advisers does not advance the turn. Each call shows in the per-turn usage line.
 
-### RB-4 Response feeds the outcome (P1, done in PR #24)
+### RB-4 Response feeds the outcome (P1, done in PR #24, merged)
 As a player, I want how I acted to matter, not just what I did: framing, timing, consulting
 people, and who announces it.
 - The interpreter extracts *delivery* fields alongside actions: framing or message,
