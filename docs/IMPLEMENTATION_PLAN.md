@@ -255,6 +255,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 ### Project 10 — Interface
 - **MVP:** Rich/Textual CLI — briefing, free-text response, outcome narrative, indicator and group approval tables, sparkline history.
 - **Later:** Web UI (FastAPI backend + front end) with graph visualisation of the world, approval charts, a news ticker, and a "forecast fan" showing candidate outcomes and their probabilities.
+- **Web UI done when (CI-8, from Project 18):** backend tests; an OpenAPI-to-TypeScript drift check; front-end lint, typecheck and unit tests; and Playwright against offline mode covering create game → interpret → commit → reload and resume.
 
 ### Project 11 — Evaluation & Calibration
 - **Goal:** Make the world model behave believably — this is where forecasting experience pays off.
@@ -301,6 +302,28 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Backlog:** EB-5 to EB-13 in [backlog/engine-balance.md](backlog/engine-balance.md).
 - **Done when:** The balance test passes in CI, no indicator leaves its bounds over 120 turns, and each action kind moves its intended indicator in the stated direction.
 
+### Project 17 — Engine Correctness
+- **Goal:** Fix the 11 engine findings from Ed's 2026-10-02 review, each with a test that fails on main and passes after the fix.
+- **Scope:** four PRs. EC-A covers player action effects: military and diplomacy semantics, untruncated action changes, and action–target compatibility (EC-1 to EC-3). EC-B gives limits one owner: pure interpreters and a deficit ceiling on the whole package (EC-4, EC-5). EC-C covers the engine, approval, scoring and selection: a convergence check (also EB-12), exact policy duration, omitted claims not being free, event-tag rules and hard scenario conditions (EC-6 to EC-10). EC-D adds validation at the boundary (EC-11).
+- **Design:** [projects/17-engine-correctness.md](projects/17-engine-correctness.md). Built by the "Engine findings triage and fixes" thread.
+- **Done when:** every story has its failing-then-passing test, and the full suite, ruff and the balance test pass.
+
+### Project 18 — CI and Test Quality
+- **Goal:** CI that protects the engine. Every supported Python is tested, the installed package works, semantics and invariants are checked, and balance results are visible.
+- **Why:** CI is one job on Python 3.12 with `uv sync` (not `--locked`). It has no permissions block, no concurrency, no timeouts, no Dependabot and no CodeQL, and Python 3.11 is declared but never tested. Example-based tests missed a sign error and an off-by-one (Project 17).
+- **P1:**
+  - CI-7 and CI-6 in one PR: bump the actions (SHA-pinned), set workflow permissions, add concurrency and timeouts, and add Dependabot.
+  - Then CI-3: a Python 3.11–3.14 matrix with `uv sync --locked`, plus building the wheel and smoke-testing the installed CLI from outside the repo, including save and resume.
+  - After that, Ed turns on CodeQL default setup and adds a branch rule for `main`. The rule requires the CI checks and **no approvals**, since GitHub doesn't let an author approve their own PR.
+  - CI-1 has no PR of its own. Project 17's per-story tests deliver it, tagged with a `semantics` pytest marker.
+- **P2 (after Project 17):**
+  - CI-4: balance tests in their own job that uploads the results table, plus a nightly run with more seeds. A "competent strategy" floor gets agreed with Project 16's owner.
+  - CI-2: Hypothesis property and invariant tests, after Project 17's later PRs.
+  - Coverage as a report first (CI-5, coverage part).
+- **P3:** mutation testing with `mutmut` (CI-5). CI-8, the web-app contract and E2E lane, moves into Project 10's done-when.
+- **Backlog:** CI-1 to CI-8 in [backlog/ci-and-quality.md](backlog/ci-and-quality.md).
+- **Done when:** all four Python versions and the installed-wheel smoke job are green, the `semantics` set runs on its own, balance runs in its own job with a nightly run, and coverage shows on every PR.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -323,6 +346,8 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 14 | Response Builder | 5, 6, 10 | `ResponsePackage` (picked options + text + delivery), confirm/edit step in `Game`, `advise(question, summary, client) -> [Option]` |
 | 15 | Knowledge Store | 1, 3, 5, 6, 8, 13 | `KnowledgeStore` (`harvest_turn`, `library_scenarios`, `interpretations`, `outcomes`, `graph_changes`, JSONL export/import); `GraphChange` + `validate_graph_changes()`/`apply_graph_changes()` in `world/changes.py`; `Outcome.graph_changes`; `recall()`/`Recaller` → `llm_plugins(recaller=...)`; `StoredInterpreter`, `StoredForecaster` |
 | 16 | Engine Balance & Realism | 3, 4, 5, 8 | Indicator bounds/equilibrium/persistence; lever costs; direction-aware `actions_to_shocks`; feasibility in `Game.play_turn`; balance test |
+| 17 | Engine Correctness | 3, 4, 5, 6, 8, 16 | `PropagationError` and `lag0_gain()`; action–target compatibility table and `Indicator.interventions`; `constrain` as the only limit owner; validators on `GameConfig`, nodes and `WorldState` |
+| 18 | CI & Test Quality | 17 (P2 items), 16 (balance job) | CI matrix and installed-wheel smoke job; `semantics` and `balance` pytest markers; nightly workflow; Hypothesis profiles; coverage report |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -363,6 +388,8 @@ Smallest thing that is fun and proves the architecture:
 | 14 | Response Builder | In progress (RB-1, RB-2 done, PR #19; RB-3 done, PR #23; RB-4 done, PR #24) | Stories RB-3 to RB-7 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
 | 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-5 to EB-13 backlog) | Built by the back-end review thread; see backlog/engine-balance.md |
+| 17 | Engine Correctness | In progress | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
+| 18 | CI & Test Quality | Not started (P1 ready: CI-7, CI-6, CI-3) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 
 ---
 
@@ -389,6 +416,9 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | Stored Claude scenarios feed the SD-3 library as `LibraryScenario(origin="llm")` | One scenario format for handwritten, LLM and news |
 | 2026-10-01 | Project 16 for engine balance; first batch is a CI balance test, offline feasibility, a bounded economy with lever costs, and correct action direction | Back-end review found a dominant free strategy and unbounded indicators; Ed approved |
 | 2026-10-01 | Richer scenarios and responses become Projects 13 and 14; P1 order SD-3, RB-2, RB-1, SD-1, SD-2, RB-3, RB-4 | Ed's first play-through found scenarios basic and repeating and responses hard to combine |
+| 2026-10-02 | Ed's 11 engine findings become Project 17, in four PRs, each fix shipped with a test that fails on main | All 11 held against main; two overlap Project 16 (EB-12, EB-13) and are done here |
+| 2026-10-02 | Ed's CI list becomes Project 18; P1 is CI-7, CI-6 and CI-3, and the P2 items wait for Project 17 | Cheap protection first; Project 17's fixes will move balance results and add the errors the property tests assert |
+| 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---
 
