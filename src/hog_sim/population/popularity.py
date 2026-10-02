@@ -6,7 +6,8 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(CARES_ABOUT weight * indicator change in standard steps)
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
-           + sum(active event effects, held for hold_turns then halving every half_life_turns)
+           + sum(active event effects, held for hold_turns then halving every half_life_turns),
+             capped at +-EVENT_CAP per group
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
 The last term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
@@ -28,6 +29,7 @@ from hog_sim.world.propagation import METRICS, action_factor, scale
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
+EVENT_CAP = 0.15  # most that all active events together can move a group's target (EB-6)
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
@@ -85,11 +87,14 @@ def target_approval(state: WorldState, reference: WorldState) -> dict[str, float
     if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
         penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
         targets = {gid: t - penalty for gid, t in targets.items()}
+    felt = {gid: 0.0 for gid in targets}
     for event in state.events:
         w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
         for gid, effect in event.group_effects.items():
-            if gid in targets:
-                targets[gid] += effect * w
+            if gid in felt:
+                felt[gid] += effect * w
+    for gid, total in felt.items():
+        targets[gid] += max(-EVENT_CAP, min(EVENT_CAP, total))
     return {gid: min(1.0, max(0.0, t)) for gid, t in targets.items()}
 
 

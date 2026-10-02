@@ -30,6 +30,7 @@ from hog_sim.game.records import TurnRecord
 from hog_sim.policy.limits import constrain
 from hog_sim.population.popularity import policy_events, run_election, step_approval
 from hog_sim.world.changes import action_changes, apply_graph_changes
+from hog_sim.world.events import event_shocks
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
 
 
@@ -56,7 +57,12 @@ def resolve(
     config: GameConfig,
 ) -> WorldState:
     """Apply one turn's chosen outcome and advance the clock. Deterministic."""
-    shocks = actions_to_shocks(actions, state) + scenario.shocks + outcome.shocks
+    shocks = (
+        actions_to_shocks(actions, state)
+        + scenario.shocks
+        + outcome.shocks
+        + event_shocks(outcome.events, state)
+    )
     trajectory = simulate(state, shocks, config.horizon)
 
     pending = {t: dict(d) for t, d in state.pending.items()}
