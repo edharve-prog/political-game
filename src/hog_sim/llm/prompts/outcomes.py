@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-3"
+VERSION = "outcomes-4"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -40,6 +40,8 @@ target, edge_kind, delta, lag). Leave unused fields null and lag 0. Give a one-l
 the engine turns strike, protest, backbench_rebellion, market_selloff, market_rally, \
 capital_flight, business_investment and foreign_retaliation into shocks of their own, so tag \
 only what happens and don't repeat the same hit in new_shocks
+- resolves_storyline: true only when this outcome settles the issue for good (a deal \
+signed, the strike called off, the bill passed). Most outcomes leave the story open to come back
 - self_probability: your own estimate that this candidate is what happens, 0..1. The \
 candidates' probabilities should add up to about 1.
 

@@ -214,6 +214,27 @@ class Scenario(Model):
     suggested_options: list[str] = Field(default_factory=list)
     shocks: list[Shock] = Field(default_factory=list, description="Exogenous shocks it brings")
     category: Category | None = None
+    storyline: str | None = Field(
+        None, description="Id of the storyline this scenario continues or opens (SD-1)"
+    )
+
+
+class Storyline(Model):
+    """An issue that runs across turns (backlog story SD-1). Kept in ``WorldState``."""
+
+    id: str
+    title: str
+    category: Category | None = None
+    stage: int = Field(1, ge=1)
+    open: bool = True
+    nodes: list[str] = Field(default_factory=list)
+    opened_turn: int = Field(ge=0)
+    last_turn: int = Field(ge=0, description="Last turn a scenario continued or escalated it")
+    last_addressed: int = Field(
+        ge=0, description="Last turn a scenario put it in front of the player"
+    )
+    pressure: float = Field(0.5, ge=0, le=1, description="How urgent it has become")
+    history: list[str] = Field(default_factory=list, description="One line per stage, oldest first")
 
 
 class Outcome(Model):
@@ -227,6 +248,9 @@ class Outcome(Model):
     shocks: list[Shock] = Field(default_factory=list, description="New shocks the outcome triggers")
     graph_changes: list[GraphChange] = Field(
         default_factory=list, description="Validated changes to the world graph, applied on resolve"
+    )
+    resolves_storyline: bool = Field(
+        False, description="This outcome ends the scenario's storyline"
     )
     probability: float = Field(ge=0, le=1)
     scores: dict[str, float] = Field(

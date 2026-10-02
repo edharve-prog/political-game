@@ -28,7 +28,7 @@ Priority: **P1** = needed before the 30-turn LLM review is worth doing, **P2** =
 
 Turn one-shot scenarios into ongoing stories that escalate, branch and come back.
 
-### SD-1 Storyline threads (P1)
+### SD-1 Storyline threads (P1, done in PR #21 for Claude mode)
 As a player, I want issues to continue across turns, so my earlier decisions come back to me.
 - A `Storyline` record (id, title, stage, open/closed, linked nodes, turn opened, last turn
   touched) is saved in `WorldState` and survives save, resume and replay.
@@ -38,6 +38,8 @@ As a player, I want issues to continue across turns, so my earlier decisions com
 - A storyline closes only through an outcome that resolves it, never silently.
 - Test: on a 20-turn FakeClient game, at least one storyline spans 3 or more turns and the
   scenario prompt for turn N includes its stage history.
+- Note (PR #21): ignored storylines escalate after 3 idle turns. Offline library scenarios are
+  still one-offs; giving them follow-up stages is a later content task.
 
 ### SD-2 Several issues per turn (P1)
 As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioritise.
