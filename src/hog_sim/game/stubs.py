@@ -9,7 +9,14 @@ from __future__ import annotations
 import re
 
 from hog_sim.core.config import make_rng
-from hog_sim.core.models import ApprovalEvent, Outcome, PolicyAction, Scenario, Shock
+from hog_sim.core.models import (
+    ApprovalEvent,
+    Delivery,
+    Outcome,
+    PolicyAction,
+    Scenario,
+    Shock,
+)
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.population.popularity import policy_events, target_approval
@@ -91,7 +98,17 @@ class KeywordInterpreter:
     """Turns free text into PolicyActions with keyword rules: one per line of a package built
     from "Option:" and "Also:" lines (backlog story RB-1), otherwise one for the whole text."""
 
+    def __init__(self) -> None:
+        self._delivery: Delivery | None = None
+
+    def last_delivery(self) -> Delivery | None:
+        return self._delivery
+
+    def delivery_for(self, text: str, state: WorldState) -> Delivery:
+        return keyword_delivery(text, state)
+
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
+        self._delivery = keyword_delivery(text, state)
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
             return self._one(text, state, scenario)
@@ -134,6 +151,27 @@ class KeywordInterpreter:
         return [PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")]
 
 
+# Who "consulting X" means, for the keyword interpreter's delivery (story RB-4).
+_CONSULT_WHO = [
+    (r"union|workers|staff|nurses|teachers", "group:public_workers"),
+    (r"business|industry|employers|firms|cbi", "group:business"),
+    (r"pensioner", "group:pensioners"),
+    (r"renter|tenant", "group:young_renters"),
+    (r"\bmps\b|backbench|parliament|party", "institution:legislature"),
+    (r"bank of england|the bank|governor", "institution:central_bank"),
+]
+
+
+def keyword_delivery(text: str, state: WorldState) -> Delivery:
+    t = text.lower()
+    consulted = []
+    if re.search(r"consult|talks? with|negotiat|meet|sit down with|work with", t):
+        known = set(state.node_ids())
+        consulted = [n for pat, n in _CONSULT_WHO if re.search(pat, t) and n in known]
+    phased = re.search(r"phase|gradual|staged|stagger|over (?:the next )?\w+ (?:years|months)", t)
+    return Delivery(consulted=consulted, speed="phased" if phased else "immediate")
+
+
 class EngineForecaster:
     """Three candidates around the engine's expectation: as expected, backlash, welcomed.
 
@@ -154,6 +192,7 @@ class EngineForecaster:
         scenario: Scenario,
         actions: list[PolicyAction],
         engine: DeltaDistribution,
+        delivery: Delivery | None = None,
     ) -> list[Outcome]:
         graph = build_graph(state)
         exposed: set[str] = set()
@@ -184,17 +223,20 @@ class EngineForecaster:
                 ]
             return []
 
+        # Consulting first takes some of the risk of a backlash away (story RB-4), without
+        # making a warm welcome any likelier.
+        backlash = 0.12 if delivery is not None and delivery.consulted else 0.2
         return [
             Outcome(
                 narrative=f"{scenario.title}: the response lands broadly as expected.",
                 indicator_deltas=expected,
-                probability=0.6,
+                probability=0.8 - backlash,
             ),
             Outcome(
                 narrative=f"{scenario.title}: the response sparks a backlash from those affected.",
                 indicator_deltas=expected,
                 approval_events=event("Backlash", losers, -self.EFFECT),
-                probability=0.2,
+                probability=backlash,
             ),
             Outcome(
                 narrative=f"{scenario.title}: the response is welcomed as decisive.",

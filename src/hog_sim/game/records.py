@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from hog_sim.core.models import Model, Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Model, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.population.popularity import ElectionResult
 
@@ -24,6 +24,9 @@ class TurnRecord(Model):
     )
     notes: list[str] = Field(
         default_factory=list, description="What limited the player's actions this turn"
+    )
+    delivery: Delivery = Field(
+        default_factory=Delivery, description="How the response was delivered (RB-4)"
     )
 
     @property

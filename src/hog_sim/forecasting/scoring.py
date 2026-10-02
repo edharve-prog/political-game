@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from hog_sim.core.models import Model
+from hog_sim.core.models import Delivery, Model
 from hog_sim.world.propagation import DeltaDistribution
 
 EventTag = Literal[
@@ -89,9 +89,29 @@ def consistency(claims: dict[str, float], engine: DeltaDistribution, turn: int) 
     return math.exp(sum(logs) / len(logs)) if logs else 1.0
 
 
-def base_rate(tags: list[str]) -> float:
-    """Geometric mean of the tags' base rates; untagged counts as a quiet outcome."""
-    rates = [BASE_RATES.get(t, 0.1) for t in tags] or [BASE_RATES["none"]]
+# How delivery (story RB-4) shifts the base rate of some events. Placeholders for Project 11.
+CONSULTED = {"strike": 0.6, "protest": 0.6, "backbench_rebellion": 0.6, "legal_challenge": 0.7}
+IMPOSED = {"strike": 1.3, "protest": 1.3, "backbench_rebellion": 1.2, "media_backlash": 1.1}
+PHASED = {"market_selloff": 0.75, "capital_flight": 0.75}
+
+
+def delivery_factor(tag: str, delivery: Delivery | None) -> float:
+    """Multiplier on a tag's base rate for how the response was delivered."""
+    if delivery is None:
+        return 1.0
+    factor = CONSULTED.get(tag, 1.0) if delivery.consulted else 1.0
+    if delivery.speed == "phased":
+        factor *= PHASED.get(tag, 1.0)
+    elif not delivery.consulted:
+        factor *= IMPOSED.get(tag, 1.0)
+    return factor
+
+
+def base_rate(tags: list[str], delivery: Delivery | None = None) -> float:
+    """Geometric mean of the tags' base rates, adjusted for delivery; untagged counts as a
+    quiet outcome."""
+    tags = list(tags) or ["none"]
+    rates = [min(1.0, BASE_RATES.get(t, 0.1) * delivery_factor(t, delivery)) for t in tags]
     return math.exp(sum(math.log(r) for r in rates) / len(rates))
 
 

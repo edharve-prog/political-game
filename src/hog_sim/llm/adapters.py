@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from hog_sim.core.models import PolicyAction, Scenario
+from hog_sim.core.models import Delivery, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.llm.client import LLMClient, ModelConfig
 from hog_sim.llm.interpreter import Interpretation, interpret
@@ -90,3 +90,7 @@ class LLMInterpreter:
         self.last_interpretation = result
         self.last_feasibility = report
         return report.feasible_actions
+
+    def last_delivery(self) -> Delivery | None:
+        """How the last response was delivered (story RB-4), or None before any call."""
+        return self.last_interpretation.delivery if self.last_interpretation else None
