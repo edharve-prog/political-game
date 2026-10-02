@@ -98,3 +98,18 @@ def test_high_deficit_costs_every_group(world) -> None:
     for gid in world.groups:
         assert above[gid] < at[gid]
     assert at["group:young_renters"] == base["group:young_renters"]  # renters ignore deficit
+
+
+def test_stacked_events_are_capped() -> None:
+    """However many boosts pile up, together they move a target by at most EVENT_CAP (EB-6)."""
+    from hog_sim.core.models import ApprovalEvent
+    from hog_sim.population.popularity import EVENT_CAP, target_approval
+
+    world = toy_world()
+    lean = world.groups["group:pensioners"].lean
+    world.events = [
+        ApprovalEvent(name=f"boost {i}", group_effects={"group:pensioners": 0.1}) for i in range(6)
+    ]
+    assert target_approval(world, toy_world())["group:pensioners"] == pytest.approx(
+        lean + EVENT_CAP
+    )

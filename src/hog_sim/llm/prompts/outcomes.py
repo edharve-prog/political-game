@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-2"
+VERSION = "outcomes-3"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -36,7 +36,10 @@ most 0.2 (set node, attr, delta); "edge_weight" strengthens or weakens an existi
 briefing's world by at most 0.1 (set source, target, edge_kind, delta); "add_edge" creates a \
 new link such as a new trade tie or rivalry, weight within 0.3 and lag 0-6 turns (set source, \
 target, edge_kind, delta, lag). Leave unused fields null and lag 0. Give a one-line reason.
-- event_tags: from the allowed list; use "none" for a quiet outcome
+- event_tags: from the allowed list; use "none" for a quiet outcome. Tags have consequences: \
+the engine turns strike, protest, backbench_rebellion, market_selloff, market_rally, \
+capital_flight, business_investment and foreign_retaliation into shocks of their own, so tag \
+only what happens and don't repeat the same hit in new_shocks
 - self_probability: your own estimate that this candidate is what happens, 0..1. The \
 candidates' probabilities should add up to about 1.
 

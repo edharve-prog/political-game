@@ -119,3 +119,24 @@ def test_indicators_stay_inside_their_bounds() -> None:
     for state in states:
         for ind in state.indicators.values():
             assert ind.low <= ind.value <= ind.high
+
+
+def test_outcome_events_move_the_economy() -> None:
+    """A tagged market sell-off raises Bank Rate and hits finance (EB-5)."""
+    start = toy_world()
+    selloff = Outcome(narrative="Markets sold off", events=["market_selloff"], probability=1)
+    after = resolve(start, start, QUIET, [], selloff, GameConfig())
+    assert value(after, "indicator:interest_rate") > value(start, "indicator:interest_rate")
+    assert after.sectors["sector:finance"].output_bn < start.sectors["sector:finance"].output_bn
+    quiet = resolve(start, start, QUIET, [], NOTHING, GameConfig())
+    assert value(quiet, "indicator:interest_rate") == value(start, "indicator:interest_rate")
+
+
+def test_unknown_event_nodes_are_skipped() -> None:
+    from hog_sim.world.events import event_shocks
+
+    world = toy_world()
+    del world.sectors["sector:finance"]
+    world.edges = [e for e in world.edges if "sector:finance" not in (e.source, e.target)]
+    nodes = {s.node for s in event_shocks(["market_selloff", "media_praise"], world)}
+    assert nodes == {"indicator:interest_rate"}
