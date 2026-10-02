@@ -138,7 +138,7 @@ As a player, I want to see how my response was understood before the turn resolv
 - Only confirmed actions reach the engine. The log stores the confirmed list, so replay is
   unchanged.
 
-### RB-3 Ask advisers for new options (P1, done in PR #23)
+### RB-3 Ask advisers for new options (P1, done in PR #23, merged)
 As a player, I want to ask for more or different options ("what would the left of the party
 want?", "something cheaper").
 - The command `advise <question>` returns 2 to 4 new options from Claude, grounded in the
@@ -146,7 +146,7 @@ want?", "something cheaper").
 - New options join the numbered list and can be combined as in RB-1.
 - Asking advisers does not advance the turn. Each call shows in the per-turn usage line.
 
-### RB-4 Response feeds the outcome (P1)
+### RB-4 Response feeds the outcome (P1, done in PR #24)
 As a player, I want how I acted to matter, not just what I did: framing, timing, consulting
 people, and who announces it.
 - The interpreter extracts *delivery* fields alongside actions: framing or message,

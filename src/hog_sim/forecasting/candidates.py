@@ -21,6 +21,7 @@ from pydantic import Field
 
 from hog_sim.core.models import (
     ApprovalEvent,
+    Delivery,
     EdgeKind,
     GraphChange,
     Model,
@@ -224,6 +225,7 @@ class LLMForecaster:
         scenario: Scenario,
         actions: list[PolicyAction],
         engine: DeltaDistribution,
+        delivery: Delivery | None = None,
     ) -> list[Outcome]:
         cfg = self.config
         summary = summarise_state(state, self.role)
@@ -238,6 +240,7 @@ class LLMForecaster:
             actions_text(actions),
             engine_text(state, engine),
             cfg.n_candidates,
+            delivery.describe() if delivery else "",
         )
         drafts = structured_call(
             self.client,
@@ -261,7 +264,7 @@ class LLMForecaster:
                         {s.node: s.change for s in d.indicator_shifts}, engine, turn
                     ),
                     judge=judged[i] if judged else d.self_probability,
-                    base_rate=base_rate(list(d.event_tags)),
+                    base_rate=base_rate(list(d.event_tags), delivery),
                     self_reported=d.self_probability,
                 )
                 for i, d in enumerate(drafts)

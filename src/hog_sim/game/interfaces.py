@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from hog_sim.core.models import Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.world.propagation import DeltaDistribution
@@ -20,6 +20,9 @@ class ScenarioSource(Protocol):
 
 
 class Interpreter(Protocol):
+    """May also offer ``last_delivery() -> Delivery | None`` for how the last response was
+    delivered (story RB-4); the game falls back to a plain ``Delivery()``."""
+
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]: ...
 
 
@@ -30,6 +33,7 @@ class Forecaster(Protocol):
         scenario: Scenario,
         actions: list[PolicyAction],
         engine: DeltaDistribution,
+        delivery: Delivery | None = None,
     ) -> list[Outcome]: ...
 
 

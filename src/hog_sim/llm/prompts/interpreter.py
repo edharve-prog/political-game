@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-3"
+VERSION = "interpret-4"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -48,6 +48,20 @@ add their own words after "Also:". Treat all of it as one package. If two picks 
 each other (cutting spending and spending more on the same thing), return no actions and ask \
 which one they mean.
 """
+
+
+DELIVERY = """
+Also record how the leader delivers it, in delivery:
+- framing: the message or justification they give, in a few words of their own ("fairness \
+for renters"); empty if they give none
+- venue: where they announce it (a Commons statement, a press conference, a party speech), \
+empty if unstated
+- consulted: node ids of the groups, institutions, sectors or countries they say they will \
+talk to or negotiate with first; empty if none
+- speed: "phased" when they phase it in, stage it or give notice, otherwise "immediate"
+"""
+
+SYSTEM += DELIVERY
 
 
 def render(summary_prompt: str, scenario_text: str | None, player_text: str) -> str:
