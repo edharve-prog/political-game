@@ -48,7 +48,7 @@ As a player, I want an in-tray of 2 to 4 issues each turn, so I have to prioriti
   combined.
 - Replay reproduces the same state from the log.
 
-### SD-3 Scenario variety and anti-repetition (P1)
+### SD-3 Scenario variety and anti-repetition (P1, offline part done in PR #11)
 As a player, I want each turn to feel different from the last.
 - The scenario prompt receives the last 8 scenario titles and categories and must avoid them
   unless it is continuing an existing storyline (SD-1).
@@ -96,6 +96,9 @@ elections abroad.
   comes from news (Project 7) when news is on, or from a seeded event table when it is off.
 - Foreign countries react to UK actions through the graph edges, and the outcome narrative
   names that reaction.
+- Crises cost something if ignored (back-end review C4, enhancement 8). Every scenario,
+  including in Claude mode, carries a shock, and that shock grows each turn it is left
+  unaddressed. This also applies to SD-1 storylines.
 
 ### SD-8 Bigger world (P2, joins Project 2)
 As a player, I want more groups, sectors and countries, so policies hit people unevenly.
