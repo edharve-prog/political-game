@@ -7,17 +7,23 @@ runs inside ``resolve()``, so it is deterministic and replay reproduces it:
 * the chosen outcome closes it only when it says so (``Outcome.resolves_storyline``);
 * every other open storyline left alone for ``ESCALATE_AFTER`` turns escalates a stage and
   gains pressure, so ignoring an issue never makes it quietly go away.
+
+The other items in the turn's in-tray (``Scenario.secondary``, story SD-2) open or continue
+storylines too. One counts as acted on when an action targets one of its nodes; one left alone
+carries over and keeps escalating, unless it was minor (urgency below ``FADE_BELOW``), in
+which case it fades. The chosen outcome only ever settles the lead.
 """
 
 from __future__ import annotations
 
 import re
 
-from hog_sim.core.models import Outcome, Scenario, Storyline
+from hog_sim.core.models import Outcome, PolicyAction, Scenario, SideIssue, Storyline
 from hog_sim.core.state import WorldState
 
 ESCALATE_AFTER = 3
 ESCALATION_PRESSURE = 0.15
+FADE_BELOW = 0.3  # a minor in-tray item left alone below this urgency resolves itself
 HISTORY_LINES = 6
 MAX_LINE = 160
 
@@ -40,46 +46,74 @@ def _add(story: Storyline, line: str) -> None:
     story.history = [*story.history, line][-HISTORY_LINES:]
 
 
+def addressed(item: SideIssue, actions: list[PolicyAction]) -> bool:
+    """An in-tray item counts as acted on when an action targets one of its nodes."""
+    nodes = set(item.affected_nodes)
+    return any(a.kind != "do_nothing" and a.target in nodes for a in actions)
+
+
 def advance_storylines(
-    state: WorldState, turn: int, scenario: Scenario, outcome: Outcome
+    state: WorldState,
+    turn: int,
+    scenario: Scenario,
+    outcome: Outcome,
+    actions: list[PolicyAction] = (),
 ) -> WorldState:
     """Return ``state`` with this turn's storyline moves applied. ``turn`` is the turn played."""
-    if not scenario.storyline and not open_storylines(state):
+    if not scenario.storyline and not scenario.secondary and not open_storylines(state):
         return state
     stories = {k: v.model_copy(deep=True) for k, v in state.storylines.items()}
 
-    if scenario.storyline:
-        story = stories.get(scenario.storyline)
+    def touch(item: Scenario | SideIssue, acted: bool) -> Storyline:
+        story = stories.get(item.storyline)
         if story is None:
             story = Storyline(
-                id=scenario.storyline,
-                title=scenario.title,
-                category=scenario.category,
-                nodes=list(scenario.affected_nodes),
+                id=item.storyline,
+                title=item.title,
+                category=item.category,
+                nodes=list(item.affected_nodes),
                 opened_turn=turn,
                 last_turn=turn,
                 last_addressed=turn,
+                pressure=item.urgency,
             )
-        else:
+            stories[story.id] = story
+        elif acted:
             story.stage += 1
             story.open = True
             story.last_turn = story.last_addressed = turn
-            story.nodes = list(dict.fromkeys([*story.nodes, *scenario.affected_nodes]))
-        story.pressure = scenario.urgency
+            story.nodes = list(dict.fromkeys([*story.nodes, *item.affected_nodes]))
+            story.pressure = item.urgency
+        else:
+            # Seen but left alone: it keeps its idle clock, so it still escalates.
+            story.last_addressed = turn
+            story.pressure = max(story.pressure, item.urgency)
+        return story
+
+    if scenario.storyline:
+        story = touch(scenario, acted=True)
         _add(
             story, _clip(f"Turn {turn}, stage {story.stage}: {scenario.title}. {outcome.narrative}")
         )
         if outcome.resolves_storyline:
             story.open = False
             _add(story, f"Turn {turn}: resolved")
-        stories[story.id] = story
+
+    for item in scenario.secondary:
+        if not item.storyline:
+            continue
+        acted = addressed(item, actions)
+        story = touch(item, acted)
+        if acted:
+            _add(story, f"Turn {turn}, stage {story.stage}: {item.title} (acted on)")
+        elif item.urgency < FADE_BELOW:
+            story.open = False
+            _add(story, f"Turn {turn}: {item.title}, left alone and faded away")
+        else:
+            _add(story, f"Turn {turn}: {item.title}, left in the in-tray")
 
     for story in stories.values():
-        if (
-            story.open
-            and story.id != scenario.storyline
-            and turn - story.last_turn >= ESCALATE_AFTER
-        ):
+        if story.open and turn - story.last_turn >= ESCALATE_AFTER:
             story.stage += 1
             story.last_turn = turn
             story.pressure = min(1.0, story.pressure + ESCALATION_PRESSURE)

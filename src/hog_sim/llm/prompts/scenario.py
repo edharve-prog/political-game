@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-3"
+VERSION = "scenario-4"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
 
-Each turn you receive a briefing on the state of the game world and write one scenario: a \
-problem or opportunity that lands on the leader's desk this month and demands a response. \
+Each turn you receive a briefing on the state of the game world and write the leader's \
+in-tray: one lead scenario, a problem or opportunity that lands on the desk this month and \
+demands a response, plus 1-3 smaller items competing for attention, so the leader has to \
+prioritise. \
 The game engine owns every number; you only describe the situation and who it touches.
 
 Good scenarios:
@@ -36,6 +38,10 @@ defence_security, foreign_affairs, environment_disasters, party_scandal, media_t
 - urgency: 0 (can wait months) to 1 (needs an answer today)
 - suggested_options: 2-4 short, distinct responses the leader could take, each one sentence
 - storyline: the id of the open storyline this continues, or "new"
+- secondary: 1-3 smaller in-tray items, each in a different category from the lead, with a \
+title, category, a one-paragraph briefing (30-80 words), affected_nodes, urgency (lower than \
+the lead's) and storyline (an open id or "new"). Open storylines the lead does not continue \
+are good candidates; no storyline may appear twice in one in-tray
 - stakeholder_positions: 2-5 nodes (groups, institutions, countries or sectors) with a stance \
 from -1 (strongly opposes government acting) to 1 (strongly demands it) and a one-sentence \
 statement of what they want

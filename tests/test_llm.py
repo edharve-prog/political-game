@@ -41,6 +41,16 @@ def draft(**overrides) -> dict:
         "title": "Energy firms warn of winter blackouts",
         "category": "energy",
         "storyline": "new",
+        "secondary": [
+            {
+                "title": "Rents climb again",
+                "category": "housing",
+                "briefing": "Young renters face another rise.",
+                "affected_nodes": ["sector:housing", "group:young_renters"],
+                "urgency": 0.4,
+                "storyline": "new",
+            }
+        ],
         "briefing": "Three suppliers say they cannot buy enough gas for winter.",
         "affected_nodes": ["sector:energy", "indicator:energy_prices", "group:pensioners"],
         "urgency": 0.8,
@@ -112,7 +122,7 @@ def test_usage_is_logged(summary) -> None:
     generate_scenario(summary, client)
     record = client.usage.records[0]
     assert record.schema_name == "ScenarioDraft"
-    assert record.prompt_version == "scenario-3"
+    assert record.prompt_version == "scenario-4"
 
 
 # --- Recording -------------------------------------------------------------

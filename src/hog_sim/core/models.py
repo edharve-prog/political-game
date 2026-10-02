@@ -205,6 +205,17 @@ Category = Literal[
 ]
 
 
+class SideIssue(Model):
+    """A smaller item in the turn's in-tray, beside the lead scenario (backlog story SD-2)."""
+
+    title: str
+    briefing: str
+    category: Category | None = None
+    affected_nodes: list[str]
+    urgency: float = Field(ge=0, le=1)
+    storyline: str | None = None
+
+
 class Scenario(Model):
     title: str
     briefing: str
@@ -216,6 +227,9 @@ class Scenario(Model):
     category: Category | None = None
     storyline: str | None = Field(
         None, description="Id of the storyline this scenario continues or opens (SD-1)"
+    )
+    secondary: list[SideIssue] = Field(
+        default_factory=list, description="Other items in this turn's in-tray (SD-2)"
     )
 
 

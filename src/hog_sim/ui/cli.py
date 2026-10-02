@@ -12,6 +12,7 @@ from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
+from hog_sim.core.models import SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal
@@ -24,6 +25,7 @@ from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.seed.toy import toy_world
+from hog_sim.world.storylines import addressed
 
 
 def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None = None) -> str:
@@ -238,6 +240,44 @@ def knowledge_main(argv: list[str]) -> None:
         store.close()
 
 
+def _briefing(game: Game) -> str:
+    """The turn's in-tray: the lead scenario with its options, then the other items."""
+    s, state = game.scenario, game.state
+    lines = [f"\n== {s.title} =="]
+    story = state.storylines.get(s.storyline or "")
+    if story is not None:
+        lines.append(f"(Continues: {story.title}, now at stage {story.stage + 1})")
+    lines.append(s.briefing)
+    lines += [f"  {i}. {option}" for i, option in enumerate(s.suggested_options, 1)]
+    if s.secondary:
+        lines.append("\nAlso in your in-tray (act on any of them in your answer, or leave them):")
+        lines += [f"  - {item.title}: {item.briefing}" for item in s.secondary]
+    shown = {s.storyline, *(item.storyline for item in s.secondary)}
+    ignored = [
+        t
+        for t in state.storylines.values()
+        if t.open and t.id not in shown and state.turn - t.last_addressed >= 2
+    ]
+    if ignored:
+        listed = "; ".join(f"{t.title} (stage {t.stage})" for t in ignored)
+        lines.append(f"Still unresolved: {listed}")
+    return "\n".join(lines)
+
+
+def _left_alone(record: TurnRecord) -> str:
+    items = [i for i in record.scenario.secondary if not addressed(i, record.actions)]
+    if not items:
+        return ""
+    stories = record.state_after.storylines
+
+    def fate(item: SideIssue) -> str:
+        story = stories.get(item.storyline or "")
+        return "faded away" if story is not None and not story.open else "carries over"
+
+    parts = [f"{i.title} ({fate(i)})" for i in items]
+    return "Left in your in-tray: " + "; ".join(parts)
+
+
 def main(argv: list[str] | None = None) -> None:
     import sys
 
@@ -356,24 +396,7 @@ def _main(argv: list[str] | None) -> None:
     try:
         while not game.over:
             print("\n" + _dashboard(game.start, game.state, _previous(game)))
-            s = game.scenario
-            print(f"\n== {s.title} ==")
-            story = game.state.storylines.get(s.storyline or "")
-            if story is not None:
-                print(f"(Continues: {story.title}, now at stage {story.stage + 1})")
-            print(s.briefing)
-            ignored = [
-                t
-                for t in game.state.storylines.values()
-                if t.open and t.id != s.storyline and game.state.turn - t.last_addressed >= 2
-            ]
-            if ignored:
-                print(
-                    "Still unresolved: "
-                    + "; ".join(f"{t.title} (stage {t.stage})" for t in ignored)
-                )
-            for i, option in enumerate(s.suggested_options, 1):
-                print(f"  {i}. {option}")
+            print(_briefing(game))
             calls_before = len(client.usage.records) if client else 0
             state_before = game.state
             proposal = None
@@ -386,6 +409,9 @@ def _main(argv: list[str] | None) -> None:
                     game_id, record, state_before, _provenance(client, calls_before)
                 )
             print("\n" + _report(record))
+            left = _left_alone(record)
+            if left:
+                print(left)
             if client:
                 print(_usage_line(client, calls_before))
         print("\n" + _dashboard(game.start, game.state, _previous(game)))
