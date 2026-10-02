@@ -132,7 +132,7 @@ def action_factor(action: PolicyAction) -> float:
 # tax rise takes it off. A one-off is paid for over MIN_FISCAL_TURNS.
 FISCAL_NODE = "indicator:deficit"
 _FISCAL_SIGN = {"spend": 1.0, "tax": -1.0}
-FISCAL_STEPS = 1.0
+FISCAL_STEPS = 1.25
 MIN_FISCAL_TURNS = 6
 
 # Regulating an indicator (a price cap, a rent control) trims the output of the sectors that

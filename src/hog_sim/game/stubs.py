@@ -12,8 +12,9 @@ from hog_sim.core.config import make_rng
 from hog_sim.core.models import ApprovalEvent, Outcome, PolicyAction, Scenario, Shock
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
+from hog_sim.population.popularity import policy_events, target_approval
 from hog_sim.world.graph import build_graph, exposed_groups
-from hog_sim.world.propagation import DeltaDistribution
+from hog_sim.world.propagation import DeltaDistribution, apply_deltas
 
 _SCENARIOS = [
     Scenario(
@@ -126,7 +127,18 @@ class KeywordInterpreter:
 
 
 class EngineForecaster:
-    """Three candidates around the engine's expectation: as expected, backlash, welcomed."""
+    """Three candidates around the engine's expectation: as expected, backlash, welcomed.
+
+    The engine decides who feels what: groups whose target approval the forecast raises are
+    the ones who welcome the response, and groups it lowers are the ones who push back. The
+    two turns are equally likely, so acting is not penalised on average (EB-7) and a response
+    that helps people gets amplified rather than punished.
+    """
+
+    TURN = 2  # judge the response by the engine's forecast this many turns out
+    THRESHOLD = 0.002  # smaller moves in target approval count as unaffected
+    EFFECT = 0.03  # size of the reaction for groups the forecast moves
+    FALLBACK_EFFECT = 0.02  # size when the forecast moves nobody, felt by the exposed groups
 
     def forecast(
         self,
@@ -136,19 +148,33 @@ class EngineForecaster:
         engine: DeltaDistribution,
     ) -> list[Outcome]:
         graph = build_graph(state)
-        groups: set[str] = set()
+        exposed: set[str] = set()
         for action in actions:
             if action.kind != "do_nothing":
-                groups |= exposed_groups(graph, action.target)
-        groups |= {n for n in scenario.affected_nodes if n.startswith("group:")}
+                exposed |= exposed_groups(graph, action.target)
+                if action.target in state.groups:
+                    exposed.add(action.target)
+        exposed |= {n for n in scenario.affected_nodes if n.startswith("group:")}
         expected = {
             n: round(v, 3) for n, v in engine.at(0).items() if n.startswith("indicator:") and v
         }
 
-        def event(name: str, size: float) -> list[ApprovalEvent]:
-            if not groups:
-                return []
-            return [ApprovalEvent(name=name, group_effects={g: size for g in sorted(groups)})]
+        projected = apply_deltas(state, engine.at(min(self.TURN, engine.horizon - 1)))
+        projected.events = [*state.events, *policy_events(actions)]
+        before, after = target_approval(state, state), target_approval(projected, state)
+        change = {g: after[g] - before[g] for g in state.groups}
+        winners = sorted(g for g, c in change.items() if c > self.THRESHOLD)
+        losers = sorted(g for g, c in change.items() if c < -self.THRESHOLD)
+
+        def event(name: str, groups: list[str], size: float) -> list[ApprovalEvent]:
+            if groups:
+                return [ApprovalEvent(name=name, group_effects={g: size for g in groups})]
+            if exposed:
+                fallback = self.FALLBACK_EFFECT if size > 0 else -self.FALLBACK_EFFECT
+                return [
+                    ApprovalEvent(name=name, group_effects={g: fallback for g in sorted(exposed)})
+                ]
+            return []
 
         return [
             Outcome(
@@ -159,13 +185,13 @@ class EngineForecaster:
             Outcome(
                 narrative=f"{scenario.title}: the response sparks a backlash from those affected.",
                 indicator_deltas=expected,
-                approval_events=event("Backlash", -0.03),
-                probability=0.25,
+                approval_events=event("Backlash", losers, -self.EFFECT),
+                probability=0.2,
             ),
             Outcome(
                 narrative=f"{scenario.title}: the response is welcomed as decisive.",
                 indicator_deltas=expected,
-                approval_events=event("Seen as decisive", 0.02),
-                probability=0.15,
+                approval_events=event("Seen as decisive", winners, self.EFFECT),
+                probability=0.2,
             ),
         ]

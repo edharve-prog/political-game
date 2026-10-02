@@ -29,8 +29,8 @@ K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
 DEFICIT_ID = "indicator:deficit"
-DEFICIT_TOLERANCE = 5.5  # % of GDP voters accept before credibility suffers
-DEBT_PENALTY = 0.015  # approval lost per point of deficit above the tolerance
+DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
+DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
 
 
 def _steps(state: WorldState, reference: WorldState, node_id: str) -> float:

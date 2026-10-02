@@ -178,3 +178,19 @@ def test_unfunded_spending_loses_to_funded_spending() -> None:
     vote_funded, deficit_funded = play(funded)
     assert deficit_unfunded > deficit_funded + 1
     assert vote_funded > vote_unfunded
+
+
+def test_offline_reactions_follow_the_engine_and_balance_out() -> None:
+    """Winners of a policy welcome it, losers push back, and neither is likelier (EB-7)."""
+    from hog_sim.core.models import Scenario
+    from hog_sim.world.propagation import actions_to_shocks, propagate
+
+    world = toy_world()
+    action = PolicyAction(kind="spend", target="group:pensioners", magnitude=0.5, duration_turns=6)
+    engine = propagate(world, actions_to_shocks([action], world), horizon=6, k_draws=10)
+    scenario = Scenario(title="Pensions", briefing="", affected_nodes=[], urgency=0.5)
+    expected, backlash, welcomed = EngineForecaster().forecast(world, scenario, [action], engine)
+    assert backlash.probability == welcomed.probability
+    assert "group:pensioners" in welcomed.approval_events[0].group_effects
+    assert "group:pensioners" not in backlash.approval_events[0].group_effects
+    assert not expected.approval_events
