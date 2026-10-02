@@ -70,6 +70,17 @@ class Institution(Node):
 class Indicator(Node):
     value: float
     unit: str = ""
+    low: float | None = Field(None, description="Hard floor; the engine never goes below it")
+    high: float | None = Field(None, description="Hard ceiling")
+    persistence: float | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Share of a shock's own push kept each turn; None uses the engine default",
+    )
+    controlled_by: str | None = Field(
+        None, description="Institution that sets this indicator, e.g. the central bank"
+    )
     history: list[float] = Field(
         default_factory=list, description="Value at the start of each past turn, oldest first"
     )
@@ -131,6 +142,11 @@ class Shock(Model):
     delta: float = Field(description="Impulse in standard steps")
     start_turn: int = Field(0, ge=0, description="Turns from now")
     duration_turns: int = Field(1, ge=1)
+    hold: bool = Field(
+        False,
+        description="Hold the push at delta for duration_turns (a policy that keeps running) "
+        "instead of adding delta every turn",
+    )
 
 
 class ApprovalEvent(Model):
@@ -139,6 +155,7 @@ class ApprovalEvent(Model):
     name: str
     group_effects: dict[str, float] = Field(description="Approval change per group, 0..1 scale")
     half_life_turns: float = Field(3.0, gt=0)
+    hold_turns: int = Field(0, ge=0, description="Turns at full strength before fading starts")
     age_turns: int = Field(0, ge=0)
 
 

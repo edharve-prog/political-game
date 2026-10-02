@@ -11,6 +11,10 @@ Graph changes in the chosen outcome (validated LLM proposals, see ``world/change
 applied in resolve too, after the turn's effects land, so they shape the next turn's
 propagation and replay reproduces them.
 
+Before anything is forecast, ``policy.limits.constrain`` applies feasibility, diminishing
+returns and the political-capital budget in every mode; the record keeps the actions that
+were actually applied and notes saying why any were cut.
+
 Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
 node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
 """
@@ -23,8 +27,9 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
-from hog_sim.population.popularity import run_election, step_approval
-from hog_sim.world.changes import apply_graph_changes
+from hog_sim.policy.limits import constrain
+from hog_sim.population.popularity import policy_events, run_election, step_approval
+from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
 
 
@@ -68,7 +73,8 @@ def resolve(
     now = pending.pop(state.turn, {})
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
-    new.events = [*new.events, *outcome.approval_events]
+    new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
+    new = apply_graph_changes(new, action_changes(new, actions))
     new = apply_graph_changes(new, outcome.graph_changes)
     new = step_approval(new, reference=start)
     new.turn = state.turn + 1
@@ -119,7 +125,15 @@ class Game:
         if self.over:
             raise RuntimeError("the game is over")
         state, scenario, cfg = self.state, self.scenario, self.config
-        actions = self.interpreter.interpret(response, state, scenario)
+        requested = self.interpreter.interpret(response, state, scenario)
+        limited = constrain(
+            requested,
+            state,
+            [r.actions for r in self.history],
+            cfg.role,
+            cfg.capital_per_turn,
+        )
+        actions = limited.actions
         shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
         candidates = self.forecaster.forecast(state, scenario, actions, engine)
@@ -136,6 +150,8 @@ class Game:
             chosen=chosen,
             state_after=new,
             election=election,
+            requested_actions=requested,
+            notes=limited.notes,
         )
         self.state = new
         self.history.append(record)

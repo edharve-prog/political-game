@@ -23,6 +23,7 @@ from pydantic import Field
 
 from hog_sim.core.models import EdgeKind, Institution, Model, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.world.propagation import fiscal_size
 
 Role = Literal["prime_minister", "president"]
 
@@ -140,9 +141,8 @@ def _check(
 
 
 def _loosens_budget(action: PolicyAction) -> bool:
-    return (action.kind == "spend" and action.magnitude > 0) or (
-        action.kind == "tax" and action.magnitude < 0
-    )
+    size = fiscal_size(action)
+    return (action.kind == "spend" and size > 0) or (action.kind == "tax" and size < 0)
 
 
 def _legislature(state: WorldState) -> Institution | None:
@@ -160,14 +160,17 @@ def _legislature_name(role: Role, legislature: Institution | None) -> str:
 def _independent_controller(target: str, state: WorldState) -> Institution | None:
     """The independent institution that owns ``target``, if any.
 
-    Either the target is that institution, or it is an indicator whose only non-indicator
-    driver is that institution.
+    Either the target is that institution, or it is an indicator the institution controls
+    (``Indicator.controlled_by``) or is the only non-indicator driver of.
     """
     inst = state.institutions.get(target)
     if inst is not None:
         return inst if inst.independence >= INDEPENDENCE_THRESHOLD else None
     if target not in state.indicators:
         return None
+    owner = state.institutions.get(state.indicators[target].controlled_by or "")
+    if owner is not None:
+        return owner if owner.independence >= INDEPENDENCE_THRESHOLD else None
     # Indicators that feed the target (inflation -> Bank Rate) are not levers, so ignore them.
     drivers = [
         e.source

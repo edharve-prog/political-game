@@ -27,7 +27,8 @@ def check_interpretation(result: Interpretation, summary: StateSummary) -> list[
     for i, action in enumerate(result.actions):
         if action.kind == "do_nothing" and action.target != summary.player_country:
             problems.append(f"actions[{i}]: do_nothing must target {summary.player_country}")
-        if action.kind in ("regulate", "deregulate") and action.magnitude < 0:
+        indicator = action.target.startswith("indicator:")
+        if action.kind in ("regulate", "deregulate") and action.magnitude < 0 and not indicator:
             problems.append(f"actions[{i}]: {action.kind} magnitude must be 0..1")
     if not result.actions and not result.clarifying_question:
         problems.append("return at least one action, or a clarifying_question")

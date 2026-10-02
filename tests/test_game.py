@@ -176,5 +176,5 @@ def test_unfunded_spending_loses_to_funded_spending() -> None:
     ]
     vote_unfunded, deficit_unfunded = play(unfunded)
     vote_funded, deficit_funded = play(funded)
-    assert deficit_unfunded > deficit_funded + 5
+    assert deficit_unfunded > deficit_funded + 1
     assert vote_funded > vote_unfunded

@@ -80,15 +80,49 @@ def toy_world() -> WorldState:
             independence=0.9,
         ),
     ]
+    # Bounds are hard limits the engine never crosses; the deficit's own pushes fade fast
+    # because spending and tax hold theirs for as long as the policy runs.
     indicators = [
-        Indicator(id="indicator:inflation", name="CPI inflation", value=3.5, unit="%"),
-        Indicator(id="indicator:unemployment", name="Unemployment", value=4.5, unit="%"),
-        Indicator(id="indicator:interest_rate", name="Bank Rate", value=4.0, unit="%"),
         Indicator(
-            id="indicator:energy_prices", name="Household energy prices", value=100, unit="index"
+            id="indicator:inflation", name="CPI inflation", value=3.5, unit="%", low=-3, high=30
         ),
-        Indicator(id="indicator:house_prices", name="House prices", value=100, unit="index"),
-        Indicator(id="indicator:deficit", name="Budget deficit", value=4.5, unit="% GDP"),
+        Indicator(
+            id="indicator:unemployment", name="Unemployment", value=4.5, unit="%", low=2, high=25
+        ),
+        Indicator(
+            id="indicator:interest_rate",
+            name="Bank Rate",
+            value=4.0,
+            unit="%",
+            low=0,
+            high=20,
+            controlled_by="institution:central_bank",
+        ),
+        Indicator(
+            id="indicator:energy_prices",
+            name="Household energy prices",
+            value=100,
+            unit="index",
+            low=30,
+            high=400,
+        ),
+        Indicator(
+            id="indicator:house_prices",
+            name="House prices",
+            value=100,
+            unit="index",
+            low=30,
+            high=300,
+        ),
+        Indicator(
+            id="indicator:deficit",
+            name="Budget deficit",
+            value=4.5,
+            unit="% GDP",
+            low=-5,
+            high=25,
+            persistence=0.5,
+        ),
     ]
     edges = [
         # Foreign relations and trade
@@ -105,8 +139,9 @@ def toy_world() -> WorldState:
         # More energy output means lower prices
         _edge("sector:energy", "indicator:energy_prices", E.DRIVES, -0.6, unc=0.2),
         _edge("indicator:energy_prices", "indicator:inflation", E.DRIVES, 0.3, lag=1),
-        _edge("institution:central_bank", "indicator:interest_rate", E.DRIVES, 1.0, unc=0.0),
-        # The central bank's reaction to inflation, applied straight to Bank Rate
+        # The Bank of England sets Bank Rate (Indicator.controlled_by); how it reacts to
+        # inflation is applied straight to Bank Rate. Its support for the government does
+        # not move rates.
         _edge("indicator:inflation", "indicator:interest_rate", E.DRIVES, 0.5, lag=1),
         _edge("indicator:interest_rate", "indicator:inflation", E.DRIVES, -0.4, lag=6),
         _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.5, lag=3),
