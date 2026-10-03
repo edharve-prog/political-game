@@ -4,8 +4,10 @@ When the offline scenario library serves a scenario Claude generated before (SD-
 them from the store), these reuse Claude's work on it:
 
 * ``StoredInterpreter``: the stored interpretation of the same or a closely matching
-  response, re-checked against today's world and feasibility; otherwise the fallback
-  (keyword matching).
+  response, kept to the nodes today's world has; otherwise the fallback (keyword
+  matching). Like every interpreter it reports what was asked for: the game decides what
+  is feasible, so a stored request that is now blocked shows up as blocked rather than
+  being swapped for a different policy.
 * ``StoredForecaster``: the stored candidate outcomes for the same kind of response
   (same action kinds, targets and directions), with the engine's current numbers in place
   of the stored ones and every graph change re-validated; otherwise the fallback.
@@ -20,7 +22,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.game.interfaces import Forecaster, Interpreter
 from hog_sim.knowledge.entries import action_signature, normalise_text, scenario_id
 from hog_sim.knowledge.store import KnowledgeStore
-from hog_sim.policy.feasibility import Role, check_feasibility
+from hog_sim.policy.feasibility import Role
 from hog_sim.world.changes import check_graph_change
 from hog_sim.world.propagation import DeltaDistribution
 
@@ -62,10 +64,9 @@ class StoredInterpreter:
         if best is not None and best_score >= MATCH_THRESHOLD:
             known = set(state.node_ids())
             actions = [a for a in best.actions if a.target in known]
-            feasible = check_feasibility(actions, state, self.role).feasible_actions
-            if feasible:
+            if actions:
                 self.last_source = "stored"
-                return [a.model_copy(deep=True) for a in feasible]
+                return [a.model_copy(deep=True) for a in actions]
         self.last_source = "fallback"
         return self.fallback.interpret(text, state, scenario)
 

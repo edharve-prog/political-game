@@ -38,6 +38,8 @@ EXECUTIVE_AUTHORITY = "executive_authority"
 KNOWN_REQUIREMENTS = {LEGISLATURE_MAJORITY, BUDGET_HEADROOM, EXECUTIVE_AUTHORITY}
 
 LEGISLATIVE_KINDS = {"tax", "spend", "legislate"}
+DEFICIT_WARN = 5.0  # % of GDP
+DEFICIT_LIMIT = 10.0  # no new borrowing past this; ``policy.limits`` holds packages to it
 INDEPENDENCE_THRESHOLD = 0.7
 LEGISLATURE_ID = "institution:legislature"
 DEFICIT_ID = "indicator:deficit"
@@ -119,8 +121,8 @@ def check_feasibility(
     state: WorldState,
     role: Role = "prime_minister",
     *,
-    deficit_warn: float = 5.0,
-    deficit_limit: float = 10.0,
+    deficit_warn: float = DEFICIT_WARN,
+    deficit_limit: float = DEFICIT_LIMIT,
 ) -> FeasibilityReport:
     return FeasibilityReport(
         checks=[

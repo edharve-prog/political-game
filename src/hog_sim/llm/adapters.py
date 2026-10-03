@@ -17,7 +17,7 @@ from hog_sim.llm.client import LLMClient, ModelConfig
 from hog_sim.llm.interpreter import Interpretation, interpret
 from hog_sim.llm.scenario_gen import GeneratedScenario, generate_scenario
 from hog_sim.llm.summary import summarise_state
-from hog_sim.policy.feasibility import FeasibilityReport, Role, check_feasibility
+from hog_sim.policy.feasibility import Role
 from hog_sim.world.storylines import open_storylines, storylines_text
 
 
@@ -67,11 +67,13 @@ class LLMScenarioSource:
 
 
 class LLMInterpreter:
-    """Interprets the player's text and keeps only the actions that pass feasibility.
+    """Interprets the player's text into the actions they asked for.
 
-    The full interpretation and feasibility report of the last call are kept on
-    ``last_interpretation`` and ``last_feasibility`` so an interface can show the
-    clarifying question or explain why an action was dropped.
+    It does not judge them: the game applies feasibility, diminishing returns and political
+    capital in one place (``policy.limits.constrain``), the same in every mode, so blocked
+    actions stay in the turn record with a note saying why. The full interpretation of the
+    last call is kept on ``last_interpretation`` so an interface can show the clarifying
+    question or the measures that could not be mapped.
     """
 
     def __init__(
@@ -81,15 +83,12 @@ class LLMInterpreter:
         self.role = role
         self.config = config
         self.last_interpretation: Interpretation | None = None
-        self.last_feasibility: FeasibilityReport | None = None
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         summary = summarise_state(state, self.role)
         result = interpret(text, summary, self.client, scenario=scenario, config=self.config)
-        report = check_feasibility(result.actions, state, self.role)
         self.last_interpretation = result
-        self.last_feasibility = report
-        return report.feasible_actions
+        return list(result.actions)
 
     def last_delivery(self) -> Delivery | None:
         """How the last response was delivered (story RB-4), or None before any call."""

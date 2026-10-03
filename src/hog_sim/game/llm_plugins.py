@@ -22,17 +22,6 @@ class ClarifyingInterpreter(LLMInterpreter):
             raise NeedsClarification(result.clarifying_question)
         return actions
 
-    def dropped(self) -> list[str]:
-        """One line per action feasibility blocked on the last call."""
-        report = self.last_feasibility
-        if report is None:
-            return []
-        return [
-            f"{c.action.kind} {c.action.target}: {'; '.join(c.blockers)}"
-            for c in report.checks
-            if not c.feasible
-        ]
-
 
 def llm_plugins(
     client: LLMClient,
