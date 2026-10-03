@@ -18,7 +18,12 @@ from hog_sim.llm.interpreter import Interpretation, interpret
 from hog_sim.llm.scenario_gen import GeneratedScenario, generate_scenario
 from hog_sim.llm.summary import summarise_state
 from hog_sim.policy.feasibility import Role
-from hog_sim.world.storylines import open_storylines, storylines_text
+from hog_sim.world.storylines import (
+    final_storylines,
+    must_open_new,
+    open_storylines,
+    storylines_text,
+)
 
 
 def recent_events(history: Sequence[Any], limit: int = 8) -> list[str]:
@@ -63,6 +68,8 @@ class LLMScenarioSource:
             recent=recent,
             storylines=open_storylines(state),
             storylines_prompt=storylines_text(state),
+            final=final_storylines(state),
+            open_new=must_open_new(state, history),
         )
 
 

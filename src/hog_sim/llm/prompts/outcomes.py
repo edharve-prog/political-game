@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-6"
+VERSION = "outcomes-8"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -51,8 +51,18 @@ people affected makes strikes, protests and rebellions less likely; imposing a c
 overnight makes them more likely; phasing it in calms markets but delays the benefit. Each \
 narrative should refer to the leader's own framing at least once when they gave one.
 
+When the briefing lists measures that were blocked or weakened, those measures did not take \
+effect (or took effect at reduced strength). Never describe a blocked measure as enacted; its \
+defeat, and who blocked it, can be the story.
+
 Refer to foreign leaders by role ("the US President"), never by a real person's name.
 """
+
+
+ENDING = (
+    "This storyline comes to a head this turn: write every candidate as how it ends, for "
+    "better or worse, and set resolves_storyline to true."
+)
 
 
 def render(
@@ -62,8 +72,15 @@ def render(
     engine_text: str,
     n: int,
     delivery_text: str = "",
+    limits: list[str] = (),
+    ending: bool = False,
 ) -> str:
     delivery = ["How it was delivered:", delivery_text, ""] if delivery_text else []
+    blocked = (
+        ["Blocked or weakened (not enacted as asked):", *(f"- {n}" for n in limits), ""]
+        if limits
+        else []
+    )
     return "\n".join(
         [
             summary_prompt,
@@ -74,10 +91,12 @@ def render(
             "The leader's actions:",
             actions_text,
             "",
+            *blocked,
             *delivery,
             "Engine forecast:",
             engine_text,
             "",
+            *([ENDING, ""] if ending else []),
             f"Propose {n} candidate outcomes.",
         ]
     )

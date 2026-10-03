@@ -47,6 +47,7 @@ from hog_sim.llm.summary import StateSummary, relevant_links, summarise_state
 from hog_sim.policy.feasibility import Role
 from hog_sim.world.changes import validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
+from hog_sim.world.storylines import final_storylines
 
 CLAIM_TURN = 2  # candidates claim indicator changes three turns out (index 2)
 MAX_GROUP_EFFECT = 0.1
@@ -228,6 +229,7 @@ class LLMForecaster:
         actions: list[PolicyAction],
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
+        limits: list[str] | None = None,
     ) -> list[Outcome]:
         cfg = self.config
         summary = summarise_state(state, self.role)
@@ -243,6 +245,8 @@ class LLMForecaster:
             engine_text(state, engine),
             cfg.n_candidates,
             delivery.describe() if delivery else "",
+            limits or [],
+            ending=scenario.storyline in final_storylines(state),
         )
         drafts = structured_call(
             self.client,

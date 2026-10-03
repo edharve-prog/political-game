@@ -12,11 +12,20 @@ The other items in the turn's in-tray (``Scenario.secondary``, story SD-2) open 
 storylines too. One counts as acted on when an action targets one of its nodes; one left alone
 carries over and keeps escalating, unless it was minor (urgency below ``FADE_BELOW``), in
 which case it fades. The chosen outcome only ever settles the lead.
+
+Storylines also come to a head (story SD-9). One that would reach ``FINAL_STAGE`` this turn,
+or is ``MAX_AGE`` turns old, is in its final stage: the scenario writer is told, it can only
+return as the lead, and when it does that turn's outcome is how it ends, whatever the outcome
+says. Left alone instead, it comes to a head without the leader on its next escalation.
+``must_open_new`` asks for a fresh lead when the last ``NEW_LEAD_EVERY - 1`` leads all
+continued old storylines, so a few sagas can't fill the whole premiership.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
+from typing import Any
 
 from hog_sim.core.models import Outcome, PolicyAction, Scenario, SideIssue, Storyline
 from hog_sim.core.state import WorldState
@@ -26,6 +35,9 @@ ESCALATION_PRESSURE = 0.15
 FADE_BELOW = 0.3  # a minor in-tray item left alone below this urgency resolves itself
 HISTORY_LINES = 6
 MAX_LINE = 160
+FINAL_STAGE = 6  # a storyline reaching this stage comes to a head
+MAX_AGE = 10  # ... as does one open this many turns
+NEW_LEAD_EVERY = 3  # at least one lead in this many opens a new storyline
 
 
 def new_storyline_id(title: str, turn: int) -> str:
@@ -35,6 +47,29 @@ def new_storyline_id(title: str, turn: int) -> str:
 
 def open_storylines(state: WorldState) -> list[Storyline]:
     return [s for s in state.storylines.values() if s.open]
+
+
+def is_final(story: Storyline, turn: int) -> bool:
+    """True when ``story`` comes to a head if it is the lead on ``turn``."""
+    return story.stage + 1 >= FINAL_STAGE or turn - story.opened_turn >= MAX_AGE
+
+
+def final_storylines(state: WorldState) -> list[str]:
+    return [s.id for s in open_storylines(state) if is_final(s, state.turn)]
+
+
+def must_open_new(state: WorldState, history: Sequence[Any]) -> bool:
+    """True when each of the last ``NEW_LEAD_EVERY - 1`` turns' leads continued a storyline
+    opened on an earlier turn."""
+    recent = list(history)[-(NEW_LEAD_EVERY - 1) :]
+    if len(recent) < NEW_LEAD_EVERY - 1:
+        return False
+
+    def continued(record: Any) -> bool:
+        story = state.storylines.get(record.scenario.storyline or "")
+        return story is not None and story.opened_turn < record.turn
+
+    return all(continued(r) for r in recent)
 
 
 def _clip(text: str) -> str:
@@ -91,6 +126,8 @@ def advance_storylines(
         return story
 
     if scenario.storyline:
+        before = stories.get(scenario.storyline)
+        final = before is not None and before.open and is_final(before, turn)
         story = touch(scenario, acted=True)
         _add(
             story, _clip(f"Turn {turn}, stage {story.stage}: {scenario.title}. {outcome.narrative}")
@@ -98,6 +135,9 @@ def advance_storylines(
         if outcome.resolves_storyline:
             story.open = False
             _add(story, f"Turn {turn}: resolved")
+        elif final:
+            story.open = False
+            _add(story, f"Turn {turn}: came to a head")
 
     for item in scenario.secondary:
         if not item.storyline:
@@ -113,7 +153,13 @@ def advance_storylines(
             _add(story, f"Turn {turn}: {item.title}, left in the in-tray")
 
     for story in stories.values():
-        if story.open and turn - story.last_turn >= ESCALATE_AFTER:
+        if story.open and turn - story.last_turn >= ESCALATE_AFTER and is_final(story, turn):
+            # Its climax happens without the leader: it ends rather than escalating forever.
+            story.open = False
+            story.last_turn = turn
+            story.pressure = min(1.0, story.pressure + ESCALATION_PRESSURE)
+            _add(story, f"Turn {turn}: came to a head while left alone")
+        elif story.open and turn - story.last_turn >= ESCALATE_AFTER:
             story.stage += 1
             story.last_turn = turn
             story.pressure = min(1.0, story.pressure + ESCALATION_PRESSURE)
@@ -132,9 +178,14 @@ def storylines_text(state: WorldState) -> str:
     lines = ["Open storylines (id, stage, pressure 0-1, turns since the leader last faced it):"]
     for s in stories:
         idle = state.turn - s.last_addressed
+        final = (
+            " FINAL STAGE: it can only return as the lead, and this turn would be how it ends"
+            if is_final(s, state.turn)
+            else ""
+        )
         lines.append(
             f"- {s.id} [{s.category or 'uncategorised'}] {s.title}: stage {s.stage}, "
-            f"pressure {s.pressure:.2f}, {idle} turn(s) since faced"
+            f"pressure {s.pressure:.2f}, {idle} turn(s) since faced.{final}"
         )
         lines += [f"    {h}" for h in s.history]
     return "\n".join(lines)

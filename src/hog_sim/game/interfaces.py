@@ -34,7 +34,11 @@ class Forecaster(Protocol):
         actions: list[PolicyAction],
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
-    ) -> list[Outcome]: ...
+        limits: list[str] | None = None,
+    ) -> list[Outcome]:
+        """``limits`` are the notes on what the game's limits blocked or weakened (story RB-8),
+        so outcomes don't describe a blocked measure as enacted."""
+        ...
 
 
 class NeedsClarification(Exception):  # noqa: N818 - reads as a message, not an error
