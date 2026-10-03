@@ -5,14 +5,74 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only token: no job here writes to the repo.
+permissions:
+  contents: read
+
+# A new push to a PR cancels that PR's older run. Runs on main always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv python install 3.12
-      - run: uv sync
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check src tests
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor declared in pyproject.toml (requires-python).
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
       - run: uv run pytest
+
+  # Build the wheel, install it outside the repo and play a turn with the installed
+  # command, so missing package data or a broken entry point fails here.
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.11"
+      - run: uv build
+      - name: Wheel includes the scenario library
+        run: |
+          python3 - <<'PY'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          scenarios = [n for n in names if n.startswith("hog_sim/content/scenarios/")]
+          print(f"{len(scenarios)} scenario files in the wheel")
+          assert len(scenarios) >= 12, scenarios
+          PY
+      - name: Install the wheel into a clean environment
+        run: |
+          uv venv "$RUNNER_TEMP/venv"
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dist/*.whl
+      - name: Play a turn, save, and resume with the installed command
+        working-directory: ${{ runner.temp }}
+        run: |
+          hog="$RUNNER_TEMP/venv/bin/hog-sim"
+          "$hog" --help
+          printf '1\n\n' | "$hog" --offline --save smoke.db | tee new.txt
+          grep -q "^New game" new.txt
+          "$hog" --offline --save smoke.db --resume < /dev/null | tee resume.txt
+          grep -q "at turn 1\." resume.txt
