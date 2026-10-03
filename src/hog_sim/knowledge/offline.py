@@ -17,7 +17,7 @@ Both satisfy the game loop's protocols and make no LLM calls.
 
 from __future__ import annotations
 
-from hog_sim.core.models import Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.game.interfaces import Forecaster, Interpreter
 from hog_sim.knowledge.entries import action_signature, normalise_text, scenario_id
@@ -42,8 +42,15 @@ class StoredInterpreter:
         self.fallback = fallback
         self.role = role
         self.last_source: str | None = None  # "stored" or "fallback", for the interface
+        self._delivery: Delivery | None = None
+
+    def last_delivery(self) -> Delivery | None:
+        """Delivery is read from the player's own words each turn, never from storage."""
+        return self._delivery
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
+        reader = getattr(self.fallback, "delivery_for", None)
+        self._delivery = reader(text, state) if reader else None
         entries = self.store.interpretations(scenario_id(scenario))
         best, best_score = None, 0.0
         for entry in entries:
@@ -76,6 +83,7 @@ class StoredForecaster:
         scenario: Scenario,
         actions: list[PolicyAction],
         engine: DeltaDistribution,
+        delivery: Delivery | None = None,
     ) -> list[Outcome]:
         signature = action_signature(actions)
         matches = [
@@ -85,7 +93,7 @@ class StoredForecaster:
         ]
         if not matches:
             self.last_source = "fallback"
-            return self.fallback.forecast(state, scenario, actions, engine)
+            return self.fallback.forecast(state, scenario, actions, engine, delivery=delivery)
         self.last_source = "stored"
         entry = matches[-1]
         expected = {

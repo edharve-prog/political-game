@@ -149,6 +149,29 @@ class Shock(Model):
     )
 
 
+class Delivery(Model):
+    """How the leader carries out a response, beside what they do (backlog story RB-4)."""
+
+    framing: str = Field("", description="The message or justification the leader gives")
+    venue: str = Field("", description="Where it is announced, e.g. a Commons statement")
+    consulted: list[str] = Field(
+        default_factory=list, description="Node ids of stakeholders consulted beforehand"
+    )
+    speed: Literal["immediate", "phased"] = "immediate"
+
+    def describe(self) -> str:
+        parts = []
+        if self.framing:
+            parts.append(f'framed as "{self.framing}"')
+        if self.venue:
+            parts.append(f"announced via {self.venue}")
+        parts.append(
+            f"after consulting {', '.join(self.consulted)}" if self.consulted else "no consultation"
+        )
+        parts.append("phased in" if self.speed == "phased" else "imposed immediately")
+        return "; ".join(parts)
+
+
 class ApprovalEvent(Model):
     """A one-off hit or boost to some groups' approval that fades over time."""
 
