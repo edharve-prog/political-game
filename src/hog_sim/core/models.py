@@ -9,11 +9,13 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    # NaN and infinity are never valid game numbers; refusing them here stops one bad value
+    # (from a file, an API call or an LLM) from spreading through the engine.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 # --- Nodes -----------------------------------------------------------------
@@ -37,15 +39,15 @@ class Node(Model):
 
 
 class Country(Node):
-    gdp_bn: float
+    gdp_bn: float = Field(ge=0)
     growth_pct: float
     relationship: float = Field(0.0, ge=-1, le=1, description="Stance towards the player")
     stability: float = Field(0.5, ge=0, le=1)
 
 
 class Sector(Node):
-    output_bn: float
-    employment_k: float
+    output_bn: float = Field(ge=0)
+    employment_k: float = Field(ge=0)
     sentiment: float = Field(0.0, ge=-1, le=1)
 
 
@@ -84,6 +86,16 @@ class Indicator(Node):
     history: list[float] = Field(
         default_factory=list, description="Value at the start of each past turn, oldest first"
     )
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> Indicator:
+        if self.low is not None and self.high is not None and self.low > self.high:
+            raise ValueError(f"{self.id}: low {self.low:g} is above high {self.high:g}")
+        if self.low is not None and self.value < self.low:
+            raise ValueError(f"{self.id}: value {self.value:g} is below its floor {self.low:g}")
+        if self.high is not None and self.value > self.high:
+            raise ValueError(f"{self.id}: value {self.value:g} is above its ceiling {self.high:g}")
+        return self
 
 
 AnyNode = Country | Sector | Group | Institution | Indicator

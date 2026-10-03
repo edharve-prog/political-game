@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hog_sim.core.config import make_rng
+from hog_sim.core.config import GameConfig, make_rng
 from hog_sim.core.models import (
     Country,
     Edge,
@@ -13,6 +13,7 @@ from hog_sim.core.models import (
     Sector,
 )
 from hog_sim.core.state import WorldState
+from hog_sim.world.seed.toy import toy_world
 
 
 @pytest.fixture
@@ -81,3 +82,51 @@ def test_policy_action_rejects_out_of_range_magnitude() -> None:
 def test_rng_is_deterministic() -> None:
     assert make_rng(1, 3, "news").random() == make_rng(1, 3, "news").random()
     assert make_rng(1, 3, "news").random() != make_rng(1, 4, "news").random()
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        {"horizon": 0},
+        {"k_draws": 0},
+        {"election_turn": 0},
+        {"turn_length_months": 0},
+        {"capital_per_turn": -1.0},
+        {"capital_per_turn": float("nan")},
+    ],
+)
+def test_game_config_rejects_values_the_engine_cannot_run(field) -> None:
+    """Finding 11: these used to fail deep in forecasting or flip action signs."""
+    with pytest.raises(ValidationError):
+        GameConfig(**field)
+
+
+def _toy_json() -> dict:
+    return toy_world().model_dump()
+
+
+@pytest.mark.parametrize(
+    ("path", "value", "message"),
+    [
+        (("indicators", "indicator:inflation", "low"), 40.0, "above high"),
+        (("indicators", "indicator:inflation", "value"), 99.0, "above its ceiling"),
+        (("indicators", "indicator:inflation", "value"), -9.0, "below its floor"),
+        (("indicators", "indicator:interest_rate", "controlled_by"), "institution:mint", "not an"),
+        (("sectors", "sector:energy", "output_bn"), -1.0, "greater than or equal"),
+        (("countries", "country:uk", "growth_pct"), float("inf"), "finite"),
+    ],
+)
+def test_world_state_rejects_broken_invariants(path, value, message) -> None:
+    data = _toy_json()
+    collection, node, field = path
+    data[collection][node][field] = value
+    with pytest.raises(ValidationError, match=message):
+        WorldState.model_validate(data)
+
+
+def test_world_state_needs_some_population() -> None:
+    data = _toy_json()
+    for group in data["groups"].values():
+        group["population_share"] = 0.0
+    with pytest.raises(ValidationError, match="population_share"):
+        WorldState.model_validate(data)
