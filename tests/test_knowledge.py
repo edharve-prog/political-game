@@ -272,6 +272,19 @@ def test_offline_game_reuses_claude_work(world, engine, tmp_path) -> None:
     assert sum(c.probability for c in record.candidates) == pytest.approx(1.0)
     assert replay(world, game.config, game.history) == game.state
 
+    # A stored request that is now blocked is reported as blocked, not swapped for another
+    # policy by the keyword fallback.
+    blocked_world = game.state.snapshot()
+    blocked_world.institutions["institution:legislature"].support = 0.3
+    blocked = Game(
+        GameConfig(election_turn=5, k_draws=20), blocked_world, library, interpreter, forecaster
+    )
+    blocked.scenario = game.history[0].scenario
+    proposal = blocked.propose("put a windfall tax on the energy companies")
+    assert interpreter.last_source == "stored"
+    assert proposal.requested == [TAX] and proposal.actions == []
+    assert proposal.notes[0].startswith("Blocked: tax")
+
     # Something Claude never saw falls back to keyword matching and the stub forecaster.
     game.play_turn("build more houses")
     assert interpreter.last_source == "fallback" and forecaster.last_source == "fallback"

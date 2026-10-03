@@ -362,8 +362,10 @@ def test_scenario_source_feeds_history_into_prompt(world: WorldState) -> None:
     assert "Bills capped; suppliers bailed out" in client.requests[0].messages[0].content
 
 
-def test_interpreter_adapter_drops_infeasible_actions(world: WorldState) -> None:
+def test_interpreter_adapter_reports_what_was_asked(world: WorldState) -> None:
+    """Finding 3: the adapter no longer filters; the game's limits block and explain."""
     from hog_sim.llm.adapters import LLMInterpreter
+    from hog_sim.policy.limits import constrain
 
     world.institutions["institution:legislature"].support = 0.3
     reply = {
@@ -376,8 +378,10 @@ def test_interpreter_adapter_drops_infeasible_actions(world: WorldState) -> None
     actions = adapter.interpret(
         "Tax energy, warm up to the EU", world, GeneratedScenario(**draft())
     )
-    assert [a.kind for a in actions] == ["diplomatic"]
-    assert not adapter.last_feasibility.checks[0].feasible
+    assert [a.kind for a in actions] == ["tax", "diplomatic"]
+    limited = constrain(actions, world, [])
+    assert [a.kind for a in limited.actions] == ["diplomatic"]
+    assert limited.notes[0].startswith("Blocked: tax sector:energy")
 
 
 def test_adapters_drive_the_game_loop(world: WorldState) -> None:

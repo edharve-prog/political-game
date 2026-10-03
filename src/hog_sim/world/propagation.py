@@ -151,6 +151,14 @@ def fiscal_size(action: PolicyAction) -> float:
     return action.magnitude
 
 
+def fiscal_cost(action: PolicyAction) -> float:
+    """Standard steps a turn that the action adds to the deficit while it runs (negative
+    when it takes them off). Actions aimed at the deficit itself have no separate cost."""
+    if action.target == FISCAL_NODE:
+        return 0.0
+    return _FISCAL_SIGN.get(action.kind, 0.0) * fiscal_size(action) * FISCAL_STEPS
+
+
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """Map interpreted actions to engine shocks.
 
@@ -179,8 +187,8 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     and e.target == action.target
                     and e.source in state.sectors
                 ]
-        cost = _FISCAL_SIGN.get(action.kind, 0.0) * fiscal_size(action) * FISCAL_STEPS
-        if fiscal and cost and action.target != FISCAL_NODE:
+        cost = fiscal_cost(action)
+        if fiscal and cost:
             shocks.append(
                 Shock(
                     node=FISCAL_NODE,

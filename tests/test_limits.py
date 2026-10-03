@@ -73,3 +73,38 @@ def test_replay_matches_with_limits_applied() -> None:
     while not game.over:
         game.play_turn("same again")
     assert replay(game.start, game.config, game.history) == game.state
+
+
+def deficit_after(game, record):
+    return record.state_after.indicators["indicator:deficit"].value
+
+
+def test_a_package_cannot_borrow_past_the_deficit_limit() -> None:
+    """Finding 7: at 9.9% a full-capital spending package used to take the deficit past 10%."""
+    world = toy_world()
+    world.indicators["indicator:deficit"].value = 9.9
+    spend = [act("spend", "sector:public", 1.0), act("spend", "sector:housing", 0.5)]
+    limited = constrain(spend, world, [])
+    assert any(n.startswith("Deficit limit") for n in limited.notes)
+    config = GameConfig(election_turn=6, k_draws=10)
+    game = Game(config, world, CannedScenarios(0), Scripted(*spend), EngineForecaster())
+    record = game.commit(game.revise(game.propose("spend"), spend))
+    assert deficit_after(game, record) <= 10.0 + 1e-6
+
+
+def test_tax_rises_make_room_for_borrowing() -> None:
+    world = toy_world()
+    world.indicators["indicator:deficit"].value = 9.9
+    alone = constrain([act("spend", "sector:public", 0.5)], world, [])
+    paid = constrain(
+        [act("spend", "sector:public", 0.5), act("tax", "sector:finance", 0.5)], world, []
+    )
+    assert alone.actions[0].magnitude < 0.5
+    assert paid.actions[0].magnitude == pytest.approx(0.5)
+    assert not any(n.startswith("Deficit limit") for n in paid.notes)
+
+
+def test_room_below_the_limit_is_untouched() -> None:
+    limited = constrain([act("spend", "sector:public", 1.0)], toy_world(), [])
+    assert limited.actions[0].magnitude == pytest.approx(1.0)
+    assert limited.notes == []
