@@ -228,6 +228,7 @@ class LLMForecaster:
         actions: list[PolicyAction],
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
+        limits: list[str] | None = None,
     ) -> list[Outcome]:
         cfg = self.config
         summary = summarise_state(state, self.role)
@@ -243,6 +244,7 @@ class LLMForecaster:
             engine_text(state, engine),
             cfg.n_candidates,
             delivery.describe() if delivery else "",
+            limits or [],
         )
         drafts = structured_call(
             self.client,

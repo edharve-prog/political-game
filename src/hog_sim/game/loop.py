@@ -200,7 +200,7 @@ class Game:
         shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
         candidates = self.forecaster.forecast(
-            state, scenario, actions, engine, delivery=proposal.delivery
+            state, scenario, actions, engine, delivery=proposal.delivery, limits=proposal.notes
         )
         chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
 
