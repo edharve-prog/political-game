@@ -5,6 +5,9 @@ A turn-based simulation where you play Prime Minister or President. Each turn a 
 outcomes and selects one, and the result reshapes a world of countries, economic sectors and
 population groups that feeds the next scenario.
 
+How the engine decides what happens is explained in plain English in
+[docs/ENGINE_RULES.md](docs/ENGINE_RULES.md).
+
 The full plan is in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md). Each numbered project
 gets its own file under `docs/projects/` when it is picked up.
 
