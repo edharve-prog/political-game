@@ -52,8 +52,14 @@ RECENT_TURNS = 8
 
 
 def check_draft(
-    draft: ScenarioDraft, catalogue: dict[str, str], storylines: Sequence[Storyline] = ()
+    draft: ScenarioDraft,
+    catalogue: dict[str, str],
+    storylines: Sequence[Storyline] = (),
+    final: Sequence[str] = (),
+    open_new: bool = False,
 ) -> list[str]:
+    """``final`` are the storylines in their final stage; ``open_new`` asks for a new lead
+    storyline (story SD-9)."""
     problems = []
     ids = [s.id for s in storylines]
     items = [draft, *draft.secondary]
@@ -62,6 +68,14 @@ def check_draft(
     continued = [i.storyline for i in items if i.storyline != "new"]
     if len(set(continued)) != len(continued):
         problems.append("each storyline may appear only once in the in-tray")
+    side = [i.storyline for i in draft.secondary if i.storyline != "new"]
+    if len(side) > 1:
+        problems.append("at most one secondary item may continue an open storyline")
+    ending = sorted(set(side) & set(final))
+    if ending:
+        problems.append(f"{ending} are in their final stage and can only return as the lead")
+    if open_new and draft.storyline != "new":
+        problems.append("the last leads all continued old storylines: open a 'new' one this turn")
     if not 1 <= len(draft.secondary) <= 3:
         problems.append("give 1-3 secondary items")
     titles = [i.title.strip().lower() for i in items]
@@ -94,9 +108,12 @@ def generate_scenario(
     recent: list[Scenario] | None = None,
     storylines: list[Storyline] | None = None,
     storylines_prompt: str = "",
+    final: Sequence[str] = (),
+    open_new: bool = False,
 ) -> GeneratedScenario:
     """``storylines`` are the open ones the draft may continue; ``storylines_prompt`` shows
-    them with their history (``world.storylines.storylines_text``)."""
+    them with their history (``world.storylines.storylines_text``). ``final`` and
+    ``open_new`` apply the SD-9 lifespan rules (see ``check_draft``)."""
     config = config or ModelConfig()
     recent = list(recent or [])[-RECENT_TURNS:]
     storylines = list(storylines or [])
@@ -104,13 +121,15 @@ def generate_scenario(
         client,
         output_type=ScenarioDraft,
         system=prompt.SYSTEM,
-        prompt=prompt.render(summary.to_prompt(), recent_text(recent), storylines_prompt),
+        prompt=prompt.render(
+            summary.to_prompt(), recent_text(recent), storylines_prompt, open_new=open_new
+        ),
         model=config.scenario_model,
         prompt_version=prompt.VERSION,
         effort=config.scenario_effort,
         max_tokens=config.max_tokens,
         max_attempts=config.max_attempts,
-        check=lambda d: check_draft(d, summary.catalogue, storylines),
+        check=lambda d: check_draft(d, summary.catalogue, storylines, final, open_new),
     )
     fields = draft.model_dump(exclude={"secondary"})
     fields["storyline"] = _storyline_id(draft.storyline, draft.title, summary.turn)

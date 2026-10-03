@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-4"
+VERSION = "scenario-5"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -26,7 +26,8 @@ scenario or stay in the same category two turns running unless that story is sha
 - build stories, not one-offs: when the briefing lists open storylines, continue one whose \
 pressure is high or that the leader has not faced for a few turns, showing how it has moved on \
 since its last stage and how the leader's earlier response shaped it. Open a new storyline \
-when nothing open is pressing; with five or more open, continue one
+when nothing open is pressing; with five or more open, continue one. Stories end: a storyline \
+marked FINAL STAGE can only come back as the lead, and that turn is its climax
 - refer to foreign leaders by role ("the Chinese premier"), never by a real person's name
 
 Fields:
@@ -40,14 +41,22 @@ defence_security, foreign_affairs, environment_disasters, party_scandal, media_t
 - storyline: the id of the open storyline this continues, or "new"
 - secondary: 1-3 smaller in-tray items, each in a different category from the lead, with a \
 title, category, a one-paragraph briefing (30-80 words), affected_nodes, urgency (lower than \
-the lead's) and storyline (an open id or "new"). Open storylines the lead does not continue \
-are good candidates; no storyline may appear twice in one in-tray
+the lead's) and storyline (an open id or "new"). At most one may continue an open storyline \
+(never one in its final stage); the others are new. No storyline may appear twice in one in-tray
 - stakeholder_positions: 2-5 nodes (groups, institutions, countries or sectors) with a stance \
 from -1 (strongly opposes government acting) to 1 (strongly demands it) and a one-sentence \
 statement of what they want
 """
 
 
-def render(summary_prompt: str, recent: str = "", storylines: str = "") -> str:
-    blocks = "".join(f"\n\n{b}" for b in (recent, storylines) if b)
+OPEN_NEW = (
+    "The last few leads all continued old storylines. This turn's lead must open a new one "
+    '(storyline "new").'
+)
+
+
+def render(
+    summary_prompt: str, recent: str = "", storylines: str = "", open_new: bool = False
+) -> str:
+    blocks = "".join(f"\n\n{b}" for b in (recent, storylines, OPEN_NEW if open_new else "") if b)
     return f"{summary_prompt}{blocks}\n\nWrite this turn's scenario."
