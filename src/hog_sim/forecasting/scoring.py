@@ -4,7 +4,10 @@ Each candidate gets three scores, each in (0, 1]:
 
 * **consistency**: how well its claimed indicator shifts fit the engine's Monte Carlo
   distribution. Each claim is treated as a draw from a normal fitted to the engine's
-  10th/90th percentiles; the score is the geometric mean of exp(-z^2 / 2) over its claims.
+  10th/90th percentiles; the score is the geometric mean of exp(-z^2 / 2) over its claims,
+  with each |z| capped at ``Z_CAP``. Without the cap one far-off claim scored like 1e-25
+  and consistency alone picked the outcome, overriding the judge (the 30-turn review,
+  EB-13); with it the worst score is about 0.011, a strong but not decisive penalty.
   An indicator the engine expects to move materially but the candidate leaves out counts as
   a claim of no change, so saying nothing is not a free pass.
 * **judge**: an independent LLM estimate of its probability (``forecasting/candidates.py``).
@@ -59,6 +62,7 @@ BASE_RATES: dict[str, float] = {
 # 10th to 90th percentile of a normal spans 2 * 1.2816 standard deviations.
 _P10_P90_SPAN = 2 * 1.2816
 _FLOOR = 1e-6
+Z_CAP = 3.0  # beyond 3 spreads a claim is simply "far off"; see the module docstring
 
 
 class ScoreWeights(Model):
@@ -101,7 +105,7 @@ def consistency(claims: dict[str, float], engine: DeltaDistribution, turn: int) 
             continue
         mean = forecast.mean[turn]
         z = (claimed - mean) / _spread(mean, forecast.p10[turn], forecast.p90[turn])
-        logs.append(-(z**2) / 2)
+        logs.append(-(min(abs(z), Z_CAP) ** 2) / 2)
     return math.exp(sum(logs) / len(logs)) if logs else 1.0
 
 
