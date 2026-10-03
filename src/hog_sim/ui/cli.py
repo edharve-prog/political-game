@@ -163,6 +163,16 @@ def _llm_client(provider: str):
 def _llm_banner(model_config, forecast_config, provider: str, note: str | None = None) -> str:
     from hog_sim.llm.providers import describe
 
+    if provider == "codex":
+        from hog_sim.llm.codex import MODEL_ENV
+
+        return (
+            (f"{note}\n" if note else "")
+            + f"Mode: CODEX ({os.environ.get(MODEL_ENV) or 'Codex default model'}) via "
+            f"{describe(provider)}.\n"
+            "Scenarios, your responses and outcomes are written by Codex. Each turn ends with\n"
+            "a line counting the calls it made."
+        )
     models = sorted(
         {
             model_config.scenario_model,
@@ -201,7 +211,7 @@ def check_llm(client) -> str:
     record = client.usage.records[-1]
     served = record.served_model or record.model
     return (
-        f"Claude is connected. {served} replied {result.reply!r} "
+        f"{getattr(client, 'name', 'Claude')} is connected. {served} replied {result.reply!r} "
         f"({record.input_tokens} tokens in, {record.output_tokens} out, "
         f"{record.latency_s:.1f}s)."
     )
@@ -212,13 +222,15 @@ def _usage_line(client, since: int) -> str:
     served = sorted({r.served_model or r.model for r in calls})
     tokens_in = sum(r.input_tokens for r in calls)
     tokens_out = sum(r.output_tokens for r in calls)
+    name = getattr(client, "name", "Claude")
+    plan = "ChatGPT" if name == "Codex" else "Claude"
     spend = (
-        "counts against your Claude plan"
+        f"counts against your {plan} plan"
         if getattr(client, "subscription", False)
         else f"${client.usage.total_cost_usd:.2f} so far"
     )
     return (
-        f"  [Claude: {len(calls)} calls this turn via {', '.join(served) or 'none'}, "
+        f"  [{name}: {len(calls)} calls this turn via {', '.join(served) or 'none'}, "
         f"{tokens_in} tokens in, {tokens_out} out; {spend}]"
     )
 
@@ -351,14 +363,15 @@ def _main(argv: list[str] | None) -> None:
         "--provider",
         choices=PROVIDERS,
         default=os.environ.get("HOG_SIM_PROVIDER", DEFAULT_PROVIDER),
-        help="how to reach Claude: claude-code (the default: your Claude Code sign-in, "
+        help="how to reach the model: claude-code (the default: your Claude Code sign-in, "
         "falling back to the API when Claude Code is missing or signed out and an API key "
-        "exists) or api (API key or `ant auth login`)",
+        "exists), api (API key or `ant auth login`) or codex (OpenAI Codex signed in with "
+        "ChatGPT via `codex login`; set HOG_SIM_CODEX_MODEL to pick its model)",
     )
     parser.add_argument(
         "--check-llm",
         action="store_true",
-        help="make one small call to Claude to confirm the connection works, then exit",
+        help="make one small call to the model to confirm the connection works, then exit",
     )
     args = parser.parse_args(argv)
 

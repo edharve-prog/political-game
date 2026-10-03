@@ -338,3 +338,124 @@ def test_cli_says_when_it_fell_back_to_the_api(monkeypatch, capsys) -> None:
 
     banner = cli._llm_banner(ModelConfig(), ForecastConfig(), "api", note)
     assert banner.splitlines()[0] == note
+
+
+# --- Codex client --------------------------------------------------------------
+
+
+def codex_events(text=None, failed=None, errors=()) -> str:
+    events = [{"type": "thread.started", "thread_id": "t1"}, {"type": "turn.started"}]
+    events += [{"type": "error", "message": m} for m in errors]
+    if text is not None:
+        events.append(
+            {"type": "item.completed", "item": {"id": "i0", "type": "agent_message", "text": text}}
+        )
+        events.append(
+            {
+                "type": "turn.completed",
+                "usage": {"input_tokens": 120, "cached_input_tokens": 100, "output_tokens": 30},
+            }
+        )
+    if failed is not None:
+        events.append({"type": "turn.failed", "error": {"message": failed}})
+    return "\n".join(json.dumps(e) for e in events)
+
+
+def test_codex_runs_exec_read_only_with_everything_on_stdin(monkeypatch) -> None:
+    from hog_sim.llm.codex import CodexClient
+
+    monkeypatch.delenv("HOG_SIM_CODEX_MODEL", raising=False)
+    runner = FakeRunner(codex_events(text='```json\n{"actions": []}\n```'))
+    client = CodexClient("/usr/bin/codex", runner=runner)
+    response = client.complete(request())
+    argv, stdin = runner.calls[0]
+    assert argv[:3] == ["/usr/bin/codex", "exec", "--json"]
+    assert argv[argv.index("--sandbox") + 1] == "read-only"
+    assert "--ephemeral" in argv and "--skip-git-repo-check" in argv
+    assert 'model_reasoning_effort="low"' in argv
+    assert "--model" not in argv  # Claude model names mean nothing to Codex
+    assert argv[-1] == "-"
+    assert stdin.startswith("You map text") and '"properties"' in stdin
+    assert stdin.endswith("Tax energy firms")
+    assert json.loads(response.text) == {"actions": []}
+    record = client.usage.records[0]
+    assert record.input_tokens == 120 and record.output_tokens == 30
+    assert record.cost_usd == 0  # comes out of the ChatGPT plan
+    assert record.served_model == "codex/codex-default"
+
+
+def test_codex_model_and_effort(monkeypatch) -> None:
+    from hog_sim.llm.codex import CodexClient
+
+    monkeypatch.setenv("HOG_SIM_CODEX_MODEL", "gpt-5.5")
+    runner = FakeRunner(codex_events(text="{}"))
+    client = CodexClient("/usr/bin/codex", runner=runner)
+    client.complete(request(effort="max"))
+    argv, _ = runner.calls[0]
+    assert argv[argv.index("--model") + 1] == "gpt-5.5"
+    assert 'model_reasoning_effort="xhigh"' in argv
+    assert client.usage.records[0].served_model == "codex/gpt-5.5"
+
+
+def test_codex_retry_works_through_structured_call() -> None:
+    from hog_sim.llm.codex import CodexClient
+
+    runner = FakeRunner(
+        codex_events(text='{"actions": [{"kind": "tax"}]}'),
+        codex_events(text='{"actions": [], "clarifying_question": "Which firms?"}'),
+    )
+    result = structured_call(
+        CodexClient("/usr/bin/codex", runner=runner),
+        output_type=Interpretation,
+        system="sys",
+        prompt="Tax them",
+        model="claude-opus-5-5",
+        prompt_version="v1",
+    )
+    assert result.clarifying_question == "Which firms?"
+    assert "[Your earlier reply]" in runner.calls[1][1]
+
+
+def test_codex_errors_explain_sign_in() -> None:
+    from hog_sim.llm.codex import CodexClient
+
+    failed = CodexClient(
+        "/usr/bin/codex", runner=FakeRunner(codex_events(errors=["retrying"], failed="401"))
+    )
+    with pytest.raises(LLMError, match="Codex failed: 401.*codex login"):
+        failed.complete(request())
+    offline = CodexClient(
+        "/usr/bin/codex", runner=FakeRunner(codex_events(errors=["Reconnecting... 5/5"]))
+    )
+    with pytest.raises(LLMError, match="Reconnecting"):
+        offline.complete(request())
+
+
+def test_codex_does_not_see_openai_keys(monkeypatch) -> None:
+    from hog_sim.llm.codex import CodexClient
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-proj")
+    seen = {}
+
+    def runner(argv, input, env, **kwargs):
+        seen.update(env)
+        return SimpleNamespace(stdout=codex_events(text="{}"), stderr="", returncode=0)
+
+    CodexClient("/usr/bin/codex", runner=runner).complete(request())
+    assert "OPENAI_API_KEY" not in seen and "CODEX_API_KEY" not in seen
+
+
+def test_codex_provider_needs_codex_installed_and_signed_in(monkeypatch) -> None:
+    monkeypatch.setattr(providers.shutil, "which", lambda name: None)
+    with pytest.raises(LLMError, match="npm install -g @openai/codex"):
+        providers.choose_provider("codex")
+
+    monkeypatch.setattr(providers.shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    def status(code):
+        return lambda argv, **kwargs: SimpleNamespace(stdout="", stderr="", returncode=code)
+
+    with pytest.raises(LLMError, match="codex login"):
+        providers.choose_provider("codex", runner=status(1))
+    assert providers.choose_provider("codex", runner=status(0)) == ("codex", None)

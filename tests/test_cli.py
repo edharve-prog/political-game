@@ -79,6 +79,14 @@ def test_check_llm_reports_the_model() -> None:
     assert "claude-opus-5-5 replied 'connected'" in check_llm(client)
 
 
+def test_check_llm_names_codex() -> None:
+    from hog_sim.llm.client import FakeClient
+
+    client = FakeClient([{"reply": "connected"}])
+    client.name = "Codex"
+    assert check_llm(client).startswith("Codex is connected.")
+
+
 def test_dashboard_shows_score_changes() -> None:
     from hog_sim.world.seed.toy import toy_world
 
