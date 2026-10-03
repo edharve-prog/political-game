@@ -60,7 +60,7 @@ The game reaches a model in one of three ways, chosen with `--provider` (default
   `codex login` and sign in with ChatGPT in the browser. Then play with
   `hog-sim --provider codex` (or put `HOG_SIM_PROVIDER=codex` in `.env`). The game runs
   `codex exec` read-only in an empty scratch folder, so calls count against your plan's Codex
-  limits. It uses Codex's default model; set `HOG_SIM_CODEX_MODEL` in `.env` to pick another.
+  limits. It uses `gpt-6.1-sol`; set `HOG_SIM_CODEX_MODEL` in `.env` to pick another.
   Like `claude-code`, this is for playing on your own machine. Codex is only used when you
   ask for it, and an `OPENAI_API_KEY` in your environment is hidden from it so your ChatGPT
   sign-in is what gets used.

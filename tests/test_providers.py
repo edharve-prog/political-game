@@ -373,7 +373,7 @@ def test_codex_runs_exec_read_only_with_everything_on_stdin(monkeypatch) -> None
     assert argv[argv.index("--sandbox") + 1] == "read-only"
     assert "--ephemeral" in argv and "--skip-git-repo-check" in argv
     assert 'model_reasoning_effort="low"' in argv
-    assert "--model" not in argv  # Claude model names mean nothing to Codex
+    assert argv[argv.index("--model") + 1] == "gpt-6.1-sol"  # not the Claude model name
     assert argv[-1] == "-"
     assert stdin.startswith("You map text") and '"properties"' in stdin
     assert stdin.endswith("Tax energy firms")
@@ -381,7 +381,7 @@ def test_codex_runs_exec_read_only_with_everything_on_stdin(monkeypatch) -> None
     record = client.usage.records[0]
     assert record.input_tokens == 120 and record.output_tokens == 30
     assert record.cost_usd == 0  # comes out of the ChatGPT plan
-    assert record.served_model == "codex/codex-default"
+    assert record.served_model == "codex/gpt-6.1-sol"
 
 
 def test_codex_model_and_effort(monkeypatch) -> None:

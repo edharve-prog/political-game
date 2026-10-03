@@ -7,7 +7,7 @@ Codex limits. Like the Claude Code route, it is meant for playing on your own ma
 
 Codex is a coding agent rather than a plain model endpoint, so each call runs in an empty
 scratch folder with a read-only sandbox and is told to answer with JSON only. The model is
-Codex's own default unless ``HOG_SIM_CODEX_MODEL`` names one; the game's Claude model names
+``gpt-6.1-sol`` unless ``HOG_SIM_CODEX_MODEL`` names another; the game's Claude model names
 mean nothing to it.
 """
 
@@ -36,6 +36,8 @@ from hog_sim.llm.client import (
 SIGN_IN_HELP = "Run `codex login` and sign in with ChatGPT, then try again."
 INSTALL_HELP = "Install it with: npm install -g @openai/codex"
 MODEL_ENV = "HOG_SIM_CODEX_MODEL"
+# OpenAI's recommended Codex model (https://developers.openai.com/codex/models).
+DEFAULT_MODEL = "gpt-6.1-sol"
 
 # Codex prefers an API key over the ChatGPT sign-in when one is in the environment. This
 # route exists to use the player's ChatGPT plan, so keep API keys away from it.
@@ -85,7 +87,7 @@ class CodexClient:
         if resolved is None:
             raise LLMError(f"Codex is not installed or not on PATH. {INSTALL_HELP}. {SIGN_IN_HELP}")
         self.executable = resolved
-        self.model = model if model is not None else os.environ.get(MODEL_ENV) or None
+        self.model = model or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
         self.timeout_s = timeout_s
         self.runner = runner
         self.usage = UsageLog()
@@ -104,10 +106,10 @@ class CodexClient:
             workdir,
             "-c",
             f'model_reasoning_effort="{EFFORTS.get(request.effort, "medium")}"',
+            "--model",
+            self.model,
+            "-",
         ]
-        if self.model:
-            argv += ["--model", self.model]
-        argv.append("-")
         stdin = (
             f"{request.system}\n\n{ANSWER_RULES}\n{json.dumps(request.output_schema)}\n\n"
             f"{_flatten(request)}"
@@ -136,7 +138,7 @@ class CodexClient:
         if text is None:
             detail = failure or (proc.stderr or "").strip()[-500:] or "no output"
             raise LLMUnavailable(f"Codex failed: {detail}. {SIGN_IN_HELP}")
-        served = self.model or "codex-default"
+        served = self.model
         response = LLMResponse(
             text=_strip_fence(text),
             usage=Usage(
