@@ -1,10 +1,14 @@
 import pytest
 
-from hog_sim.core.models import PolicyAction
+from hog_sim.core.models import Edge, EdgeKind, GraphChange, PolicyAction
+from hog_sim.world.changes import check_graph_change
 from hog_sim.world.propagation import (
+    MAX_LAG0_GAIN,
+    PropagationError,
     Shock,
     actions_to_shocks,
     apply_deltas,
+    lag0_gain,
     propagate,
     simulate,
 )
@@ -124,3 +128,49 @@ def test_borrowing_raises_rates(world) -> None:
     run = simulate(world, [Shock(node="indicator:deficit", delta=1)], horizon=4)
     assert run["indicator:interest_rate"][0] == 0
     assert run["indicator:interest_rate"][1] > 0
+
+
+def _loop(world, a, b, weight):
+    world.edges += [
+        Edge(source=a, target=b, kind=EdgeKind.SUPPLIES, weight=weight),
+        Edge(source=b, target=a, kind=EdgeKind.SUPPLIES, weight=weight),
+    ]
+    return world
+
+
+def test_a_stable_same_turn_loop_settles(world) -> None:
+    world = _loop(world, "sector:finance", "sector:public", 0.5)
+    assert lag0_gain(world) < MAX_LAG0_GAIN
+    path = simulate(world, [Shock(node="sector:finance", delta=1.0)], horizon=2)
+    # x = 1 + 0.45 * 0.45 * x  =>  x = 1 / (1 - 0.2025)
+    assert path["sector:finance"][0] == pytest.approx(1 / (1 - 0.45**2))
+
+
+def test_an_unstable_same_turn_loop_raises(world) -> None:
+    """Finding 5 / EB-12: 200 iterations used to end silently on a diverging value."""
+    world = _loop(world, "sector:finance", "sector:public", 1.2)
+    assert lag0_gain(world) > 1
+    with pytest.raises(PropagationError):
+        simulate(world, [Shock(node="sector:finance", delta=1.0)], horizon=1)
+
+
+def test_graph_changes_cannot_destabilise_the_loops(world) -> None:
+    world.edges.append(
+        Edge(
+            source="sector:finance",
+            target="sector:public",
+            kind=EdgeKind.SUPPLIES,
+            weight=1.0,
+            uncertainty=0.3,
+        )
+    )
+    closing = GraphChange(
+        kind="add_edge",
+        source="sector:public",
+        target="sector:finance",
+        edge_kind=EdgeKind.SUPPLIES,
+        delta=0.3,
+    )
+    assert any("unstable" in p for p in check_graph_change(world, closing))
+    # The same link with a lag adds no same-turn loop.
+    assert check_graph_change(world, closing.model_copy(update={"lag": 2})) == []

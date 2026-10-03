@@ -23,6 +23,7 @@ per draw, seeded from the game seed so results reproduce exactly.
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from statistics import fmean, quantiles
 
@@ -31,8 +32,18 @@ from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction, S
 from hog_sim.core.state import WorldState
 
 DAMPING = 0.9
-MAX_ITERATIONS = 200  # lag-0 fixed point; the graph needs at most its longest lag-0 chain
+MAX_ITERATIONS = 200  # lag-0 fixed point; a stable graph settles well within this
 TOLERANCE = 1e-12
+# Highest loop gain allowed among lag-0 edges (see ``lag0_gain``). Below 1 the within-turn
+# fixed point exists and the iteration converges for any signs; the margin keeps Monte
+# Carlo draws stable too.
+MAX_LAG0_GAIN = 0.9
+GAIN_SIGMAS = 3.0  # edge weights are taken at |weight| + 3 std devs when bounding the gain
+
+
+class PropagationError(RuntimeError):
+    """The within-turn (lag-0) feedback did not settle: the graph's loops are unstable."""
+
 
 PROPAGATING = {EdgeKind.DRIVES, EdgeKind.SUPPLIES, EdgeKind.TRADES_WITH, EdgeKind.INFLUENCES}
 
@@ -196,6 +207,37 @@ def _propagating_edges(state: WorldState) -> list[Edge]:
     return [e for e in state.edges if e.kind in PROPAGATING and not e.target.startswith("group:")]
 
 
+def lag0_gain(state: WorldState, edges: list[Edge] | None = None) -> float:
+    """Upper bound on how much the lag-0 loops amplify a push within one turn.
+
+    The spectral radius of the damped lag-0 matrix with every weight at ``|weight| +
+    GAIN_SIGMAS * uncertainty``. Below 1 the fixed point in ``simulate`` converges whatever
+    the signs and whatever a Monte Carlo draw picks within that range. Found by power
+    iteration, which suits the small non-negative matrix.
+    """
+    matrix: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for e in edges if edges is not None else _propagating_edges(state):
+        if not e.lag:
+            matrix[e.target][e.source] += (abs(e.weight) + GAIN_SIGMAS * e.uncertainty) * DAMPING
+    nodes = set(matrix) | {src for row in matrix.values() for src in row}
+    if not nodes:
+        return 0.0
+    # Collatz-Wielandt: for any positive vector v, max_i (Mv)_i / v_i bounds the spectral
+    # radius from above. Shifted power iteration tightens the bound.
+    vector = dict.fromkeys(nodes, 1.0)
+    bound = math.inf
+    for _ in range(500):
+        product = {n: sum(w * vector[src] for src, w in matrix[n].items()) for n in nodes}
+        bound = min(bound, max(product[n] / vector[n] for n in nodes))
+        if bound == 0:
+            break
+        top = max(product.values()) or 1.0
+        vector = {n: vector[n] + product[n] / top for n in nodes}
+        peak = max(vector.values())
+        vector = {n: v / peak for n, v in vector.items()}
+    return bound
+
+
 def simulate(
     state: WorldState,
     shocks: list[Shock],
@@ -244,10 +286,15 @@ def simulate(
             change = 0.0
             for n, inputs in instant.items():
                 value = base[n] + sum(f * level[src] for src, f in inputs)
-                change = max(change, abs(value - level[n]))
+                change = max(change, abs(value - level[n]) / max(1.0, abs(value)))
                 level[n] = value
             if change < TOLERANCE:
                 break
+        else:
+            raise PropagationError(
+                f"lag-0 feedback did not settle within {MAX_ITERATIONS} iterations on turn "
+                f"{t} (last relative change {change:.2g}); the graph's lag-0 loops are unstable"
+            )
         for n in node_ids:
             trajectory[n].append(level[n])
     return trajectory

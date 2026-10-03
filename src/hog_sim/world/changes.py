@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from hog_sim.core.models import Edge, EdgeKind, GraphChange, NodeKind, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.world.propagation import MAX_LAG0_GAIN, PROPAGATING, lag0_gain
 
 MAX_CHANGES = 3
 MAX_ATTR_DELTA = 0.2
@@ -85,7 +86,7 @@ def check_graph_change(state: WorldState, change: GraphChange) -> list[str]:
         weight = state.edges[existing].weight
         if abs(change.delta) > max_weight_step(weight):
             return [f"{label}: weight may move by at most {max_weight_step(weight):.2f}"]
-        return []
+        return _stability_problem(state, change, label)
     # add_edge
     if existing is not None:
         return [f"edge {label} already exists; use edge_weight"]
@@ -97,7 +98,44 @@ def check_graph_change(state: WorldState, change: GraphChange) -> list[str]:
         return [f"{label}: lag must be <= {MAX_NEW_EDGE_LAG}"]
     if change.target.startswith("group:"):
         return [f"{label}: edges into groups are not created by events"]
+    return _stability_problem(state, change, label)
+
+
+def _changed_edges(state: WorldState, change: GraphChange) -> list[Edge]:
+    """The state's edges as they would be after an edge change (ignoring the weight clamp)."""
+    edges = [e.model_copy() for e in state.edges]
+    existing = _find_edge(state, change)
+    if existing is not None:
+        edge = edges[existing]
+        edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
+    else:
+        edges.append(_new_edge(change))
+    return edges
+
+
+def _stability_problem(state: WorldState, change: GraphChange, label: str) -> list[str]:
+    """An edge change must not make the within-turn feedback loops unstable (EC-6)."""
+    if change.lag and _find_edge(state, change) is None:
+        return []  # a new lagged edge adds no within-turn loop
+    after = lag0_gain(state, _propagating(_changed_edges(state, change)))
+    if after >= MAX_LAG0_GAIN and after > lag0_gain(state):
+        return [f"{label}: would make same-turn feedback unstable (loop gain {after:.2f})"]
     return []
+
+
+def _propagating(edges: list[Edge]) -> list[Edge]:
+    return [e for e in edges if e.kind in PROPAGATING and not e.target.startswith("group:")]
+
+
+def _new_edge(change: GraphChange) -> Edge:
+    return Edge(
+        source=change.source,
+        target=change.target,
+        kind=change.edge_kind,
+        weight=change.delta,
+        lag=change.lag,
+        uncertainty=abs(change.delta) / 2,
+    )
 
 
 def validate_graph_changes(state: WorldState, changes: list[GraphChange]) -> list[str]:
@@ -170,14 +208,5 @@ def apply_graph_changes(state: WorldState, changes: list[GraphChange]) -> WorldS
             edge = new.edges[_find_edge(new, change)]
             edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
         else:
-            new.edges.append(
-                Edge(
-                    source=change.source,
-                    target=change.target,
-                    kind=change.edge_kind,
-                    weight=change.delta,
-                    lag=change.lag,
-                    uncertainty=abs(change.delta) / 2,
-                )
-            )
+            new.edges.append(_new_edge(change))
     return new

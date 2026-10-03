@@ -156,12 +156,18 @@ class ScenarioLibrary:
         pool = self.compatible(state)
         if not pool:
             raise ValueError("the scenario library has nothing that fits this world")
-        fresh = [s for s in pool if normalise_title(s.title) not in recent]
-        fitting = [s for s in fresh if s.applies_to(state)]
-        # Fall back gently: fitting and fresh, then fresh, then anything but the last turn.
+        # Conditions are hard (EC-10): a scenario whose preconditions fail is never shown.
+        # Freshness is soft: fitting and fresh, then fitting but not last turn's, then any
+        # fitting one, even a repeat.
+        fitting = [s for s in pool if s.applies_to(state)]
+        if not fitting:
+            raise ValueError("no scenario in the library has conditions that hold right now")
         last = normalise_title(history[-1].scenario.title) if history else None
-        choices = fitting or fresh or [s for s in pool if normalise_title(s.title) != last]
-        choices = choices or pool
+        choices = (
+            [s for s in fitting if normalise_title(s.title) not in recent]
+            or [s for s in fitting if normalise_title(s.title) != last]
+            or fitting
+        )
         rng = make_rng(self.seed, state.turn, "library")
         pick = rng.choices(choices, weights=[s.weight for s in choices])[0]
         return pick.model_copy(deep=True)

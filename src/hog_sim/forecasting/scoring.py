@@ -5,8 +5,11 @@ Each candidate gets three scores, each in (0, 1]:
 * **consistency**: how well its claimed indicator shifts fit the engine's Monte Carlo
   distribution. Each claim is treated as a draw from a normal fitted to the engine's
   10th/90th percentiles; the score is the geometric mean of exp(-z^2 / 2) over its claims.
+  An indicator the engine expects to move materially but the candidate leaves out counts as
+  a claim of no change, so saying nothing is not a free pass.
 * **judge**: an independent LLM estimate of its probability (``forecasting/candidates.py``).
-* **base_rate**: how common its tagged events are in practice (``BASE_RATES``).
+* **base_rate**: how common its tagged events are in practice (``BASE_RATES``). Several
+  tags all have to happen, so the rarest one bounds the score.
 
 ``combine`` blends them log-linearly with ``ScoreWeights`` and normalises to probabilities.
 """
@@ -72,19 +75,32 @@ class CandidateScores(Model):
     probability: float = 0.0
 
 
+def _spread(mean: float, p10: float, p90: float) -> float:
+    # Nodes the engine is certain about still tolerate small claims: at least 5% of the
+    # expected move, or a tenth of a unit.
+    return max((p90 - p10) / _P10_P90_SPAN, 0.05 * abs(mean), 0.1)
+
+
 def consistency(claims: dict[str, float], engine: DeltaDistribution, turn: int) -> float:
-    """Fit of claimed native-unit changes at ``turn`` to the engine's distribution."""
+    """Fit of claimed native-unit changes at ``turn`` to the engine's distribution.
+
+    Indicators the engine moves by more than their spread count as a claim of zero when the
+    candidate leaves them out (EC-8). With no claims and no material moves the fit is 1.0.
+    """
+    implied = dict(claims)
+    for node, forecast in engine.nodes.items():
+        if node in implied or not node.startswith("indicator:"):
+            continue
+        mean = forecast.mean[turn]
+        if abs(mean) > _spread(mean, forecast.p10[turn], forecast.p90[turn]):
+            implied[node] = 0.0
     logs = []
-    for node, claimed in claims.items():
+    for node, claimed in implied.items():
         forecast = engine.nodes.get(node)
         if forecast is None:
             continue
         mean = forecast.mean[turn]
-        sd = (forecast.p90[turn] - forecast.p10[turn]) / _P10_P90_SPAN
-        # Nodes the engine is certain about still tolerate small claims: at least 5% of the
-        # expected move, or a tenth of a unit.
-        sd = max(sd, 0.05 * abs(mean), 0.1)
-        z = (claimed - mean) / sd
+        z = (claimed - mean) / _spread(mean, forecast.p10[turn], forecast.p90[turn])
         logs.append(-(z**2) / 2)
     return math.exp(sum(logs) / len(logs)) if logs else 1.0
 
@@ -108,11 +124,14 @@ def delivery_factor(tag: str, delivery: Delivery | None) -> float:
 
 
 def base_rate(tags: list[str], delivery: Delivery | None = None) -> float:
-    """Geometric mean of the tags' base rates, adjusted for delivery; untagged counts as a
-    quiet outcome."""
-    tags = list(tags) or ["none"]
-    rates = [min(1.0, BASE_RATES.get(t, 0.1) * delivery_factor(t, delivery)) for t in tags]
-    return math.exp(sum(math.log(r) for r in rates) / len(rates))
+    """How common the tagged events are, adjusted for delivery; untagged counts as a quiet
+    outcome.
+
+    All the tags have to happen, so the rarest bounds the chance (P(A and B) <= min). Adding
+    a tag can therefore never make an outcome look more common (EC-9).
+    """
+    tags = [t for t in tags if t != "none"] or ["none"]
+    return min(min(1.0, BASE_RATES.get(t, 0.1) * delivery_factor(t, delivery)) for t in tags)
 
 
 def combine(scores: list[CandidateScores], weights: ScoreWeights) -> list[CandidateScores]:

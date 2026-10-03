@@ -66,7 +66,9 @@ def policy_events(actions: list[PolicyAction]) -> list[ApprovalEvent]:
                 ApprovalEvent(
                     name=f"{action.kind} {action.target}",
                     group_effects={action.target: effect},
-                    hold_turns=action.duration_turns,
+                    # Felt at full strength on the turn it starts and each turn after it
+                    # while it runs: duration_turns updates in all (EC-7).
+                    hold_turns=action.duration_turns - 1,
                 )
             )
     return events

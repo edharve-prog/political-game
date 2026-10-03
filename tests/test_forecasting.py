@@ -81,18 +81,37 @@ def verdict(*ps):
 
 
 def test_consistency_prefers_claims_near_the_engine(engine) -> None:
-    f = engine.nodes["indicator:inflation"]
-    near = consistency({"indicator:inflation": f.mean[2]}, engine, 2)
-    far = consistency({"indicator:inflation": f.mean[2] + 3.0}, engine, 2)
+    expected = {n: f.mean[2] for n, f in engine.nodes.items() if n.startswith("indicator:")}
+    near = consistency(expected, engine, 2)
+    far = consistency(
+        {**expected, "indicator:inflation": expected["indicator:inflation"] + 3}, engine, 2
+    )
     assert near == pytest.approx(1.0)
-    assert far < 0.01
-    assert consistency({}, engine, 2) == 1.0
-    assert consistency({"indicator:not_real": 5}, engine, 2) == 1.0
+    assert far < near
+    assert consistency({**expected, "indicator:not_real": 5}, engine, 2) == pytest.approx(1.0)
+
+
+def test_leaving_out_material_moves_is_not_free(engine) -> None:
+    """Finding 8: a candidate with no claims used to score a perfect 1.0."""
+    expected = {n: f.mean[2] for n, f in engine.nodes.items() if n.startswith("indicator:")}
+    assert any(abs(v) > 0.5 for v in expected.values())
+    assert consistency({}, engine, 2) < consistency(expected, engine, 2)
+    quiet = engine.model_copy(deep=True)
+    for f in quiet.nodes.values():
+        f.mean, f.p10, f.p90 = [0.0] * len(f.mean), [0.0] * len(f.mean), [0.0] * len(f.mean)
+    assert consistency({}, quiet, 2) == 1.0
 
 
 def test_base_rates() -> None:
     assert base_rate([]) == BASE_RATES["none"]
     assert base_rate(["capital_flight"]) < base_rate(["media_backlash"])
+
+
+def test_adding_tags_never_makes_an_outcome_more_common() -> None:
+    """Finding 9: under a geometric mean, adding "none" or a common tag raised the score."""
+    rare = base_rate(["market_selloff"])
+    assert base_rate(["none", "market_selloff"]) == rare
+    assert base_rate(["market_selloff", "media_backlash"]) <= rare
 
 
 def test_combine_normalises_and_respects_weights() -> None:
@@ -147,6 +166,15 @@ def test_forecaster_retries_bad_candidates(world, engine) -> None:
     wrong_count = CandidateSet(candidates=four_candidates(engine).candidates[:2])
     with pytest.raises(LLMOutputError):
         LLMForecaster(FakeClient([wrong_count] * 3)).forecast(world, scenario, [TAX], engine)
+
+
+def test_none_is_the_only_tag_when_used(world, engine) -> None:
+    bad = four_candidates(engine)
+    bad.candidates[0].event_tags = ["none", "market_selloff"]
+    client = FakeClient([bad, four_candidates(engine), verdict(0.25, 0.25, 0.25, 0.25)])
+    scenario = CannedScenarios().next_scenario(world, [])
+    LLMForecaster(client).forecast(world, scenario, [TAX], engine)
+    assert "'none' cannot be combined" in client.requests[1].messages[-1].content
 
 
 def test_engine_text_lists_moving_indicators(world, engine) -> None:
