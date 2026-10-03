@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-5"
+VERSION = "outcomes-6"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -46,13 +46,24 @@ signed, the strike called off, the bill passed). Most outcomes leave the story o
 - self_probability: your own estimate that this candidate is what happens, 0..1. The \
 candidates' probabilities should add up to about 1.
 
+How the leader delivered the response matters as much as what they did. Consulting the \
+people affected makes strikes, protests and rebellions less likely; imposing a change \
+overnight makes them more likely; phasing it in calms markets but delays the benefit. Each \
+narrative should refer to the leader's own framing at least once when they gave one.
+
 Refer to foreign leaders by role ("the US President"), never by a real person's name.
 """
 
 
 def render(
-    summary_prompt: str, scenario_text: str, actions_text: str, engine_text: str, n: int
+    summary_prompt: str,
+    scenario_text: str,
+    actions_text: str,
+    engine_text: str,
+    n: int,
+    delivery_text: str = "",
 ) -> str:
+    delivery = ["How it was delivered:", delivery_text, ""] if delivery_text else []
     return "\n".join(
         [
             summary_prompt,
@@ -63,6 +74,7 @@ def render(
             "The leader's actions:",
             actions_text,
             "",
+            *delivery,
             "Engine forecast:",
             engine_text,
             "",

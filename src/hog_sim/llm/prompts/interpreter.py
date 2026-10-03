@@ -54,6 +54,20 @@ which one they mean.
 """
 
 
+DELIVERY = """
+Also record how the leader delivers it, in delivery:
+- framing: the message or justification they give, in a few words of their own ("fairness \
+for renters"); empty if they give none
+- venue: where they announce it (a Commons statement, a press conference, a party speech), \
+empty if unstated
+- consulted: node ids of the groups, institutions, sectors or countries they say they will \
+talk to or negotiate with first; empty if none
+- speed: "phased" when they phase it in, stage it or give notice, otherwise "immediate"
+"""
+
+SYSTEM += DELIVERY
+
+
 def render(summary_prompt: str, scenario_text: str | None, player_text: str) -> str:
     parts = [summary_prompt]
     if scenario_text:

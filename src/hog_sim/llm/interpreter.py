@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from hog_sim.core.models import Model, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Model, PolicyAction, Scenario
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import interpreter as prompt
 from hog_sim.llm.scenario_gen import scenario_text
@@ -17,6 +17,7 @@ class Interpretation(Model):
         default_factory=list, description="Measures in the response that fit no node"
     )
     clarifying_question: str | None = None
+    delivery: Delivery = Field(default_factory=Delivery)
 
 
 def check_interpretation(result: Interpretation, summary: StateSummary) -> list[str]:
@@ -32,6 +33,9 @@ def check_interpretation(result: Interpretation, summary: StateSummary) -> list[
             problems.append(f"actions[{i}]: {action.kind} magnitude must be 0..1")
     if not result.actions and not result.clarifying_question:
         problems.append("return at least one action, or a clarifying_question")
+    unknown_consulted = sorted(set(result.delivery.consulted) - set(summary.catalogue))
+    if unknown_consulted:
+        problems.append(f"delivery.consulted has unknown ids {unknown_consulted}")
     if result.actions and result.clarifying_question:
         problems.append("ask a clarifying_question only when returning no actions")
     return problems

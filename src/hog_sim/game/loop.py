@@ -26,7 +26,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from hog_sim.core.config import GameConfig, make_rng
-from hog_sim.core.models import Model, Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Model, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
@@ -100,6 +100,7 @@ class Proposal(Model):
     requested: list[PolicyAction]
     actions: list[PolicyAction]
     notes: list[str] = Field(default_factory=list)
+    delivery: Delivery = Field(default_factory=Delivery)
 
 
 class Game:
@@ -157,17 +158,19 @@ class Game:
         if self.over:
             raise RuntimeError("the game is over")
         requested = self.interpreter.interpret(response, self.state, self.scenario)
-        return self._limit(response, requested)
+        delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
+        return self._limit(response, requested, delivery=delivery)
 
     def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits."""
-        return self._limit(proposal.response, actions, proposal.requested)
+        return self._limit(proposal.response, actions, proposal.requested, proposal.delivery)
 
     def _limit(
         self,
         response: str,
         actions: list[PolicyAction],
         requested: list[PolicyAction] | None = None,
+        delivery: Delivery | None = None,
     ) -> Proposal:
         cfg = self.config
         limited = constrain(
@@ -182,6 +185,7 @@ class Game:
             requested=list(requested if requested is not None else actions),
             actions=limited.actions,
             notes=limited.notes,
+            delivery=delivery or Delivery(),
         )
 
     def play_turn(self, response: str) -> TurnRecord:
@@ -195,7 +199,9 @@ class Game:
         actions = proposal.actions
         shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
-        candidates = self.forecaster.forecast(state, scenario, actions, engine)
+        candidates = self.forecaster.forecast(
+            state, scenario, actions, engine, delivery=proposal.delivery
+        )
         chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
 
         new = resolve(self.start, state, scenario, actions, candidates[chosen], cfg)
@@ -211,6 +217,7 @@ class Game:
             election=election,
             requested_actions=proposal.requested,
             notes=proposal.notes,
+            delivery=proposal.delivery,
         )
         self.state = new
         self.history.append(record)

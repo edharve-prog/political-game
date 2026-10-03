@@ -79,6 +79,7 @@ def _proposal_text(proposal: Proposal, dropped: list[str]) -> str:
         lines.append("  (no actions: this turn the government does nothing)")
     lines += [f"  (not possible: {line})" for line in dropped]
     lines += [f"  Note: {n}" for n in proposal.notes]
+    lines.append(f"  Delivery: {proposal.delivery.describe()}")
     return "\n".join(lines)
 
 
