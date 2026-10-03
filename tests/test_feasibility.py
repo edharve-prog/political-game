@@ -2,7 +2,7 @@ import pytest
 
 from hog_sim.core.models import Edge, EdgeKind, PolicyAction
 from hog_sim.core.state import WorldState
-from hog_sim.policy.feasibility import check_feasibility, requirements_for
+from hog_sim.policy.feasibility import check_feasibility, compatibility_problem, requirements_for
 from hog_sim.world.seed.toy import toy_world
 
 
@@ -104,3 +104,32 @@ def test_do_nothing_needs_nothing(world: WorldState) -> None:
     a = act("do_nothing", "country:uk", 0.0)
     assert requirements_for(a, "prime_minister") == []
     assert only(check_feasibility([a], world)).feasible
+
+
+@pytest.mark.parametrize(
+    ("kind", "target", "magnitude", "fits"),
+    [
+        ("regulate", "indicator:energy_prices", -0.5, True),
+        ("spend", "indicator:energy_prices", -0.5, True),
+        ("regulate", "indicator:inflation", -0.5, False),
+        ("spend", "indicator:unemployment", -0.5, False),
+        ("tax", "indicator:deficit", -0.5, False),
+        ("military", "country:china", 0.5, True),
+        ("military", "sector:energy", 0.5, False),
+        ("diplomatic", "country:uk", 0.5, False),
+        ("diplomatic", "group:pensioners", 0.5, False),
+        ("appoint", "sector:finance", 0.5, False),
+        ("spend", "sector:public", 0.5, True),
+        ("tax", "country:china", 0.5, False),
+        ("do_nothing", "country:uk", 0.0, True),
+    ],
+)
+def test_actions_must_fit_their_target(kind, target, magnitude, fits) -> None:
+    """Finding 4: indicators take only the interventions they declare, and each kind of
+    action needs the right kind of target."""
+    world = toy_world()
+    action = PolicyAction(kind=kind, target=target, magnitude=magnitude)
+    check = check_feasibility([action], world).checks[0]
+    assert (compatibility_problem(action, world) is None) is fits
+    if not fits:
+        assert not check.feasible

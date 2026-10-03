@@ -85,7 +85,7 @@ def resolve(
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
     new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
-    new = apply_graph_changes(new, action_changes(new, actions))
+    new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions)

@@ -140,3 +140,50 @@ def test_unknown_event_nodes_are_skipped() -> None:
     world.edges = [e for e in world.edges if "sector:finance" not in (e.source, e.target)]
     nodes = {s.node for s in event_shocks(["market_selloff", "media_praise"], world)}
     assert nodes == {"indicator:interest_rate"}
+
+
+def growth(state, country):
+    return state.countries[country].growth_pct
+
+
+def test_military_action_does_not_grow_its_target() -> None:
+    """Finding 1: escalation used to add a point of growth to the country attacked."""
+    states = run([act("military", "country:china", 0.5, turns=3)], turns=3)
+    assert all(growth(s, "country:china") < growth(BASE, "country:china") for s in states)
+
+
+def test_military_de_escalation_mends_relations_and_moves_nothing_else() -> None:
+    after = run([act("military", "country:china", -0.5)], turns=1)[0]
+    china, base = after.countries["country:china"], BASE.countries["country:china"]
+    assert china.relationship > base.relationship
+    assert china.stability == base.stability
+    assert china.growth_pct == base.growth_pct
+
+
+def test_diplomacy_moves_trade_with_a_partner_only() -> None:
+    deal = run([act("diplomatic", "country:eu", 0.5)], turns=1)[0]
+    sanctions = run([act("diplomatic", "country:eu", -0.5)], turns=1)[0]
+    assert growth(deal, "country:eu") > growth(BASE, "country:eu") > growth(sanctions, "country:eu")
+
+    world = toy_world()
+    world.edges = [e for e in world.edges if "country:china" not in (e.source, e.target)]
+    start = world
+    after = resolve(
+        start, world, QUIET, [act("diplomatic", "country:china", 0.5)], NOTHING, GameConfig()
+    )
+    assert growth(after, "country:china") == growth(world, "country:china")
+    assert (
+        after.countries["country:china"].relationship
+        > world.countries["country:china"].relationship
+    )
+
+
+def test_every_player_action_change_is_applied() -> None:
+    """Finding 2: two military actions make four changes; the outcome cap of three used to
+    drop the last one."""
+    after = run(
+        [act("military", "country:china", 0.5), act("military", "country:eu", 0.5)], turns=1
+    )[0]
+    for country in ("country:china", "country:eu"):
+        assert after.countries[country].stability < BASE.countries[country].stability
+        assert after.countries[country].relationship < BASE.countries[country].relationship

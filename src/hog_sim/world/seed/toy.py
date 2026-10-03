@@ -105,6 +105,7 @@ def toy_world() -> WorldState:
             unit="index",
             low=30,
             high=400,
+            interventions=["regulate", "spend"],  # a price cap, a subsidy on bills
         ),
         Indicator(
             id="indicator:house_prices",
@@ -113,6 +114,7 @@ def toy_world() -> WorldState:
             unit="index",
             low=30,
             high=300,
+            interventions=["regulate", "tax"],  # lending rules, stamp duty
         ),
         Indicator(
             id="indicator:deficit",

@@ -22,6 +22,9 @@ class IndicatorLine(Model):
     value: float
     unit: str
     change: float | None = Field(None, description="Relative change over the recent window")
+    interventions: list[str] = Field(
+        default_factory=list, description="Action kinds that may target it directly"
+    )
 
 
 class GroupLine(Model):
@@ -80,7 +83,8 @@ class StateSummary(Model):
             change = f" ({i.change:+.0%} recently)" if i.change is not None else ""
             stress = "  [STRESSED]" if i.id in self.stressed_indicators else ""
             unit = i.unit if i.unit.startswith("%") or not i.unit else f" {i.unit}"
-            lines.append(f"- {i.id} {i.name}: {i.value:g}{unit}{change}{stress}")
+            direct = f"  [direct: {', '.join(i.interventions)}]" if i.interventions else ""
+            lines.append(f"- {i.id} {i.name}: {i.value:g}{unit}{change}{stress}{direct}")
         lines += ["", "Population groups (approval of government, 0-1):"]
         for g in self.groups:
             change = f" ({g.change:+.2f} recently)" if g.change is not None else ""
@@ -148,7 +152,14 @@ def summarise_state(
             if past:
                 change = (ind.value - past) / abs(past)
         indicators.append(
-            IndicatorLine(id=ind.id, name=ind.name, value=ind.value, unit=ind.unit, change=change)
+            IndicatorLine(
+                id=ind.id,
+                name=ind.name,
+                value=ind.value,
+                unit=ind.unit,
+                change=change,
+                interventions=list(ind.interventions),
+            )
         )
         if change is not None and abs(change) >= stress_threshold:
             stressed.append(ind.id)

@@ -123,8 +123,8 @@ def validate_graph_changes(state: WorldState, changes: list[GraphChange]) -> lis
 
 
 # What the player's own foreign policy does to the target country's standing, per unit of
-# magnitude: diplomacy moves the relationship its way; military action sours it and
-# unsettles the country.
+# magnitude: diplomacy moves the relationship its way; military escalation sours it and
+# unsettles the country, and de-escalation (magnitude < 0) mends it.
 DIPLOMATIC_RELATIONSHIP = 0.1
 MILITARY_RELATIONSHIP = -0.15
 MILITARY_STABILITY = -0.05
@@ -139,9 +139,9 @@ def action_changes(state: WorldState, actions: list[PolicyAction]) -> list[Graph
         if a.kind == "diplomatic" and a.magnitude:
             changes.append(_attr(a.target, "relationship", DIPLOMATIC_RELATIONSHIP * a.magnitude))
         elif a.kind == "military" and a.magnitude:
-            size = abs(a.magnitude)
-            changes.append(_attr(a.target, "relationship", MILITARY_RELATIONSHIP * size))
-            changes.append(_attr(a.target, "stability", MILITARY_STABILITY * size))
+            changes.append(_attr(a.target, "relationship", MILITARY_RELATIONSHIP * a.magnitude))
+            if a.magnitude > 0:
+                changes.append(_attr(a.target, "stability", MILITARY_STABILITY * a.magnitude))
     return changes
 
 
@@ -149,15 +149,19 @@ def _attr(node: str, attr: str, delta: float) -> GraphChange:
     return GraphChange(kind="node_attr", node=node, attr=attr, delta=delta, reason="player action")
 
 
-def apply_graph_changes(state: WorldState, changes: list[GraphChange]) -> WorldState:
+def apply_graph_changes(
+    state: WorldState, changes: list[GraphChange], *, trusted: bool = False
+) -> WorldState:
     """Return a new state with every valid change applied; invalid ones are skipped.
 
     Skipping (rather than raising) keeps an old save resolvable if the rules tighten later.
+    Outcome (LLM) changes are capped at ``MAX_CHANGES``. ``trusted`` changes come from the
+    engine itself (``action_changes``), so every one is applied, whatever their number.
     """
     if not changes:
         return state
     new = state.snapshot()
-    for change in changes[:MAX_CHANGES]:
+    for change in changes if trusted else changes[:MAX_CHANGES]:
         if check_graph_change(new, change):
             continue
         if change.kind == "node_attr":

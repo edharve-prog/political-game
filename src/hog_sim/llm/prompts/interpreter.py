@@ -14,9 +14,10 @@ Action kinds:
 - spend: change public spending on the target (> 0 more, < 0 cuts)
 - regulate / deregulate: tighten or loosen rules on the target (magnitude is strength, 0..1, \
 except on an indicator target, where the sign is the direction, see magnitude)
-- diplomatic: act towards a country (> 0 warmer: deals, aid, visits; < 0 colder: sanctions, \
-expulsions)
-- military: military action or posture towards a country (> 0 escalation)
+- diplomatic: act towards a foreign country (> 0 warmer: deals, aid, visits; < 0 colder: \
+sanctions, expulsions)
+- military: military action or posture towards a foreign country (> 0 escalation, < 0 \
+de-escalation)
 - communicate: speeches, campaigns, briefings aimed at a group or institution (> 0 \
 conciliatory or reassuring, < 0 confrontational)
 - legislate: pass a law about the target that is not mainly a tax, spend or regulation
@@ -27,7 +28,10 @@ Fields of each action:
 - target: one node id from the briefing, the thing most directly acted on. Pick the closest \
 node; never invent ids. Housing policy targets the housing sector, a pension rise targets \
 pensioners, a deal with Brussels targets the EU. When the leader aims at a price or rate \
-itself (cap energy bills, subsidise rents), target that indicator.
+itself, target that indicator only if the briefing lists that kind of action for it as \
+[direct: ...] (a cap on energy bills is regulate on energy prices). Otherwise target the \
+sector, group or institution the policy works through: spending to cut unemployment targets \
+the sector that hires, not unemployment itself.
 - magnitude: -1..1, the size relative to the largest plausible move of that kind. A modest \
 tweak is about 0.1-0.2, a major policy 0.4-0.6, a historic upheaval 0.8+. When the target is \
 an indicator, the sign is the direction the leader wants it to move, whatever the kind: a \
