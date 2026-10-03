@@ -377,19 +377,19 @@ Smallest thing that is fun and proves the architecture:
 | 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
 | 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
 | 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
-| 6 | Outcome Forecasting & Selection | Done (PR #6) | See projects/06-forecasting.md; needs a live 30-turn review |
+| 6 | Outcome Forecasting & Selection | Done (PR #6); 30-turn review done 2026-10-03 | See projects/06-forecasting.md and reviews/2026-10-03-claude-30-turn.md; consistency tempering (EB-13) is P1 |
 | 7 | News Ingestion | Not started | |
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
-| 13 | Scenario Depth | In progress (SD-3 done: PRs #11, #17; SD-1 done, PR #21; SD-2 done, PR #22) | Stories SD-1 to SD-8 in backlog/scenarios-and-responses.md |
-| 14 | Response Builder | In progress (RB-1, RB-2 done, PR #19; RB-3 done, PR #23; RB-4 done, PR #24) | Stories RB-3 to RB-7 in backlog/scenarios-and-responses.md |
+| 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 is P1 from the review) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
+| 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 is P1 from the review) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
-| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-5 to EB-13 backlog) | Built by the back-end review thread; see backlog/engine-balance.md |
-| 17 | Engine Correctness | In progress | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
-| 18 | CI & Test Quality | Not started (P1 ready: CI-7, CI-6, CI-3) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
+| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency and EB-14 are P1 from the review) | Built by the back-end review thread; see backlog/engine-balance.md |
+| 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
+| 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 
 ---
 
@@ -418,6 +418,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-01 | Richer scenarios and responses become Projects 13 and 14; P1 order SD-3, RB-2, RB-1, SD-1, SD-2, RB-3, RB-4 | Ed's first play-through found scenarios basic and repeating and responses hard to combine |
 | 2026-10-02 | Ed's 11 engine findings become Project 17, in four PRs, each fix shipped with a test that fails on main | All 11 held against main; two overlap Project 16 (EB-12, EB-13) and are done here |
 | 2026-10-02 | Ed's CI list becomes Project 18; P1 is CI-7, CI-6 and CI-3, and the P2 items wait for Project 17 | Cheap protection first; Project 17's fixes will move balance results and add the errors the property tests assert |
+| 2026-10-03 | After the 30-turn Claude review, the next P1 work is EB-13 (consistency tempering), SD-9 (storyline lifespan), EB-14 (Commons lockout) and RB-8 (blocked measures reach the outcome), then a re-run of the review | Variety and narrative met their targets; outcome selection, storyline turnover and the Commons lock-out did not |
 | 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---
