@@ -193,6 +193,7 @@ class EngineForecaster:
         actions: list[PolicyAction],
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
+        limits: list[str] | None = None,
     ) -> list[Outcome]:
         graph = build_graph(state)
         exposed: set[str] = set()
