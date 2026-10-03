@@ -45,7 +45,7 @@ Add `--db <file>` after `knowledge` for a save file other than `saves/game.db`.
 
 ## Connecting to Claude
 
-The game reaches Claude in one of two ways, chosen with `--provider` (default `claude-code`):
+The game reaches a model in one of three ways, chosen with `--provider` (default `claude-code`):
 
 - **`claude-code`: your Claude subscription, no key.** Install [Claude Code](https://claude.com/claude-code),
   run `claude` once and sign in. The game then runs Claude Code in headless mode (`claude -p`),
@@ -55,10 +55,19 @@ The game reaches Claude in one of two ways, chosen with `--provider` (default `c
   account. Either put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file next to `pyproject.toml`
   (see `.env.example`; the file is git-ignored, so no environment variables to set on Windows),
   or sign in through the browser with the `ant` CLI: `ant auth login`.
+- **`codex`: your ChatGPT plan through OpenAI Codex, no key.** Install the
+  [Codex CLI](https://developers.openai.com/codex/cli) (`npm install -g @openai/codex`), run
+  `codex login` and sign in with ChatGPT in the browser. Then play with
+  `hog-sim --provider codex` (or put `HOG_SIM_PROVIDER=codex` in `.env`). The game runs
+  `codex exec` read-only in an empty scratch folder, so calls count against your plan's Codex
+  limits. It uses Codex's default model; set `HOG_SIM_CODEX_MODEL` in `.env` to pick another.
+  Like `claude-code`, this is for playing on your own machine. Codex is only used when you
+  ask for it, and an `OPENAI_API_KEY` in your environment is hidden from it so your ChatGPT
+  sign-in is what gets used.
 
 When Claude Code isn't installed or isn't signed in and an API key or `ant` sign-in exists,
 the game falls back to the API and says so when it starts. Check the connection with
-`hog-sim --check-llm`; it says which route it used.
+`hog-sim --check-llm` (or `hog-sim --provider codex --check-llm`); it says which route it used.
 
 ## Layout
 
