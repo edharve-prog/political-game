@@ -164,11 +164,11 @@ def _llm_banner(model_config, forecast_config, provider: str, note: str | None =
     from hog_sim.llm.providers import describe
 
     if provider == "codex":
-        from hog_sim.llm.codex import MODEL_ENV
+        from hog_sim.llm.codex import DEFAULT_MODEL, MODEL_ENV
 
         return (
             (f"{note}\n" if note else "")
-            + f"Mode: CODEX ({os.environ.get(MODEL_ENV) or 'Codex default model'}) via "
+            + f"Mode: CODEX ({os.environ.get(MODEL_ENV) or DEFAULT_MODEL}) via "
             f"{describe(provider)}.\n"
             "Scenarios, your responses and outcomes are written by Codex. Each turn ends with\n"
             "a line counting the calls it made."
