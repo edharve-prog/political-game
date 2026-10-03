@@ -273,7 +273,10 @@ def test_offline_game_reuses_claude_work(world, engine, tmp_path) -> None:
 
     interpreter = StoredInterpreter(store, KeywordInterpreter())
     forecaster = StoredForecaster(store, EngineForecaster())
-    library = ScenarioLibrary.load(store.library_scenarios(), builtin=False)
+    # The stored scenario's conditions describe the Claude game's later state; conditions
+    # are hard (EC-10), so drop them to replay it on a fresh world.
+    stored = [s.model_copy(update={"conditions": {}}) for s in store.library_scenarios()]
+    library = ScenarioLibrary.load(stored, builtin=False)
     game = Game(GameConfig(election_turn=2, k_draws=20), world, library, interpreter, forecaster)
     assert game.scenario.title == "Energy bills soar"
 

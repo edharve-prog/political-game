@@ -186,7 +186,12 @@ class ApprovalEvent(Model):
     name: str
     group_effects: dict[str, float] = Field(description="Approval change per group, 0..1 scale")
     half_life_turns: float = Field(3.0, gt=0)
-    hold_turns: int = Field(0, ge=0, description="Turns at full strength before fading starts")
+    hold_turns: int = Field(
+        0,
+        ge=0,
+        description="Further turns at full strength after the first, before fading starts: an "
+        "event is felt at full strength on hold_turns + 1 approval updates",
+    )
     age_turns: int = Field(0, ge=0)
 
 

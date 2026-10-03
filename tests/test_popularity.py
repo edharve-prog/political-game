@@ -2,7 +2,9 @@ import pytest
 
 from hog_sim.core.models import ApprovalEvent, PolicyAction
 from hog_sim.population.popularity import (
+    _event_weight,
     national_approval,
+    policy_events,
     run_election,
     seat_share,
     step_approval,
@@ -113,3 +115,17 @@ def test_stacked_events_are_capped() -> None:
     assert target_approval(world, toy_world())["group:pensioners"] == pytest.approx(
         lean + EVENT_CAP
     )
+
+
+@pytest.mark.parametrize("turns", [1, 3, 12])
+def test_a_policy_is_felt_in_full_for_exactly_its_duration(turns) -> None:
+    """Finding 6: a 12-turn policy used to get 13 full-strength approval updates."""
+    action = PolicyAction(
+        kind="spend", target="group:pensioners", magnitude=0.5, duration_turns=turns
+    )
+    (event,) = policy_events([action])
+    weights = [
+        _event_weight(age, event.half_life_turns, event.hold_turns) for age in range(turns + 2)
+    ]
+    assert weights[:turns] == [1.0] * turns
+    assert weights[turns] < 1.0

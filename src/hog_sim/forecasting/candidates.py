@@ -187,6 +187,8 @@ def check_candidates(
             problems.append(f"candidates[{i}]: unknown ids {sorted(set(bad))}")
         if not c.event_tags:
             problems.append(f"candidates[{i}]: event_tags is empty; use ['none']")
+        elif "none" in c.event_tags and len(c.event_tags) > 1:
+            problems.append(f"candidates[{i}]: 'none' cannot be combined with other event tags")
         if state is not None and c.graph_changes:
             changes = [g.to_change() for g in c.graph_changes]
             problems += [f"candidates[{i}].{p}" for p in validate_graph_changes(state, changes)]

@@ -102,3 +102,18 @@ def test_builtin_library_meets_sd3(world) -> None:
         game.play_turn(["tax energy profits", "spend on the NHS", "do nothing"][i % 3])
     titles = [r.scenario.title for r in game.history]
     assert all(t not in titles[max(0, i - 15) : i] for i, t in enumerate(titles))
+
+
+def test_conditions_hold_even_when_it_means_a_repeat(world) -> None:
+    """Finding 10: when nothing fitting was fresh, a scenario whose conditions failed was
+    shown just to avoid repeating."""
+    hot = entry("Inflation bites", conditions={"indicator:inflation": Condition(op=">", value=9)})
+    calm = entry("Quiet month")
+    library = ScenarioLibrary([hot, calm])
+    config = GameConfig(election_turn=4, k_draws=10)
+    game = Game(config, world, library, KeywordInterpreter(), EngineForecaster())
+    for _ in range(4):
+        game.play_turn("do nothing")
+    assert {r.scenario.title for r in game.history} == {"Quiet month"}
+    with pytest.raises(ValueError, match="conditions"):
+        ScenarioLibrary([hot]).next_scenario(world, [])
