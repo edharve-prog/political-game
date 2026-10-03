@@ -52,6 +52,13 @@ class WorldState(Model):
             for end in (edge.source, edge.target):
                 if end not in ids:
                     raise ValueError(f"edge {edge.kind} references unknown node {end!r}")
+        for ind in self.indicators.values():
+            if ind.controlled_by is not None and ind.controlled_by not in self.institutions:
+                raise ValueError(
+                    f"{ind.id} is controlled_by {ind.controlled_by!r}, which is not an institution"
+                )
+        if self.groups and sum(g.population_share for g in self.groups.values()) <= 0:
+            raise ValueError("population groups must have a total population_share above 0")
         return self
 
     def nodes(self) -> Iterator[AnyNode]:
