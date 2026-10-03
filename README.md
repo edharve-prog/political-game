@@ -46,6 +46,24 @@ uv run hog-sim knowledge export-scenarios s.jsonl   # scenario-library format
 
 Add `--db <file>` after `knowledge` for a save file other than `saves/game.db`.
 
+## Reading what was sent to the model
+
+Every request the game sends to the model (system prompt, prompt, retries) and every reply
+or error is logged to `saves/llm-log.db`, next to the save file. Repeated text is stored
+once and each prompt is compressed against an earlier one of the same kind, so a full game
+takes well under a megabyte.
+
+```
+uv run hog-sim logs list                  # one line per call, most recent last
+uv run hog-sim logs list --turn 3         # also --game <id>, --kind ScenarioDraft, --errors
+uv run hog-sim logs show last             # the full request and reply of one call (or an id)
+uv run hog-sim logs export calls.jsonl    # everything as plain JSON lines
+uv run hog-sim logs stats                 # how much space the log takes
+```
+
+Play with `--llm-log off` (or `HOG_SIM_LLM_LOG=off` in `.env`) to keep no log, or
+`--llm-log <file>` to write it elsewhere. Deleting the file loses nothing the game needs.
+
 ## Connecting to Claude
 
 The game reaches a model in one of three ways, chosen with `--provider` (default `claude-code`):
@@ -75,5 +93,6 @@ the game falls back to the API and says so when it starts. Check the connection 
 ## Layout
 
 - `src/hog_sim/core/` — shared schemas (`models.py`), world state container (`state.py`), config and seeded RNG.
+- `src/hog_sim/llm/calllog.py` — the log of model requests and replies, read with `hog-sim logs`.
 - `src/hog_sim/knowledge/` — the knowledge store (`store.py`), precedents for prompts (`recall.py`) and offline reuse (`offline.py`); graph-change rules are in `world/changes.py`.
 - `tests/` — pytest suite.

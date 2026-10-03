@@ -7,6 +7,7 @@ scenarios, keyword matching) only when it can't, or when asked to with ``--offli
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 
@@ -284,6 +285,158 @@ def knowledge_main(argv: list[str]) -> None:
         store.close()
 
 
+def _with_log(client, provider: str, path: str):
+    """Wrap ``client`` so every call is written to the log at ``path`` ('off' for none)."""
+    from hog_sim.llm.calllog import CallLog, LoggingClient, log_disabled
+
+    if log_disabled(path):
+        return client
+    return LoggingClient(client, CallLog(path), provider)
+
+
+def _log_turns(client, game_id: str, turn_of) -> None:
+    from hog_sim.llm.calllog import LoggingClient
+
+    if isinstance(client, LoggingClient):
+        client.game_id, client.turn_of = game_id, turn_of
+
+
+def _close_log(client) -> None:
+    from hog_sim.llm.calllog import LoggingClient
+
+    if isinstance(client, LoggingClient):
+        client.log.close()
+
+
+def logs_main(argv: list[str]) -> None:
+    """``hog-sim logs list|show|export|stats``: read the log of model requests and replies."""
+    from hog_sim.llm.calllog import DEFAULT_PATH, LOG_ENV, CallLog, log_disabled
+
+    env_path = os.environ.get(LOG_ENV, "")
+
+    parser = argparse.ArgumentParser(
+        prog="hog-sim logs",
+        description="Every request the game sent to the model, and the reply",
+    )
+    parser.add_argument(
+        "--db",
+        default=DEFAULT_PATH if log_disabled(env_path) else env_path,
+        help=f"the log file (default {DEFAULT_PATH})",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    listing = sub.add_parser("list", help="one line per call, most recent last")
+    listing.add_argument("--game", help="only this game id")
+    listing.add_argument("--turn", type=int, help="only this turn")
+    listing.add_argument("--kind", help="only this call type, e.g. ScenarioDraft")
+    listing.add_argument("--errors", action="store_true", help="only calls that failed")
+    listing.add_argument("-n", "--limit", type=int, default=50, help="how many (default 50)")
+    show = sub.add_parser("show", help="the full request and reply of one call")
+    show.add_argument("id", help="a call id from list, or 'last'")
+    show.add_argument("--schema", action="store_true", help="also print the output schema")
+    sub.add_parser("export", help="write every call in full to a JSONL file").add_argument("file")
+    sub.add_parser("stats", help="how many calls, and how much space they take")
+    args = parser.parse_args(argv)
+
+    if not Path(args.db).exists():
+        raise SystemExit(f"No log at {args.db}; play a game with the model first.")
+    calllog = CallLog(args.db)
+    try:
+        if args.command == "list":
+            rows = calllog.calls(
+                game_id=args.game,
+                turn=args.turn,
+                schema_name=args.kind,
+                errors_only=args.errors,
+                limit=args.limit,
+            )
+            print(
+                f"{'id':>5}  {'time (UTC)':<19}  {'turn':>4}  {'call':<16} {'try':>3}  "
+                f"{'tokens in/out':>13}  {'secs':>5}  model"
+            )
+            for r in rows:
+                print(_log_line(r))
+            if not rows:
+                print("(no calls match)")
+        elif args.command == "show":
+            if args.id == "last":
+                last = calllog.calls(limit=1)
+                entry = calllog.call(last[0]["id"]) if last else None
+            elif args.id.isdigit():
+                entry = calllog.call(int(args.id))
+            else:
+                raise SystemExit("Give a call id from `hog-sim logs list`, or 'last'.")
+            if entry is None:
+                raise SystemExit(f"No call {args.id} in {args.db}.")
+            print(_log_detail(entry, with_schema=args.schema))
+        elif args.command == "export":
+            with open(args.file, "w", encoding="utf-8") as f:
+                rows = calllog.calls()
+                for r in rows:
+                    f.write(json.dumps(calllog.call(r["id"]), ensure_ascii=False) + "\n")
+            print(f"Wrote {len(rows)} calls to {args.file}.")
+        else:
+            s = calllog.stats()
+            kb = 1024
+            print(f"{s['calls']} calls, {s['texts']} distinct texts")
+            print(f"  as plain text, one copy per call: {s['logical_bytes'] / kb:,.0f} KB")
+            print(f"  after removing repeats:           {s['unique_bytes'] / kb:,.0f} KB")
+            print(f"  after compression:                {s['stored_bytes'] / kb:,.0f} KB")
+            print(f"  log file on disk:                 {s['file_bytes'] / kb:,.0f} KB")
+    finally:
+        calllog.close()
+
+
+def _log_line(r: dict) -> str:
+    turn = "" if r["turn"] is None else r["turn"]
+    tokens = f"{r['input_tokens']}/{r['output_tokens']}" if r["error"] is None else "FAILED"
+    model = r["served_model"] or r["model"]
+    if r["provider"]:
+        model += f" ({r['provider']})"
+    return (
+        f"{r['id']:>5}  {r['at'][:19].replace('T', ' '):<19}  {turn:>4}  "
+        f"{r['schema_name'][:16]:<16} {r['attempt']:>3}  {tokens:>13}  "
+        f"{r['latency_ms'] / 1000:>5.1f}  {model}"
+    )
+
+
+def _log_detail(e: dict, with_schema: bool = False) -> str:
+    rule = "-" * 72
+    lines = [
+        f"Call {e['id']} at {e['at']}: {e['schema_name']} (prompt {e['prompt_version']}), "
+        f"attempt {e['attempt']}",
+        f"Game {e['game_id'] or '-'}, turn {'-' if e['turn'] is None else e['turn']}. "
+        f"Provider {e['provider'] or '-'}, model {e['model']}"
+        + (f", answered by {e['served_model']}" if e["served_model"] else "")
+        + f", effort {e['effort']}.",
+    ]
+    if e["error"] is None:
+        lines.append(
+            f"{e['input_tokens']} tokens in, {e['output_tokens']} out, "
+            f"{e['latency_ms'] / 1000:.1f}s."
+        )
+    else:
+        lines.append(f"FAILED after {e['latency_ms'] / 1000:.1f}s: {e['error']}")
+    lines += [rule, "SYSTEM PROMPT", rule, e["system"]]
+    if with_schema:
+        lines += [rule, "OUTPUT SCHEMA", rule, json.dumps(e["output_schema"], indent=2)]
+    for i, m in enumerate(e["messages"]):
+        if m["role"] == "assistant":
+            label = "EARLIER REPLY (rejected)"
+        else:
+            label = "PROMPT" if i == 0 else "FEEDBACK ON THE REJECTED REPLY"
+        lines += [rule, label, rule, m["content"]]
+    if e["response"] is not None:
+        lines += [rule, "REPLY", rule, _pretty_json(e["response"])]
+    return "\n".join(lines)
+
+
+def _pretty_json(text: str) -> str:
+    try:
+        return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+    except ValueError:
+        return text
+
+
 def _briefing(game: Game) -> str:
     """The turn's in-tray: the lead scenario with its options, then the other items."""
     s, state = game.scenario, game.state
@@ -331,6 +484,9 @@ def main(argv: list[str] | None = None) -> None:
     if argv[:1] == ["knowledge"]:
         knowledge_main(argv[1:])
         return
+    if argv[:1] == ["logs"]:
+        logs_main(argv[1:])
+        return
     try:
         _main(argv)
     except LLMUnavailable as exc:
@@ -340,6 +496,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
+    from hog_sim.llm.calllog import LOG_ENV, LOG_FILE
     from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
     load_env()
@@ -369,19 +526,32 @@ def _main(argv: list[str] | None) -> None:
         "ChatGPT via `codex login`; set HOG_SIM_CODEX_MODEL to pick its model)",
     )
     parser.add_argument(
+        "--llm-log",
+        default=os.environ.get(LOG_ENV),
+        help="file that records every request sent to the model and its reply "
+        "(default: llm-log.db next to the save file; 'off' keeps no log). "
+        "Read it with: hog-sim logs",
+    )
+    parser.add_argument(
         "--check-llm",
         action="store_true",
         help="make one small call to the model to confirm the connection works, then exit",
     )
     args = parser.parse_args(argv)
+    if args.llm_log is None:
+        args.llm_log = str(Path(args.save).parent / LOG_FILE)
 
     if args.check_llm:
         from hog_sim.llm.providers import describe
 
         client, provider, note = _llm_client(args.provider)
+        client = _with_log(client, provider, args.llm_log)
         if note:
             print(note)
-        print(check_llm(client) + f" Connected via {describe(provider)}.")
+        try:
+            print(check_llm(client) + f" Connected via {describe(provider)}.")
+        finally:
+            _close_log(client)
         return
 
     Path(args.save).parent.mkdir(parents=True, exist_ok=True)
@@ -400,6 +570,8 @@ def _main(argv: list[str] | None) -> None:
             if args.llm:
                 raise SystemExit(str(exc)) from None
             print(f"{NO_CLAUDE_NOTE}\n{exc}\n")
+        else:
+            client = _with_log(client, provider, args.llm_log)
     if client:
         from hog_sim.forecasting.candidates import ForecastConfig
         from hog_sim.game.llm_plugins import llm_plugins
@@ -431,15 +603,18 @@ def _main(argv: list[str] | None) -> None:
     if game_id:
         config, start, records = store.load(game_id)
         recaller.game_id = game_id
+        _log_turns(client, game_id, lambda: (records[-1].state_after if records else start).turn)
         game = Game.resume(config, start, records, *plugins)
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
         config, start = GameConfig(seed=args.seed), toy_world()
         game_id = store.new_game(config, start)
         recaller.game_id = game_id
+        _log_turns(client, game_id, lambda: start.turn)
         game = Game(config, start, *plugins)
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
+    _log_turns(client, game_id, lambda: game.state.turn)
     try:
         while not game.over:
             print("\n" + _dashboard(game.start, game.state, _previous(game)))
@@ -467,6 +642,7 @@ def _main(argv: list[str] | None) -> None:
     finally:
         store.close()
         knowledge.close()
+        _close_log(client)
 
 
 if __name__ == "__main__":
