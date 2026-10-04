@@ -172,11 +172,14 @@ As a player, I want the outcome to reflect that the Commons blocked my measure.
 - The limit notes go to the outcome prompt as "Blocked: ...", alongside the delivery.
 - No chosen narrative claims a blocked measure took effect (the review's T18 did).
 
-### RB-9 Fewer validation retries (P2, from the 30-turn review)
+### RB-9 Fewer validation retries (P2, from the 30-turn review) - done (PR #42)
 - A bare id (`business`) maps to its unique prefixed id (`group:business`) before checking.
 - A clarifying question returned alongside actions is dropped, not retried.
 - `do_nothing` mixed with real actions is dropped from LLM interpretations, as offline.
 - The review had 11 retries in 131 calls; target under 3 per 30 turns.
+- Done: `structured_call` takes a `repair` step that runs before the checks. The interpreter
+  and the outcome writer use it for the three slips above. A closed storyline continued by
+  the scenario writer still costs a retry, since there is no single right fix.
 
 ### RB-5 Policy library (P2)
 As a player, I want to save a package I liked and reuse or adapt it later.
@@ -224,5 +227,5 @@ As a player, I want to see the causal chain behind an outcome.
    stories from what it shows. Done 2026-10-03: see
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
-   in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. Next:
-   RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2, RB-5.
+   in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
+   done (PR #42). Next: the P2 stories in the order SD-5, SD-4, SD-6, TT-2, RB-5.

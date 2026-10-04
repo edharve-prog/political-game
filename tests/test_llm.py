@@ -269,7 +269,7 @@ def test_interpret_includes_scenario(summary) -> None:
         {"actions": [action(kind="do_nothing", target="sector:energy")]},
         {"actions": [action(kind="regulate", magnitude=-0.5)]},
         {"actions": []},
-        {"actions": [action()], "clarifying_question": "Which firms?"},
+        {"actions": [action(target="fishing")]},
     ],
 )
 def test_interpret_retries_bad_interpretations(summary, bad) -> None:
