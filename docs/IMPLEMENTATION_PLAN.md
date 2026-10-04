@@ -384,7 +384,7 @@ Smallest thing that is fun and proves the architecture:
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
-| 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
+| 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36; RB-9 done, PR #42) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
 | 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency done, PR #38; EB-14 settling done, PR #39) | Built by the back-end review thread; see backlog/engine-balance.md |

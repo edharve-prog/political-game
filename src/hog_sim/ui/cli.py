@@ -27,6 +27,7 @@ from hog_sim.llm.advisers import Advisers
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
+from hog_sim.world.calendar import upcoming
 from hog_sim.world.cast import active_cast
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed
@@ -57,6 +58,9 @@ def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None
             before = previous.characters.get(c.id)
             last = f" ({(c.loyalty - before.loyalty) * 100:+.0f})" if before else " (new)"
             lines.append(f"    {c.name}, {c.role}: {c.loyalty * 100:.0f}%{last}")
+    coming = upcoming(state.turn)
+    if coming:
+        lines.append("  Coming up: " + ", ".join(f"{e.title} (turn {t})" for t, e in coming))
     if state.pledges:
         lines.append("  Pledges")
         lines += [f"    {pledge_line(p)}" for p in state.pledges]

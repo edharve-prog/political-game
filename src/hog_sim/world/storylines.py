@@ -60,8 +60,9 @@ def final_storylines(state: WorldState) -> list[str]:
 
 def must_open_new(state: WorldState, history: Sequence[Any]) -> bool:
     """True when each of the last ``NEW_LEAD_EVERY - 1`` turns' leads continued a storyline
-    opened on an earlier turn."""
-    recent = list(history)[-(NEW_LEAD_EVERY - 1) :]
+    opened on an earlier turn. Calendar turns (SD-6) are skipped: their leads open none."""
+    ordinary = [r for r in history if r.scenario.source != "scheduled"]
+    recent = ordinary[-(NEW_LEAD_EVERY - 1) :]
     if len(recent) < NEW_LEAD_EVERY - 1:
         return False
 

@@ -22,6 +22,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
+from hog_sim.world.calendar import calendar_event, scheduled_scenario
 from hog_sim.world.cast import active_cast
 from hog_sim.world.graph import build_graph, exposed_groups
 from hog_sim.world.propagation import DeltaDistribution, apply_deltas
@@ -72,12 +73,17 @@ _SCENARIOS = [
 
 
 class CannedScenarios:
-    """Picks a scenario from a fixed list, seeded and without immediate repeats."""
+    """Picks a scenario from a fixed list, seeded and without immediate repeats. On calendar
+    turns (story SD-6) it is the calendar event instead."""
 
-    def __init__(self, seed: int = 0) -> None:
+    def __init__(self, seed: int = 0, calendar: bool = True) -> None:
         self.seed = seed
+        self.calendar = calendar
 
     def next_scenario(self, state: WorldState, history: list[TurnRecord]) -> Scenario:
+        event = calendar_event(state.turn) if self.calendar else None
+        if event is not None:
+            return scheduled_scenario(event, state)
         last = history[-1].scenario.title if history else None
         options = [s for s in _SCENARIOS if s.title != last]
         return make_rng(self.seed, state.turn, "scenario").choice(options).model_copy(deep=True)

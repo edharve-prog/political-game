@@ -513,6 +513,22 @@ Storylines feed the next scenario prompt; they do not move numbers directly.
 
 ---
 
+### The political calendar
+
+Some turns are fixed by the calendar, and on them the lead issue is the event:
+
+- the Budget on turns 3 and 15, with tax and spending options;
+- an international summit on turns 6 and 18;
+- party conference on turns 9 and 21;
+- a by-election on turn 12 (and 24 in longer games), fought in a seat full of whichever group is least happy
+  with the government.
+
+Each event comes round every 12 turns. With Claude, Claude writes the event's briefing and
+the rest of the in-tray, but the event sets the category and the options. Offline, the
+event's own briefing is used. A calendar lead opens no storyline, and the rule that a new
+storyline must lead every third turn skips calendar turns. Prompts and the dashboard show
+what is coming in the next six turns.
+
 ## 10. Key numbers in one place
 
 | Rule | Value | Where |
@@ -540,6 +556,7 @@ Storylines feed the next scenario prompt; they do not move numbers directly.
 | Broken pledge hit | 0.05 per caring group, or 0.02 for all | `policy/pledges.py` |
 | Loyalty: backed, crossed, consulted, ignored | +0.08, -0.08, +0.04, -0.03 | `world/cast.py` |
 | Minister resigns below, Commons cost | loyalty 0.25, 0.05 support | `world/cast.py` |
+| Calendar: Budget, summit, conference, by-election | every 12 turns, from turns 3, 6, 9, 12 | `world/calendar.py` |
 
 ---
 

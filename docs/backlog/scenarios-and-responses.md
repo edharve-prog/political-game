@@ -104,13 +104,15 @@ As a player, I want past promises and choices to be remembered.
   storylines end off-screen. That needs its own story if it still matters after the next
   review.
 
-### SD-6 Scheduled and calendar events (P2)
+### SD-6 Scheduled and calendar events (P2) - done (PR #45)
 As a player, I want a political calendar: budgets, party conference, PMQs, summits and
 by-elections.
 - A calendar of recurring events runs by turn, for example a budget every 12 turns and
   conference every 12 turns, offset by 6.
 - On those turns the lead issue is the calendar event and its options are set by the event
   type (a budget asks for tax and spending choices).
+- Done: `world/calendar.py` holds the Budget, a summit, party conference and a by-election,
+  each every 12 turns. PMQs are left out because a turn is a month.
 
 ### SD-7 World events and outside shocks (P2, joins Project 7)
 As a player, I want the wider world to intrude: wars, pandemics, commodity spikes and
@@ -237,5 +239,5 @@ As a player, I want to see the causal chain behind an outcome.
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
    in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
-   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44). Next: the P2 stories in the order
-   SD-6, TT-2, RB-5.
+   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44), SD-6 done (PR #45). Next: the P2
+   stories in the order TT-2, RB-5.

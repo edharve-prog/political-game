@@ -122,7 +122,7 @@ def test_usage_is_logged(summary) -> None:
     generate_scenario(summary, client)
     record = client.usage.records[0]
     assert record.schema_name == "ScenarioDraft"
-    assert record.prompt_version == "scenario-7"
+    assert record.prompt_version == "scenario-8"
 
 
 # --- Recording -------------------------------------------------------------

@@ -10,6 +10,7 @@ from hog_sim.core.models import Category, Model, Scenario, SideIssue, Storyline
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import scenario as prompt
 from hog_sim.llm.summary import StateSummary, resolve_id
+from hog_sim.world.calendar import CalendarEvent
 from hog_sim.world.storylines import new_storyline_id
 
 
@@ -119,10 +120,15 @@ def generate_scenario(
     storylines_prompt: str = "",
     final: Sequence[str] = (),
     open_new: bool = False,
+    calendar: CalendarEvent | None = None,
 ) -> GeneratedScenario:
     """``storylines`` are the open ones the draft may continue; ``storylines_prompt`` shows
     them with their history (``world.storylines.storylines_text``). ``final`` and
-    ``open_new`` apply the SD-9 lifespan rules (see ``check_draft``)."""
+    ``open_new`` apply the SD-9 lifespan rules (see ``check_draft``).
+
+    ``calendar`` (filled with ``world.calendar.fill``) makes the lead this turn's calendar
+    event (SD-6): the model writes its briefing and the in-tray, and the event sets the
+    category and options. A calendar lead opens no storyline."""
     config = config or ModelConfig()
     recent = list(recent or [])[-RECENT_TURNS:]
     storylines = list(storylines or [])
@@ -131,7 +137,11 @@ def generate_scenario(
         output_type=ScenarioDraft,
         system=prompt.SYSTEM,
         prompt=prompt.render(
-            summary.to_prompt(), recent_text(recent), storylines_prompt, open_new=open_new
+            summary.to_prompt(),
+            recent_text(recent),
+            storylines_prompt,
+            open_new=open_new and calendar is None,
+            calendar=prompt.calendar_note(calendar) if calendar else "",
         ),
         model=config.scenario_model,
         prompt_version=prompt.VERSION,
@@ -139,12 +149,20 @@ def generate_scenario(
         max_tokens=config.max_tokens,
         max_attempts=config.max_attempts,
         check=lambda d: check_draft(
-            d, summary.catalogue, storylines, final, open_new, summary.cast
+            d, summary.catalogue, storylines, final, open_new and calendar is None, summary.cast
         ),
         repair=lambda d: _repair_people(d, summary.cast),
     )
     fields = draft.model_dump(exclude={"secondary"})
     fields["storyline"] = _storyline_id(draft.storyline, draft.title, summary.turn)
+    source = "generated"
+    if calendar is not None:
+        source = "scheduled"
+        fields |= {
+            "storyline": None,
+            "category": calendar.category,
+            "suggested_options": list(calendar.options),
+        }
     secondary = [
         SideIssue(
             **{
@@ -154,7 +172,7 @@ def generate_scenario(
         )
         for item in draft.secondary
     ]
-    return GeneratedScenario(source="generated", secondary=secondary, **fields)
+    return GeneratedScenario(source=source, secondary=secondary, **fields)
 
 
 def _repair_people(draft: ScenarioDraft, cast: Collection[str]) -> ScenarioDraft:
