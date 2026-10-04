@@ -17,6 +17,11 @@ were actually applied and notes saying why any were cut.
 
 Storylines (issues that run across turns) move in resolve too: see ``world/storylines.py``.
 
+Institutions settle back toward where they started the game: each turn closes
+``INSTITUTION_SETTLE`` of the gap in their support. A rebellion still costs the government its
+majority for a few turns, but no longer for the rest of the game (EB-14: in the 30-turn
+review the Commons fell below a majority at turn 13 and blocked every spend and tax after).
+
 Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
 node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
 """
@@ -37,6 +42,17 @@ from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.events import event_shocks
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
 from hog_sim.world.storylines import advance_storylines
+
+INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each turn
+
+
+def _settle_institutions(state: WorldState, start: WorldState) -> WorldState:
+    new = state.snapshot()
+    for inst_id, inst in new.institutions.items():
+        origin = start.institutions.get(inst_id)
+        if origin is not None:
+            inst.support += (origin.support - inst.support) * INSTITUTION_SETTLE
+    return new
 
 
 def _record_history(state: WorldState) -> WorldState:
@@ -87,6 +103,7 @@ def resolve(
     new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
+    new = _settle_institutions(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions)
     new.turn = state.turn + 1
