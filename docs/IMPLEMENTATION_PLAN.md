@@ -377,7 +377,7 @@ Smallest thing that is fun and proves the architecture:
 | 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
 | 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
 | 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
-| 6 | Outcome Forecasting & Selection | Done (PR #6); 30-turn review done 2026-10-03 | See projects/06-forecasting.md and reviews/2026-10-03-claude-30-turn.md; review fixes merged (PRs #36-#39), re-run pending |
+| 6 | Outcome Forecasting & Selection | Done (PR #6); 30-turn review done 2026-10-03 | See projects/06-forecasting.md and reviews/2026-10-03-claude-30-turn.md; review fixes merged (PRs #36-#39); re-run 2026-10-04 met every target |
 | 7 | News Ingestion | Not started | |
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
