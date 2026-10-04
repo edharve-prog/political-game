@@ -224,5 +224,5 @@ As a player, I want to see the causal chain behind an outcome.
    stories from what it shows. Done 2026-10-03: see
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
-   in PRs #36 to #39 (merged 2026-10-04), then a re-run of the review, then RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2,
-   RB-5.
+   in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. Next:
+   RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2, RB-5.
