@@ -16,6 +16,8 @@ returns and the political-capital budget in every mode; the record keeps the act
 were actually applied and notes saying why any were cut.
 
 Storylines (issues that run across turns) move in resolve too: see ``world/storylines.py``.
+So do pledges (SD-5): an action a kept pledge rules out breaks it and costs approval, and the
+turn's new pledges are added afterwards. See ``policy/pledges.py``.
 
 Institutions settle back toward where they started the game: each turn closes
 ``INSTITUTION_SETTLE`` of the gap in their support. A rebellion still costs the government its
@@ -28,15 +30,18 @@ node -> native change), so a policy's lagged tail keeps arriving after the turn 
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pydantic import Field
 
 from hog_sim.core.config import GameConfig, make_rng
-from hog_sim.core.models import Delivery, Model, Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Model, Outcome, Pledge, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.limits import constrain
+from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import policy_events, run_election, step_approval
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.events import event_shocks
@@ -76,8 +81,11 @@ def resolve(
     actions: list[PolicyAction],
     outcome: Outcome,
     config: GameConfig,
+    pledges: Sequence[Pledge] = (),
 ) -> WorldState:
-    """Apply one turn's chosen outcome and advance the clock. Deterministic."""
+    """Apply one turn's chosen outcome and advance the clock. Deterministic.
+
+    ``pledges`` are the promises made this turn (SD-5)."""
     shocks = (
         actions_to_shocks(actions, state)
         + scenario.shocks
@@ -101,6 +109,7 @@ def resolve(
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
     new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
+    new = apply_pledges(new, state.turn, actions, pledges)
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)
@@ -118,6 +127,7 @@ class Proposal(Model):
     actions: list[PolicyAction]
     notes: list[str] = Field(default_factory=list)
     delivery: Delivery = Field(default_factory=Delivery)
+    pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
 
 
 class Game:
@@ -176,11 +186,14 @@ class Game:
             raise RuntimeError("the game is over")
         requested = self.interpreter.interpret(response, self.state, self.scenario)
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
-        return self._limit(response, requested, delivery=delivery)
+        pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
+        return self._limit(response, requested, delivery=delivery, pledges=pledges)
 
     def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits."""
-        return self._limit(proposal.response, actions, proposal.requested, proposal.delivery)
+        return self._limit(
+            proposal.response, actions, proposal.requested, proposal.delivery, proposal.pledges
+        )
 
     def _limit(
         self,
@@ -188,6 +201,7 @@ class Game:
         actions: list[PolicyAction],
         requested: list[PolicyAction] | None = None,
         delivery: Delivery | None = None,
+        pledges: Sequence[Pledge] = (),
     ) -> Proposal:
         cfg = self.config
         limited = constrain(
@@ -203,6 +217,7 @@ class Game:
             actions=limited.actions,
             notes=limited.notes,
             delivery=delivery or Delivery(),
+            pledges=list(pledges),
         )
 
     def play_turn(self, response: str) -> TurnRecord:
@@ -221,7 +236,9 @@ class Game:
         )
         chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
 
-        new = resolve(self.start, state, scenario, actions, candidates[chosen], cfg)
+        new = resolve(
+            self.start, state, scenario, actions, candidates[chosen], cfg, proposal.pledges
+        )
         election = run_election(new) if new.turn == cfg.election_turn else None
         record = TurnRecord(
             turn=state.turn,
@@ -235,6 +252,7 @@ class Game:
             requested_actions=proposal.requested,
             notes=proposal.notes,
             delivery=proposal.delivery,
+            pledges=proposal.pledges,
         )
         self.state = new
         self.history.append(record)
@@ -247,5 +265,7 @@ def replay(start: WorldState, config: GameConfig, records: list[TurnRecord]) -> 
     """Rebuild the final state from a turn log, without calling any LLM."""
     state = start
     for record in records:
-        state = resolve(start, state, record.scenario, record.actions, record.outcome, config)
+        state = resolve(
+            start, state, record.scenario, record.actions, record.outcome, config, record.pledges
+        )
     return state

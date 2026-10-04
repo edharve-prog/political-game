@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-4"
+VERSION = "interpret-5"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -65,7 +65,21 @@ talk to or negotiate with first; empty if none
 - speed: "phased" when they phase it in, stage it or give notice, otherwise "immediate"
 """
 
-SYSTEM += DELIVERY
+PLEDGES = """
+Also record any promise about what the government will never or will not do, in pledges \
+("we will not raise taxes", "no cuts to the NHS"). A plan for this turn is an action, not a \
+pledge. Each pledge rules out one kind of action:
+- text: the promise in a few words of the leader's own
+- kind: the action kind it rules out
+- direction: "up" when it rules out a positive magnitude (raising taxes, more military \
+action), "down" a negative one (spending cuts), "any" both
+- target: the node id it protects, or null when it covers everything of that kind ("no new \
+taxes" is tax, up, null)
+- groups: the group ids who would care most if it were broken
+Most responses make no pledge; then pledges is empty.
+"""
+
+SYSTEM += DELIVERY + PLEDGES
 
 
 def render(summary_prompt: str, scenario_text: str | None, player_text: str) -> str:

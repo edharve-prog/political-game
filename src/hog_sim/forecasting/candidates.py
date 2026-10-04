@@ -45,6 +45,7 @@ from hog_sim.llm.prompts import outcomes as outcomes_prompt
 from hog_sim.llm.scenario_gen import scenario_text
 from hog_sim.llm.summary import StateSummary, relevant_links, resolve_id, summarise_state
 from hog_sim.policy.feasibility import Role
+from hog_sim.policy.pledges import broken_by
 from hog_sim.world.changes import validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
 from hog_sim.world.storylines import final_storylines
@@ -261,6 +262,7 @@ class LLMForecaster:
             delivery.describe() if delivery else "",
             limits or [],
             ending=scenario.storyline in final_storylines(state),
+            broken_pledges=[p.text for p in broken_by(state, actions)],
         )
         drafts = structured_call(
             self.client,

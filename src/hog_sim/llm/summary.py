@@ -13,6 +13,7 @@ from pydantic import Field
 
 from hog_sim.core.models import Model
 from hog_sim.core.state import WorldState
+from hog_sim.policy.pledges import pledge_line
 from hog_sim.world.graph import build_graph, edges_of
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
@@ -72,6 +73,9 @@ class StateSummary(Model):
     precedents: list[str] = Field(
         default_factory=list, description="Similar past situations from the knowledge store"
     )
+    pledges: list[str] = Field(
+        default_factory=list, description="Promises the leader made, kept or broken (SD-5)"
+    )
     catalogue: dict[str, str] = Field(description="Every node id the model may reference -> name")
 
     def to_prompt(self) -> str:
@@ -113,6 +117,9 @@ class StateSummary(Model):
         if self.recent_events:
             lines += ["", "Recent events (most recent last):"]
             lines += [f"- {e}" for e in self.recent_events]
+        if self.pledges:
+            lines += ["", "Pledges the leader has made (voters remember them):"]
+            lines += [f"- {p}" for p in self.pledges]
         if self.links:
             lines += ["", "Links in the world graph (source -KIND-> target, weight, lag in turns):"]
             lines += [f"- {e}" for e in self.links]
@@ -202,6 +209,7 @@ def summarise_state(
         ],
         recent_events=(recent_events or [])[-max_events:],
         precedents=list(precedents or []),
+        pledges=[pledge_line(p) for p in state.pledges],
         catalogue={node.id: node.name for node in state.nodes()},
     )
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-5"
+VERSION = "scenario-6"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -28,6 +28,8 @@ pressure is high or that the leader has not faced for a few turns, showing how i
 since its last stage and how the leader's earlier response shaped it. Open a new storyline \
 when nothing open is pressing; with five or more open, continue one. Stories end: a storyline \
 marked FINAL STAGE can only come back as the lead, and that turn is its climax
+- remember the leader's pledges: a broken one gives critics, the press and rivals something \
+to use, and a kept one can be put under strain by events. Use them now and then, not every turn
 - refer to foreign leaders by role ("the Chinese premier"), never by a real person's name
 
 Fields:

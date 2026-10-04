@@ -299,6 +299,29 @@ class Storyline(Model):
     history: list[str] = Field(default_factory=list, description="One line per stage, oldest first")
 
 
+class Pledge(Model):
+    """A promise the leader made, remembered across turns (backlog story SD-5).
+
+    It rules out one kind of action: ``kind`` in ``direction`` ("up" is a positive
+    magnitude, "down" a negative one), on ``target`` or, when that is None, on anything.
+    "No new taxes" is ``tax``/``up``/None; "hands off the NHS budget" is ``spend``/``down``
+    on the health sector. The engine marks it broken when an applied action matches.
+    """
+
+    text: str = Field(description="The promise in the leader's words, short")
+    kind: ActionKind
+    direction: Literal["up", "down", "any"] = "any"
+    target: str | None = None
+    groups: list[str] = Field(
+        default_factory=list, description="Group ids who care most whether it is kept"
+    )
+    made_turn: int = Field(0, ge=0)
+    broken_turn: int | None = None
+
+    def rule(self) -> tuple[str, str, str | None]:
+        return (self.kind, self.direction, self.target)
+
+
 class Outcome(Model):
     narrative: str
     indicator_deltas: dict[str, float] = Field(

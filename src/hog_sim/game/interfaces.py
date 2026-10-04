@@ -21,7 +21,8 @@ class ScenarioSource(Protocol):
 
 class Interpreter(Protocol):
     """May also offer ``last_delivery() -> Delivery | None`` for how the last response was
-    delivered (story RB-4); the game falls back to a plain ``Delivery()``."""
+    delivered (story RB-4); the game falls back to a plain ``Delivery()``. Likewise
+    ``last_pledges() -> list[Pledge]`` for promises the response made (story SD-5)."""
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]: ...
 

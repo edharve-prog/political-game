@@ -24,6 +24,7 @@ from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
+from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.seed.toy import toy_world
@@ -48,6 +49,9 @@ def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None
         f"  National {national * 100:.1f}% ({(national - national_approval(previous)) * 100:+.1f})"
         f"  ·  Vote intention {vote * 100:.1f}% ({(vote - vote_intention(previous)) * 100:+.1f})"
     )
+    if state.pledges:
+        lines.append("  Pledges")
+        lines += [f"    {pledge_line(p)}" for p in state.pledges]
     return "\n".join(lines)
 
 
@@ -72,7 +76,7 @@ def _report(record: TurnRecord) -> str:
 REVIEW_PROMPT = "\nEnter to confirm, or edit (drop 2 · 2 size 0.3 · 2 turns 4 · redo)> "
 
 
-def _proposal_text(proposal: Proposal, dropped: list[str]) -> str:
+def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
     lines = ["\nYour advisers read that as:"]
     if proposal.actions:
         lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
@@ -81,6 +85,12 @@ def _proposal_text(proposal: Proposal, dropped: list[str]) -> str:
     lines += [f"  (not possible: {line})" for line in dropped]
     lines += [f"  Note: {n}" for n in proposal.notes]
     lines.append(f"  Delivery: {proposal.delivery.describe()}")
+    lines += [f'  New pledge: "{p.text}"' for p in proposal.pledges]
+    if state is not None:
+        lines += [
+            f'  Warning: this breaks your pledge "{p.text}" (made turn {p.made_turn})'
+            for p in broken_by(state, proposal.actions)
+        ]
     return "\n".join(lines)
 
 
@@ -104,7 +114,7 @@ def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | No
             print(f"\nYour advisers ask: {ask.question}")
     dropped = getattr(game.interpreter, "dropped", lambda: [])()
     while True:
-        print(_proposal_text(proposal, dropped))
+        print(_proposal_text(proposal, dropped, game.state))
         command = input(REVIEW_PROMPT).strip()
         if command.lower() in ("", "y", "yes", "ok"):
             return proposal
