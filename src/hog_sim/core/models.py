@@ -279,6 +279,9 @@ class Scenario(Model):
     secondary: list[SideIssue] = Field(
         default_factory=list, description="Other items in this turn's in-tray (SD-2)"
     )
+    characters: list[str] = Field(
+        default_factory=list, description="Ids of the cast members involved (SD-4)"
+    )
 
 
 class Storyline(Model):
@@ -297,6 +300,25 @@ class Storyline(Model):
     )
     pressure: float = Field(0.5, ge=0, le=1, description="How urgent it has become")
     history: list[str] = Field(default_factory=list, description="One line per stage, oldest first")
+
+
+class Character(Model):
+    """A fictional person the leader deals with (backlog story SD-4). Kept in ``WorldState``.
+
+    ``cares`` maps the nodes they care about to the way they want them pushed: +1 helped, -1
+    squeezed. Loyalty moves with how the leader treats those nodes; ``world/cast.py`` has
+    the rules. No character is a real person.
+    """
+
+    id: str = Field(description="person:<slug>")
+    name: str
+    role: str = Field(description="Their job, e.g. 'Chancellor of the Exchequer'")
+    minister: bool = Field(False, description="In the cabinet: can be sacked or resign")
+    agenda: str = Field(description="What they want, one line")
+    cares: dict[str, int] = Field(default_factory=dict)
+    loyalty: float = Field(0.6, ge=0, le=1)
+    active: bool = True
+    memory: list[str] = Field(default_factory=list, description="Recent dealings, oldest first")
 
 
 class Pledge(Model):

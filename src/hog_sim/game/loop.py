@@ -18,6 +18,7 @@ were actually applied and notes saying why any were cut.
 Storylines (issues that run across turns) move in resolve too: see ``world/storylines.py``.
 So do pledges (SD-5): an action a kept pledge rules out breaks it and costs approval, and the
 turn's new pledges are added afterwards. See ``policy/pledges.py``.
+The cast's loyalty moves there as well (SD-4): see ``world/cast.py``.
 
 Institutions settle back toward where they started the game: each turn closes
 ``INSTITUTION_SETTLE`` of the gap in their support. A rebellion still costs the government its
@@ -43,6 +44,7 @@ from hog_sim.game.records import TurnRecord
 from hog_sim.policy.limits import constrain
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import policy_events, run_election, step_approval
+from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.events import event_shocks
 from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
@@ -82,10 +84,13 @@ def resolve(
     outcome: Outcome,
     config: GameConfig,
     pledges: Sequence[Pledge] = (),
+    delivery: Delivery | None = None,
+    sacked: Sequence[str] = (),
 ) -> WorldState:
     """Apply one turn's chosen outcome and advance the clock. Deterministic.
 
-    ``pledges`` are the promises made this turn (SD-5)."""
+    ``pledges`` are the promises made this turn (SD-5); ``delivery`` and ``sacked`` (cast
+    ids) move the cast's loyalty (SD-4)."""
     shocks = (
         actions_to_shocks(actions, state)
         + scenario.shocks
@@ -110,6 +115,7 @@ def resolve(
     new.pending = pending
     new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
+    new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)
@@ -128,6 +134,7 @@ class Proposal(Model):
     notes: list[str] = Field(default_factory=list)
     delivery: Delivery = Field(default_factory=Delivery)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
+    sacked: list[str] = Field(default_factory=list, description="Cast ids sacked (SD-4)")
 
 
 class Game:
@@ -187,12 +194,18 @@ class Game:
         requested = self.interpreter.interpret(response, self.state, self.scenario)
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
-        return self._limit(response, requested, delivery=delivery, pledges=pledges)
+        sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
+        return self._limit(response, requested, delivery=delivery, pledges=pledges, sacked=sacked)
 
     def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits."""
         return self._limit(
-            proposal.response, actions, proposal.requested, proposal.delivery, proposal.pledges
+            proposal.response,
+            actions,
+            proposal.requested,
+            proposal.delivery,
+            proposal.pledges,
+            proposal.sacked,
         )
 
     def _limit(
@@ -202,6 +215,7 @@ class Game:
         requested: list[PolicyAction] | None = None,
         delivery: Delivery | None = None,
         pledges: Sequence[Pledge] = (),
+        sacked: Sequence[str] = (),
     ) -> Proposal:
         cfg = self.config
         limited = constrain(
@@ -218,6 +232,7 @@ class Game:
             notes=limited.notes,
             delivery=delivery or Delivery(),
             pledges=list(pledges),
+            sacked=[c for c in sacked if c in sackable(self.state)],
         )
 
     def play_turn(self, response: str) -> TurnRecord:
@@ -232,12 +247,26 @@ class Game:
         shocks = actions_to_shocks(actions, state) + scenario.shocks
         engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
         candidates = self.forecaster.forecast(
-            state, scenario, actions, engine, delivery=proposal.delivery, limits=proposal.notes
+            state,
+            scenario,
+            actions,
+            engine,
+            delivery=proposal.delivery,
+            limits=proposal.notes,
+            sacked=proposal.sacked,
         )
         chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
 
         new = resolve(
-            self.start, state, scenario, actions, candidates[chosen], cfg, proposal.pledges
+            self.start,
+            state,
+            scenario,
+            actions,
+            candidates[chosen],
+            cfg,
+            proposal.pledges,
+            proposal.delivery,
+            proposal.sacked,
         )
         election = run_election(new) if new.turn == cfg.election_turn else None
         record = TurnRecord(
@@ -253,6 +282,7 @@ class Game:
             notes=proposal.notes,
             delivery=proposal.delivery,
             pledges=proposal.pledges,
+            sacked=proposal.sacked,
         )
         self.state = new
         self.history.append(record)
@@ -266,6 +296,14 @@ def replay(start: WorldState, config: GameConfig, records: list[TurnRecord]) -> 
     state = start
     for record in records:
         state = resolve(
-            start, state, record.scenario, record.actions, record.outcome, config, record.pledges
+            start,
+            state,
+            record.scenario,
+            record.actions,
+            record.outcome,
+            config,
+            record.pledges,
+            record.delivery,
+            record.sacked,
         )
     return state

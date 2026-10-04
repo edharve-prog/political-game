@@ -22,6 +22,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
+from hog_sim.world.cast import active_cast
 from hog_sim.world.graph import build_graph, exposed_groups
 from hog_sim.world.propagation import DeltaDistribution, apply_deltas
 
@@ -103,6 +104,7 @@ class KeywordInterpreter:
     def __init__(self) -> None:
         self._delivery: Delivery | None = None
         self._pledges: list[Pledge] = []
+        self._sacked: list[str] = []
 
     def last_delivery(self) -> Delivery | None:
         return self._delivery
@@ -110,12 +112,16 @@ class KeywordInterpreter:
     def last_pledges(self) -> list[Pledge]:
         return list(self._pledges)
 
+    def last_sacked(self) -> list[str]:
+        return list(self._sacked)
+
     def delivery_for(self, text: str, state: WorldState) -> Delivery:
         return keyword_delivery(text, state)
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         self._delivery = keyword_delivery(text, state)
         self._pledges, text = keyword_pledges(text)
+        self._sacked, text = keyword_sackings(text, state)
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
             return self._one(text, state, scenario)
@@ -203,6 +209,25 @@ def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
     return pledges, "\n".join(kept) if pledges else text
 
 
+def keyword_sackings(text: str, state: WorldState) -> tuple[list[str], str]:
+    """Ministers ``text`` sacks ("sack the Chancellor"), matched on a word of their role, and
+    the text with those sentences taken out (story SD-4)."""
+    sacked, kept = [], []
+    for sentence in re.split(r"(?<=[.;!])\s+|\n", text):
+        t = sentence.lower()
+        hits = []
+        if re.search(r"\b(?:sack|fire|dismiss|sacking|replace)\b", t):
+            for character in active_cast(state):
+                words = [w for w in re.findall(r"[a-z]+", character.role.lower()) if len(w) > 4]
+                if character.minister and any(w in t for w in words[:1]):
+                    hits.append(character.id)
+        if hits:
+            sacked += hits
+        else:
+            kept.append(sentence)
+    return sacked, "\n".join(kept) if sacked else text
+
+
 class EngineForecaster:
     """Three candidates around the engine's expectation: as expected, backlash, welcomed.
 
@@ -225,6 +250,7 @@ class EngineForecaster:
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
         limits: list[str] | None = None,
+        sacked: list[str] | None = None,
     ) -> list[Outcome]:
         graph = build_graph(state)
         exposed: set[str] = set()
@@ -260,6 +286,11 @@ class EngineForecaster:
         backlash = 0.12 if delivery is not None and delivery.consulted else 0.2
         broken = "".join(
             f' Critics say it breaks the pledge "{p.text}".' for p in broken_by(state, actions)
+        )
+        broken += "".join(
+            f" {state.characters[c].name} is sacked as {state.characters[c].role}."
+            for c in sacked or []
+            if c in state.characters
         )
         outcomes = [
             Outcome(

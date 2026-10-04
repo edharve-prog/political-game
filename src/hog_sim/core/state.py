@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from hog_sim.core.models import (
     AnyNode,
     ApprovalEvent,
+    Character,
     Country,
     Edge,
     Group,
@@ -38,6 +39,9 @@ class WorldState(Model):
     )
     storylines: dict[str, Storyline] = Field(default_factory=dict)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
+    characters: dict[str, Character] = Field(
+        default_factory=dict, description="The cast, by id (SD-4)"
+    )
 
     @model_validator(mode="after")
     def _check_references(self) -> WorldState:

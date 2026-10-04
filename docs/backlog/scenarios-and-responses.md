@@ -75,7 +75,7 @@ moves on.
 - In a 30-turn Claude game, at least 10 distinct lead storylines, and none on the agenda in
   more than 40% of turns (the review had 6, and one on the agenda every turn).
 
-### SD-4 Recurring characters (P2)
+### SD-4 Recurring characters (P2) - done (PR #44)
 As a player, I want to deal with people, not abstractions.
 - The game has a cast of fictional characters: cabinet ministers, the opposition leader,
   union general secretaries, the Bank governor, a tabloid editor, and backbench faction
@@ -86,6 +86,10 @@ As a player, I want to deal with people, not abstractions.
 - How the player treats a character (sacking, backing or ignoring them) changes that
   character's loyalty, and loyalty shows up in later scenarios (resignations, leaks,
   support).
+- Done: `world/cast.py` holds eight invented people with agendas, loyalty and memory.
+  Loyalty follows backing, crossing, consulting and ignoring them. Ministers can be sacked or
+  resign and are replaced. Every prompt lists the cast, and scenarios name the people
+  involved.
 
 ### SD-5 Consequence callbacks (P2) - done (PR #43)
 As a player, I want past promises and choices to be remembered.
@@ -233,5 +237,5 @@ As a player, I want to see the causal chain behind an outcome.
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
    in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
-   done (PR #42), SD-5 done (PR #43). Next: the P2 stories in the order SD-4, SD-6, TT-2,
-   RB-5.
+   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44). Next: the P2 stories in the order
+   SD-6, TT-2, RB-5.

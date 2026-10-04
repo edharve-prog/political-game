@@ -245,6 +245,7 @@ class LLMForecaster:
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
         limits: list[str] | None = None,
+        sacked: list[str] | None = None,
     ) -> list[Outcome]:
         cfg = self.config
         summary = summarise_state(state, self.role)
@@ -263,6 +264,11 @@ class LLMForecaster:
             limits or [],
             ending=scenario.storyline in final_storylines(state),
             broken_pledges=[p.text for p in broken_by(state, actions)],
+            sacked=[
+                f"{state.characters[c].name}, {state.characters[c].role}"
+                for c in sacked or []
+                if c in state.characters
+            ],
         )
         drafts = structured_call(
             self.client,

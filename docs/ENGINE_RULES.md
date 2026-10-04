@@ -351,6 +351,26 @@ extra turn and then halves every 4 turns. A pledge breaks only once, and the pla
 before confirming a response that would break one. Every prompt lists the pledges, kept or
 broken, so scenarios and outcomes can refer back to them.
 
+### People
+
+The game has a small cast of invented people. There are two ministers (the Chancellor and the
+Housing Secretary), a union leader, the Bank governor, a tabloid editor, the opposition
+leader, a backbench group chair and a business lobbyist. Each cares about a few nodes and
+wants them helped or squeezed. The union leader wants the public sector helped; the
+Chancellor wants it squeezed and the deficit down.
+
+Each turn, an action that helps a node someone wants helped (or squeezes one they want
+squeezed) raises their loyalty by 0.08, and the opposite lowers it by 0.08. Consulting one of
+their nodes adds 0.04. Someone the scenario involved, whom the leader neither acted for nor
+consulted, loses 0.03. For a tax, regulation or military action a positive size squeezes the
+target; for an indicator the sign is the direction the leader wants it to move.
+
+The player can sack a minister. A minister whose loyalty falls below 0.25 resigns. Either way
+the Commons loses 0.05 support and a new minister with loyalty 0.6 takes over. Other people
+stay, and their loyalty shows up only in the story: prompts list everyone with their loyalty
+and recent dealings, so a disloyal union leader may call a ballot and a loyal editor may
+defend the leader.
+
 ### The election
 
 *Runs after turn 24 (`GameConfig.election_turn`).*
@@ -518,6 +538,8 @@ Storylines feed the next scenario prompt; they do not move numbers directly.
 | Graph changes per outcome | 3 | `world/changes.py` |
 | Storyline escalation | after 3 idle turns, +0.15 pressure | `world/storylines.py` |
 | Broken pledge hit | 0.05 per caring group, or 0.02 for all | `policy/pledges.py` |
+| Loyalty: backed, crossed, consulted, ignored | +0.08, -0.08, +0.04, -0.03 | `world/cast.py` |
+| Minister resigns below, Commons cost | loyalty 0.25, 0.05 support | `world/cast.py` |
 
 ---
 

@@ -16,6 +16,7 @@ from hog_sim.core.models import (
     Sector,
 )
 from hog_sim.core.state import WorldState
+from hog_sim.world.cast import default_cast
 
 E = EdgeKind
 
@@ -181,4 +182,5 @@ def toy_world() -> WorldState:
         institutions={i.id: i for i in institutions},
         indicators={i.id: i for i in indicators},
         edges=edges,
+        characters=default_cast(),
     )
