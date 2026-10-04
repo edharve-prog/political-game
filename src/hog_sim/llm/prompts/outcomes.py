@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-8"
+VERSION = "outcomes-9"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -55,6 +55,11 @@ When the briefing lists measures that were blocked or weakened, those measures d
 effect (or took effect at reduced strength). Never describe a blocked measure as enacted; its \
 defeat, and who blocked it, can be the story.
 
+When the briefing says the response breaks one of the leader's pledges, the broken promise \
+is part of every candidate's story: who notices, who is angry and how the leader is \
+challenged on it. The game already takes approval away from the groups who cared, so don't \
+add the same hit in group_effects.
+
 Refer to foreign leaders by role ("the US President"), never by a real person's name.
 """
 
@@ -74,11 +79,17 @@ def render(
     delivery_text: str = "",
     limits: list[str] = (),
     ending: bool = False,
+    broken_pledges: list[str] = (),
 ) -> str:
     delivery = ["How it was delivered:", delivery_text, ""] if delivery_text else []
     blocked = (
         ["Blocked or weakened (not enacted as asked):", *(f"- {n}" for n in limits), ""]
         if limits
+        else []
+    )
+    broken = (
+        ["This response breaks the leader's pledges:", *(f"- {p}" for p in broken_pledges), ""]
+        if broken_pledges
         else []
     )
     return "\n".join(
@@ -92,6 +103,7 @@ def render(
             actions_text,
             "",
             *blocked,
+            *broken,
             *delivery,
             "Engine forecast:",
             engine_text,

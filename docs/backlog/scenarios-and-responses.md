@@ -87,13 +87,18 @@ As a player, I want to deal with people, not abstractions.
   character's loyalty, and loyalty shows up in later scenarios (resignations, leaks,
   support).
 
-### SD-5 Consequence callbacks (P2)
+### SD-5 Consequence callbacks (P2) - done (PR #43)
 As a player, I want past promises and choices to be remembered.
 - Commitments the player makes ("we will not raise taxes") are extracted into a `Pledge`
   list.
 - Scenarios and outcomes can reference a broken or kept pledge. A broken pledge triggers an
   ApprovalEvent against the groups that cared about it.
 - The dashboard lists active pledges.
+- Done: the interpreter (Claude and offline) extracts pledges; `policy/pledges.py` breaks them
+  in `resolve()` and adds the approval hit; every prompt lists them; the player is warned
+  before confirming a response that breaks one. Not done: the review's observation that most
+  storylines end off-screen. That needs its own story if it still matters after the next
+  review.
 
 ### SD-6 Scheduled and calendar events (P2)
 As a player, I want a political calendar: budgets, party conference, PMQs, summits and
@@ -228,4 +233,5 @@ As a player, I want to see the causal chain behind an outcome.
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
    in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
-   done (PR #42). Next: the P2 stories in the order SD-5, SD-4, SD-6, TT-2, RB-5.
+   done (PR #42), SD-5 done (PR #43). Next: the P2 stories in the order SD-4, SD-6, TT-2,
+   RB-5.

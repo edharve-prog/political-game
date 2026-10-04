@@ -331,10 +331,25 @@ first turn (plus any extra "hold" turns), then halves every 3 turns, and is drop
 negligible. They come from:
 
 - actions aimed at a group, held at full strength for the policy's duration;
-- the chosen outcome's group reactions (Claude may claim at most ±0.1 per group).
+- the chosen outcome's group reactions (Claude may claim at most ±0.1 per group);
+- broken pledges (see below).
 
 Because all events together are capped at ±0.15 per group, no pile of good news can carry a
 group on its own.
+
+### Pledges
+
+When the player promises something for the future ("we will not raise taxes", "no cuts to
+the NHS"), the game records it as a pledge. A pledge rules out one kind of action in one
+direction, either on one target or on anything of that kind. "No new taxes" rules out any
+tax rise; "no cuts to the NHS" rules out spending cuts to the public sector.
+
+From the next turn on, an applied action that a kept pledge rules out breaks it. A blocked
+action doesn't count. The pledge is marked broken, and an approval event hits the groups who
+cared: 0.05 each, or 0.02 for every group when the pledge named none. The event holds for one
+extra turn and then halves every 4 turns. A pledge breaks only once, and the player is warned
+before confirming a response that would break one. Every prompt lists the pledges, kept or
+broken, so scenarios and outcomes can refer back to them.
 
 ### The election
 
@@ -502,6 +517,7 @@ Storylines feed the next scenario prompt; they do not move numbers directly.
 | Outcome extra shock cap | ±1 step | `forecasting/candidates.py` |
 | Graph changes per outcome | 3 | `world/changes.py` |
 | Storyline escalation | after 3 idle turns, +0.15 pressure | `world/storylines.py` |
+| Broken pledge hit | 0.05 per caring group, or 0.02 for all | `policy/pledges.py` |
 
 ---
 

@@ -13,12 +13,14 @@ from hog_sim.core.models import (
     ApprovalEvent,
     Delivery,
     Outcome,
+    Pledge,
     PolicyAction,
     Scenario,
     Shock,
 )
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
+from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
 from hog_sim.world.graph import build_graph, exposed_groups
 from hog_sim.world.propagation import DeltaDistribution, apply_deltas
@@ -100,15 +102,20 @@ class KeywordInterpreter:
 
     def __init__(self) -> None:
         self._delivery: Delivery | None = None
+        self._pledges: list[Pledge] = []
 
     def last_delivery(self) -> Delivery | None:
         return self._delivery
+
+    def last_pledges(self) -> list[Pledge]:
+        return list(self._pledges)
 
     def delivery_for(self, text: str, state: WorldState) -> Delivery:
         return keyword_delivery(text, state)
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         self._delivery = keyword_delivery(text, state)
+        self._pledges, text = keyword_pledges(text)
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
             return self._one(text, state, scenario)
@@ -172,6 +179,30 @@ def keyword_delivery(text: str, state: WorldState) -> Delivery:
     return Delivery(consulted=consulted, speed="phased" if phased else "immediate")
 
 
+_NEGATION = r"\b(?:no|not|never|won't|will not|nor)\b"
+
+
+def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
+    """Promises in ``text`` ("we will not raise taxes", "no cuts to schools"), and the text
+    with those sentences taken out so they don't also read as actions (story SD-5)."""
+    pledges, kept = [], []
+    for sentence in re.split(r"(?<=[.;!])\s+|\n", text):
+        t = sentence.lower()
+        words = re.sub(r"^\s*(?:Option|Also):\s*", "", sentence).strip(" .;!")
+        pledge = None
+        if re.search(_NEGATION, t):
+            if re.search(r"\btax", t) and re.search(r"rais|increas|\bnew\b|\brise|put up", t):
+                pledge = Pledge(text=words, kind="tax", direction="up")
+            elif re.search(r"\bcuts?\b", t):
+                target = next((node for pat, node in _TARGETS if re.search(pat, t)), None)
+                pledge = Pledge(text=words, kind="spend", direction="down", target=target)
+        if pledge:
+            pledges.append(pledge)
+        else:
+            kept.append(sentence)
+    return pledges, "\n".join(kept) if pledges else text
+
+
 class EngineForecaster:
     """Three candidates around the engine's expectation: as expected, backlash, welcomed.
 
@@ -227,7 +258,10 @@ class EngineForecaster:
         # Consulting first takes some of the risk of a backlash away (story RB-4), without
         # making a warm welcome any likelier.
         backlash = 0.12 if delivery is not None and delivery.consulted else 0.2
-        return [
+        broken = "".join(
+            f' Critics say it breaks the pledge "{p.text}".' for p in broken_by(state, actions)
+        )
+        outcomes = [
             Outcome(
                 narrative=f"{scenario.title}: the response lands broadly as expected.",
                 indicator_deltas=expected,
@@ -246,3 +280,6 @@ class EngineForecaster:
                 probability=0.2,
             ),
         ]
+        for outcome in outcomes:
+            outcome.narrative += broken
+        return outcomes

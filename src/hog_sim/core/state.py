@@ -16,6 +16,7 @@ from hog_sim.core.models import (
     Institution,
     Model,
     NodeKind,
+    Pledge,
     Sector,
     Storyline,
 )
@@ -36,6 +37,7 @@ class WorldState(Model):
         description="Effects still in flight: absolute turn -> node id -> native-unit change",
     )
     storylines: dict[str, Storyline] = Field(default_factory=dict)
+    pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
 
     @model_validator(mode="after")
     def _check_references(self) -> WorldState:
