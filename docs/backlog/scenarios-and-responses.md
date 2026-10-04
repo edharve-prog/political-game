@@ -65,7 +65,7 @@ As a player, I want each turn to feel different from the last.
   state-weighted selection and no repeat within 15 turns, so offline play stops feeling
   canned.
 
-### SD-9 Storylines come to a head (P1, from the 30-turn review)
+### SD-9 Storylines come to a head (P1, from the 30-turn review; done in PR #37, merged)
 As a player, I want long-running issues to reach a climax and end, so the premiership
 moves on.
 - A storyline at stage 6, or 10 turns old, is in its final stage: the writer is told so, and
@@ -167,7 +167,7 @@ people, and who announces it.
 - Test: the same actions with "consulted unions" against "imposed overnight" give different
   probabilities for strike-tagged candidates, on a FakeClient fixture.
 
-### RB-8 Blocked measures reach the outcome (P1, from the 30-turn review)
+### RB-8 Blocked measures reach the outcome (P1, from the 30-turn review; done in PR #36, merged)
 As a player, I want the outcome to reflect that the Commons blocked my measure.
 - The limit notes go to the outcome prompt as "Blocked: ...", alongside the delivery.
 - No chosen narrative claims a blocked measure took effect (the review's T18 did).
@@ -223,6 +223,6 @@ As a player, I want to see the causal chain behind an outcome.
 2. Then run the 30-turn Claude review (Project 6's done-when) and re-prioritise the P2
    stories from what it shows. Done 2026-10-03: see
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
-3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), then a
-   re-run of the review, then RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2,
+3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
+   in PRs #36 to #39 (merged 2026-10-04), then a re-run of the review, then RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2,
    RB-5.

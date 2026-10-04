@@ -377,17 +377,17 @@ Smallest thing that is fun and proves the architecture:
 | 3 | Simulation Engine | Done (PR #2) | See projects/03-simulation-engine.md |
 | 4 | Population & Popularity | Done (PR #3) | See projects/04-popularity.md |
 | 5 | LLM: Scenarios & Interpretation | Done (PR #5) | See projects/05-llm-layer.md |
-| 6 | Outcome Forecasting & Selection | Done (PR #6); 30-turn review done 2026-10-03 | See projects/06-forecasting.md and reviews/2026-10-03-claude-30-turn.md; consistency tempering (EB-13) is P1 |
+| 6 | Outcome Forecasting & Selection | Done (PR #6); 30-turn review done 2026-10-03 | See projects/06-forecasting.md and reviews/2026-10-03-claude-30-turn.md; review fixes merged (PRs #36-#39), re-run pending |
 | 7 | News Ingestion | Not started | |
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | Not started | |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
-| 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 is P1 from the review) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
-| 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 is P1 from the review) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
+| 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
+| 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
-| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency and EB-14 are P1 from the review) | Built by the back-end review thread; see backlog/engine-balance.md |
+| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency done, PR #38; EB-14 settling done, PR #39) | Built by the back-end review thread; see backlog/engine-balance.md |
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 
