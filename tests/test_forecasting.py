@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from hog_sim.core.config import GameConfig
@@ -16,6 +18,7 @@ from hog_sim.forecasting.candidates import (
 )
 from hog_sim.forecasting.scoring import (
     BASE_RATES,
+    Z_CAP,
     CandidateScores,
     ScoreWeights,
     base_rate,
@@ -245,3 +248,22 @@ def test_game_runs_on_llm_plugins_and_replays(world, engine) -> None:
     calls = [r.schema_name for r in client.requests]
     assert calls.count("CandidateSet") == 4 and calls.count("Verdict") == 4
     assert replay(world, config, game.history) == game.state
+
+
+def test_one_far_off_claim_is_a_penalty_not_a_veto(engine) -> None:
+    """EB-13: an uncapped z made consistency alone pick the outcome in the 30-turn review."""
+    expected = {n: f.mean[2] for n, f in engine.nodes.items() if n.startswith("indicator:")}
+    wild = {n: v + 1000 for n, v in expected.items()}
+    assert consistency(wild, engine, 2) == pytest.approx(math.exp(-(Z_CAP**2) / 2))
+
+    # Turn 0 of the review: the judge preferred a candidate that missed the engine's numbers.
+    worst = math.exp(-(Z_CAP**2) / 2)
+    turn0 = [
+        CandidateScores(consistency=worst, judge=0.45, base_rate=0.5, self_reported=0.4),
+        CandidateScores(consistency=worst, judge=0.15, base_rate=0.07, self_reported=0.25),
+        CandidateScores(consistency=worst, judge=0.2, base_rate=0.18, self_reported=0.2),
+        CandidateScores(consistency=1.0, judge=0.2, base_rate=0.25, self_reported=0.15),
+    ]
+    probabilities = [s.probability for s in combine(turn0, ScoreWeights())]
+    assert max(probabilities) < 0.7  # was 0.98
+    assert all(p >= 0.03 for p in probabilities)
