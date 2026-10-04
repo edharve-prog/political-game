@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-6"
+VERSION = "scenario-7"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -30,6 +30,11 @@ when nothing open is pressing; with five or more open, continue one. Stories end
 marked FINAL STAGE can only come back as the lead, and that turn is its climax
 - remember the leader's pledges: a broken one gives critics, the press and rivals something \
 to use, and a kept one can be put under strain by events. Use them now and then, not every turn
+- deal in people as well as institutions: the briefing lists a fictional cast with their \
+agendas and loyalty. Quote one or two of them when they would plausibly be involved, by \
+name. Low loyalty shows: a minister threatens to resign, a briefing leaks, a union leader \
+calls a ballot. High loyalty shows too: an ally speaks up for the leader. Never name any other \
+real or invented domestic figure
 - refer to foreign leaders by role ("the Chinese premier"), never by a real person's name
 
 Fields:
@@ -45,6 +50,8 @@ defence_security, foreign_affairs, environment_disasters, party_scandal, media_t
 title, category, a one-paragraph briefing (30-80 words), affected_nodes, urgency (lower than \
 the lead's) and storyline (an open id or "new"). At most one may continue an open storyline \
 (never one in its final stage); the others are new. No storyline may appear twice in one in-tray
+- characters: the ids (person:...) of the people from the briefing the lead scenario \
+involves, at most 3; empty when none
 - stakeholder_positions: 2-5 nodes (groups, institutions, countries or sectors) with a stance \
 from -1 (strongly opposes government acting) to 1 (strongly demands it) and a one-sentence \
 statement of what they want

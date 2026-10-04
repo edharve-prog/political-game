@@ -85,6 +85,7 @@ class StoredForecaster:
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
         limits: list[str] | None = None,
+        sacked: list[str] | None = None,
     ) -> list[Outcome]:
         signature = action_signature(actions)
         matches = [
@@ -95,7 +96,7 @@ class StoredForecaster:
         if not matches:
             self.last_source = "fallback"
             return self.fallback.forecast(
-                state, scenario, actions, engine, delivery=delivery, limits=limits
+                state, scenario, actions, engine, delivery=delivery, limits=limits, sacked=sacked
             )
         self.last_source = "stored"
         entry = matches[-1]

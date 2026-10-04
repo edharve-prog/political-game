@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from pydantic import Field
 
 from hog_sim.core.models import Category, Model, Scenario, SideIssue, Storyline
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import scenario as prompt
-from hog_sim.llm.summary import StateSummary
+from hog_sim.llm.summary import StateSummary, resolve_id
 from hog_sim.world.storylines import new_storyline_id
 
 
@@ -45,6 +45,9 @@ class ScenarioDraft(Model):
     stakeholder_positions: list[StakeholderPosition]
     storyline: str = Field(description="Id of the open storyline this continues, or 'new'")
     secondary: list[SideIssueDraft]
+    characters: list[str] = Field(
+        default_factory=list, description="Ids of the people from the briefing involved"
+    )
 
 
 # Variety is asked for in the prompt, not enforced here: a failed check would stop the turn.
@@ -57,9 +60,10 @@ def check_draft(
     storylines: Sequence[Storyline] = (),
     final: Sequence[str] = (),
     open_new: bool = False,
+    cast: Collection[str] = (),
 ) -> list[str]:
     """``final`` are the storylines in their final stage; ``open_new`` asks for a new lead
-    storyline (story SD-9)."""
+    storyline (story SD-9). ``cast`` are the ids of the people it may involve (SD-4)."""
     problems = []
     ids = [s.id for s in storylines]
     items = [draft, *draft.secondary]
@@ -96,6 +100,11 @@ def check_draft(
         problems.append(f"unknown node ids {sorted(set(unknown))}; use ids from the briefing")
     if len(set(draft.affected_nodes)) != len(draft.affected_nodes):
         problems.append("affected_nodes has duplicates")
+    strangers = sorted(set(draft.characters) - set(cast))
+    if strangers:
+        problems.append(f"unknown people {strangers}; use person ids from the briefing")
+    if len(draft.characters) > 3:
+        problems.append("involve at most 3 people")
     if len(draft.title.split()) > 15:
         problems.append("title is too long; keep it under 12 words")
     return problems
@@ -129,7 +138,10 @@ def generate_scenario(
         effort=config.scenario_effort,
         max_tokens=config.max_tokens,
         max_attempts=config.max_attempts,
-        check=lambda d: check_draft(d, summary.catalogue, storylines, final, open_new),
+        check=lambda d: check_draft(
+            d, summary.catalogue, storylines, final, open_new, summary.cast
+        ),
+        repair=lambda d: _repair_people(d, summary.cast),
     )
     fields = draft.model_dump(exclude={"secondary"})
     fields["storyline"] = _storyline_id(draft.storyline, draft.title, summary.turn)
@@ -143,6 +155,11 @@ def generate_scenario(
         for item in draft.secondary
     ]
     return GeneratedScenario(source="generated", secondary=secondary, **fields)
+
+
+def _repair_people(draft: ScenarioDraft, cast: Collection[str]) -> ScenarioDraft:
+    draft.characters = [resolve_id(c, cast) for c in draft.characters]
+    return draft
 
 
 def _storyline_id(storyline: str, title: str, turn: int) -> str:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-9"
+VERSION = "outcomes-10"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -60,6 +60,10 @@ is part of every candidate's story: who notices, who is angry and how the leader
 challenged on it. The game already takes approval away from the groups who cared, so don't \
 add the same hit in group_effects.
 
+The briefing's people are fictional. Narratives may quote them by name and should reflect \
+their loyalty: a loyal ally defends the leader, a disloyal one briefs against them. A sacked \
+minister is out of office this turn and may turn critic. Never name any other domestic figure.
+
 Refer to foreign leaders by role ("the US President"), never by a real person's name.
 """
 
@@ -80,6 +84,7 @@ def render(
     limits: list[str] = (),
     ending: bool = False,
     broken_pledges: list[str] = (),
+    sacked: list[str] = (),
 ) -> str:
     delivery = ["How it was delivered:", delivery_text, ""] if delivery_text else []
     blocked = (
@@ -92,6 +97,7 @@ def render(
         if broken_pledges
         else []
     )
+    sackings = ["The leader sacked:", *(f"- {p}" for p in sacked), ""] if sacked else []
     return "\n".join(
         [
             summary_prompt,
@@ -104,6 +110,7 @@ def render(
             "",
             *blocked,
             *broken,
+            *sackings,
             *delivery,
             "Engine forecast:",
             engine_text,

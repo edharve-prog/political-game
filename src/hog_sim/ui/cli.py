@@ -27,6 +27,7 @@ from hog_sim.llm.advisers import Advisers
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
+from hog_sim.world.cast import active_cast
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed
 
@@ -49,6 +50,13 @@ def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None
         f"  National {national * 100:.1f}% ({(national - national_approval(previous)) * 100:+.1f})"
         f"  ·  Vote intention {vote * 100:.1f}% ({(vote - vote_intention(previous)) * 100:+.1f})"
     )
+    cast = active_cast(state)
+    if cast:
+        lines.append("  People (loyalty)")
+        for c in cast:
+            before = previous.characters.get(c.id)
+            last = f" ({(c.loyalty - before.loyalty) * 100:+.0f})" if before else " (new)"
+            lines.append(f"    {c.name}, {c.role}: {c.loyalty * 100:.0f}%{last}")
     if state.pledges:
         lines.append("  Pledges")
         lines += [f"    {pledge_line(p)}" for p in state.pledges]
@@ -87,6 +95,10 @@ def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | N
     lines.append(f"  Delivery: {proposal.delivery.describe()}")
     lines += [f'  New pledge: "{p.text}"' for p in proposal.pledges]
     if state is not None:
+        lines += [
+            f"  Sacking: {state.characters[c].name}, {state.characters[c].role}"
+            for c in proposal.sacked
+        ]
         lines += [
             f'  Warning: this breaks your pledge "{p.text}" (made turn {p.made_turn})'
             for p in broken_by(state, proposal.actions)

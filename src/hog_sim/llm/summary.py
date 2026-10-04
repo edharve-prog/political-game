@@ -14,6 +14,7 @@ from pydantic import Field
 from hog_sim.core.models import Model
 from hog_sim.core.state import WorldState
 from hog_sim.policy.pledges import pledge_line
+from hog_sim.world.cast import active_cast, cast_line
 from hog_sim.world.graph import build_graph, edges_of
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
@@ -76,6 +77,9 @@ class StateSummary(Model):
     pledges: list[str] = Field(
         default_factory=list, description="Promises the leader made, kept or broken (SD-5)"
     )
+    cast: dict[str, str] = Field(
+        default_factory=dict, description="Active cast member id -> one-line profile (SD-4)"
+    )
     catalogue: dict[str, str] = Field(description="Every node id the model may reference -> name")
 
     def to_prompt(self) -> str:
@@ -117,6 +121,13 @@ class StateSummary(Model):
         if self.recent_events:
             lines += ["", "Recent events (most recent last):"]
             lines += [f"- {e}" for e in self.recent_events]
+        if self.cast:
+            lines += [
+                "",
+                "People (fictional; loyalty to the leader 0-1, with what they want pushed up "
+                "+ or down -):",
+            ]
+            lines += [f"- {line}" for line in self.cast.values()]
         if self.pledges:
             lines += ["", "Pledges the leader has made (voters remember them):"]
             lines += [f"- {p}" for p in self.pledges]
@@ -210,6 +221,7 @@ def summarise_state(
         recent_events=(recent_events or [])[-max_events:],
         precedents=list(precedents or []),
         pledges=[pledge_line(p) for p in state.pledges],
+        cast={c.id: cast_line(c) for c in active_cast(state)},
         catalogue={node.id: node.name for node in state.nodes()},
     )
 

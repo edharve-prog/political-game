@@ -37,6 +37,9 @@ class Interpretation(Model):
     pledges: list[PledgeDraft] = Field(
         default_factory=list, description="Promises about future turns (SD-5)"
     )
+    sacked: list[str] = Field(
+        default_factory=list, description="Person ids of ministers the leader sacks (SD-4)"
+    )
 
 
 def repair_interpretation(result: Interpretation, summary: StateSummary) -> Interpretation:
@@ -47,6 +50,7 @@ def repair_interpretation(result: Interpretation, summary: StateSummary) -> Inte
     for action in result.actions:
         action.target = resolve_id(action.target, ids)
     result.delivery.consulted = [resolve_id(c, ids) for c in result.delivery.consulted]
+    result.sacked = [resolve_id(c, summary.cast) for c in result.sacked]
     for pledge in result.pledges:
         pledge.target = resolve_id(pledge.target, ids) if pledge.target else None
         pledge.groups = [resolve_id(g, ids) for g in pledge.groups]
@@ -68,13 +72,19 @@ def check_interpretation(result: Interpretation, summary: StateSummary) -> list[
         indicator = action.target.startswith("indicator:")
         if action.kind in ("regulate", "deregulate") and action.magnitude < 0 and not indicator:
             problems.append(f"actions[{i}]: {action.kind} magnitude must be 0..1")
-    if not result.actions and not result.clarifying_question:
+    if not result.actions and not result.clarifying_question and not result.sacked:
         problems.append("return at least one action, or a clarifying_question")
     unknown_consulted = sorted(set(result.delivery.consulted) - set(summary.catalogue))
     if unknown_consulted:
         problems.append(f"delivery.consulted has unknown ids {unknown_consulted}")
     if result.actions and result.clarifying_question:
         problems.append("ask a clarifying_question only when returning no actions")
+    ministers = [c for c, line in summary.cast.items() if "(minister)" in line]
+    not_ministers = sorted(set(result.sacked) - set(ministers))
+    if not_ministers:
+        problems.append(
+            f"sacked must be minister ids from the briefing ({ministers}), not {not_ministers}"
+        )
     for i, pledge in enumerate(result.pledges):
         if pledge.target is not None and pledge.target not in summary.catalogue:
             problems.append(f"pledges[{i}]: unknown target {pledge.target!r}")

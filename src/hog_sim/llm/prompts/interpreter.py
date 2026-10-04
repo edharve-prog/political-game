@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-5"
+VERSION = "interpret-6"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -79,7 +79,14 @@ taxes" is tax, up, null)
 Most responses make no pledge; then pledges is empty.
 """
 
-SYSTEM += DELIVERY + PLEDGES
+PEOPLE = """
+When the leader sacks or forces out a minister from the briefing's people list (marked \
+minister), put their person id in sacked; the leader cannot sack anyone else. Backing, \
+consulting or snubbing a person is not a sacking: record it through the actions and \
+delivery as usual.
+"""
+
+SYSTEM += DELIVERY + PLEDGES + PEOPLE
 
 
 def render(summary_prompt: str, scenario_text: str | None, player_text: str) -> str:

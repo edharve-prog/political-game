@@ -106,3 +106,7 @@ class LLMInterpreter:
         if self.last_interpretation is None:
             return []
         return [p.to_pledge() for p in self.last_interpretation.pledges]
+
+    def last_sacked(self) -> list[str]:
+        """Ministers the last response sacked (story SD-4)."""
+        return list(self.last_interpretation.sacked) if self.last_interpretation else []

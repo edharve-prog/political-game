@@ -22,7 +22,8 @@ class ScenarioSource(Protocol):
 class Interpreter(Protocol):
     """May also offer ``last_delivery() -> Delivery | None`` for how the last response was
     delivered (story RB-4); the game falls back to a plain ``Delivery()``. Likewise
-    ``last_pledges() -> list[Pledge]`` for promises the response made (story SD-5)."""
+    ``last_pledges() -> list[Pledge]`` for promises the response made (story SD-5), and
+    ``last_sacked() -> list[str]`` for the cast members it sacks (story SD-4)."""
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]: ...
 
@@ -36,9 +37,11 @@ class Forecaster(Protocol):
         engine: DeltaDistribution,
         delivery: Delivery | None = None,
         limits: list[str] | None = None,
+        sacked: list[str] | None = None,
     ) -> list[Outcome]:
         """``limits`` are the notes on what the game's limits blocked or weakened (story RB-8),
-        so outcomes don't describe a blocked measure as enacted."""
+        so outcomes don't describe a blocked measure as enacted. ``sacked`` are the ids of
+        cast members the leader sacked this turn (story SD-4)."""
         ...
 
 
