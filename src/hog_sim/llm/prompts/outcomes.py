@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-7"
+VERSION = "outcomes-8"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -59,6 +59,12 @@ Refer to foreign leaders by role ("the US President"), never by a real person's 
 """
 
 
+ENDING = (
+    "This storyline comes to a head this turn: write every candidate as how it ends, for "
+    "better or worse, and set resolves_storyline to true."
+)
+
+
 def render(
     summary_prompt: str,
     scenario_text: str,
@@ -67,6 +73,7 @@ def render(
     n: int,
     delivery_text: str = "",
     limits: list[str] = (),
+    ending: bool = False,
 ) -> str:
     delivery = ["How it was delivered:", delivery_text, ""] if delivery_text else []
     blocked = (
@@ -89,6 +96,7 @@ def render(
             "Engine forecast:",
             engine_text,
             "",
+            *([ENDING, ""] if ending else []),
             f"Propose {n} candidate outcomes.",
         ]
     )
