@@ -8,7 +8,7 @@ from hog_sim.core.models import Delivery, Model, PolicyAction, Scenario
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import interpreter as prompt
 from hog_sim.llm.scenario_gen import scenario_text
-from hog_sim.llm.summary import StateSummary
+from hog_sim.llm.summary import StateSummary, resolve_id
 
 
 class Interpretation(Model):
@@ -18,6 +18,21 @@ class Interpretation(Model):
     )
     clarifying_question: str | None = None
     delivery: Delivery = Field(default_factory=Delivery)
+
+
+def repair_interpretation(result: Interpretation, summary: StateSummary) -> Interpretation:
+    """Fix slips with one obvious correction instead of retrying (RB-9): bare ids get their
+    prefix, ``do_nothing`` beside real actions is dropped, and so is a clarifying question
+    asked alongside actions."""
+    ids = summary.catalogue
+    for action in result.actions:
+        action.target = resolve_id(action.target, ids)
+    result.delivery.consulted = [resolve_id(c, ids) for c in result.delivery.consulted]
+    if any(a.kind != "do_nothing" for a in result.actions):
+        result.actions = [a for a in result.actions if a.kind != "do_nothing"]
+    if result.actions:
+        result.clarifying_question = None
+    return result
 
 
 def check_interpretation(result: Interpretation, summary: StateSummary) -> list[str]:
@@ -62,4 +77,5 @@ def interpret(
         max_tokens=config.max_tokens,
         max_attempts=config.max_attempts,
         check=lambda r: check_interpretation(r, summary),
+        repair=lambda r: repair_interpretation(r, summary),
     )

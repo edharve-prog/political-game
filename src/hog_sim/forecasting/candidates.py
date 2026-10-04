@@ -43,7 +43,7 @@ from hog_sim.llm.client import Effort, LLMClient, structured_call
 from hog_sim.llm.prompts import judge as judge_prompt
 from hog_sim.llm.prompts import outcomes as outcomes_prompt
 from hog_sim.llm.scenario_gen import scenario_text
-from hog_sim.llm.summary import StateSummary, relevant_links, summarise_state
+from hog_sim.llm.summary import StateSummary, relevant_links, resolve_id, summarise_state
 from hog_sim.policy.feasibility import Role
 from hog_sim.world.changes import validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
@@ -171,6 +171,20 @@ def candidates_text(candidates: list[CandidateDraft]) -> str:
 # --- Semantic checks -------------------------------------------------------
 
 
+def repair_candidates(result: CandidateSet, summary: StateSummary) -> CandidateSet:
+    """Give bare ids (``business``) their prefix (``group:business``) instead of retrying."""
+    indicators = [i.id for i in summary.indicators]
+    groups = [g.id for g in summary.groups]
+    for c in result.candidates:
+        for s in c.indicator_shifts:
+            s.node = resolve_id(s.node, indicators)
+        for g in c.group_effects:
+            g.group = resolve_id(g.group, groups)
+        for n in c.new_shocks:
+            n.node = resolve_id(n.node, summary.catalogue)
+    return result
+
+
 def check_candidates(
     result: CandidateSet, summary: StateSummary, n: int, state: WorldState | None = None
 ) -> list[str]:
@@ -259,6 +273,7 @@ class LLMForecaster:
             max_tokens=cfg.max_tokens,
             max_attempts=cfg.max_attempts,
             check=lambda r: check_candidates(r, summary, cfg.n_candidates, state),
+            repair=lambda r: repair_candidates(r, summary),
         ).candidates
 
         judged = self._judge(context, drafts) if cfg.use_judge else None

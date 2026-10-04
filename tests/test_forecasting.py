@@ -171,6 +171,21 @@ def test_forecaster_retries_bad_candidates(world, engine) -> None:
         LLMForecaster(FakeClient([wrong_count] * 3)).forecast(world, scenario, [TAX], engine)
 
 
+def test_bare_ids_in_candidates_are_prefixed_not_retried(world, engine) -> None:
+    """RB-9: the review's most common retry was a bare group id."""
+    sloppy = four_candidates(engine)
+    sloppy.candidates[0].indicator_shifts[0].node = "inflation"
+    sloppy.candidates[1].group_effects[0].group = "pensioners"
+    sloppy.candidates[3].new_shocks[0].node = "public"
+    client = FakeClient([sloppy, verdict(0.25, 0.25, 0.25, 0.25)])
+    scenario = CannedScenarios().next_scenario(world, [])
+    outcomes = LLMForecaster(client).forecast(world, scenario, [TAX], engine)
+    assert [r.schema_name for r in client.requests] == ["CandidateSet", "Verdict"]
+    assert "indicator:inflation" in outcomes[0].indicator_deltas
+    assert "group:pensioners" in outcomes[1].approval_events[0].group_effects
+    assert outcomes[3].shocks[0].node == "sector:public"
+
+
 def test_none_is_the_only_tag_when_used(world, engine) -> None:
     bad = four_candidates(engine)
     bad.candidates[0].event_tags = ["none", "market_selloff"]

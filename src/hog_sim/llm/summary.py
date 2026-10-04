@@ -7,6 +7,8 @@ to. Outputs are then checked against that catalogue.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pydantic import Field
 
 from hog_sim.core.models import Model
@@ -222,3 +224,16 @@ def relevant_links(state: WorldState, node_ids: list[str], limit: int = 15) -> l
                 f"{edge.source} -{edge.kind}-> {edge.target}, {edge.weight:+.2f}, {edge.lag}"
             )
     return lines[:limit]
+
+
+def resolve_id(raw: str, ids: Iterable[str]) -> str:
+    """Map a bare id (``business``) to its one prefixed id (``group:business``).
+
+    Returns ``raw`` unchanged when it is already an id, or when no id or several ids match,
+    so the check still reports it.
+    """
+    ids = list(ids)
+    if raw in ids or ":" in raw:
+        return raw
+    matches = [i for i in ids if i.split(":", 1)[-1] == raw]
+    return matches[0] if len(matches) == 1 else raw

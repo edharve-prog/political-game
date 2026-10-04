@@ -400,9 +400,13 @@ def structured_call(
     max_tokens: int = 16000,
     max_attempts: int = 3,
     check: Callable[[T], list[str]] | None = None,
+    repair: Callable[[T], T] | None = None,
 ) -> T:
     """Call the model until it returns output that parses into ``output_type`` and passes
     ``check`` (which returns a list of problems, empty when fine).
+
+    ``repair`` runs on parsed output before ``check``. It fixes slips that have one obvious
+    correction (a bare id, a stray field), so they don't cost a retry.
 
     Failed attempts are shown back to the model with the problems, so it can correct itself.
     Raises ``LLMOutputError`` after ``max_attempts``.
@@ -428,6 +432,8 @@ def structured_call(
         text = client.complete(request).text
         try:
             result = output_type.model_validate_json(text)
+            if repair:
+                result = repair(result)
             problems = check(result) if check else []
         except ValidationError as exc:
             problems = [_short_validation_error(exc)]
