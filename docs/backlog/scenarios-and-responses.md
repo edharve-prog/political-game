@@ -65,6 +65,16 @@ As a player, I want each turn to feel different from the last.
   state-weighted selection and no repeat within 15 turns, so offline play stops feeling
   canned.
 
+### SD-9 Storylines come to a head (P1, from the 30-turn review)
+As a player, I want long-running issues to reach a climax and end, so the premiership
+moves on.
+- A storyline at stage 6, or 10 turns old, is in its final stage: the writer is told so, and
+  its candidates must include one that resolves it.
+- At most one in-tray item continues an open storyline; a new lead storyline opens at least
+  every third turn.
+- In a 30-turn Claude game, at least 10 distinct lead storylines, and none on the agenda in
+  more than 40% of turns (the review had 6, and one on the agenda every turn).
+
 ### SD-4 Recurring characters (P2)
 As a player, I want to deal with people, not abstractions.
 - The game has a cast of fictional characters: cabinet ministers, the opposition leader,
@@ -157,6 +167,17 @@ people, and who announces it.
 - Test: the same actions with "consulted unions" against "imposed overnight" give different
   probabilities for strike-tagged candidates, on a FakeClient fixture.
 
+### RB-8 Blocked measures reach the outcome (P1, from the 30-turn review)
+As a player, I want the outcome to reflect that the Commons blocked my measure.
+- The limit notes go to the outcome prompt as "Blocked: ...", alongside the delivery.
+- No chosen narrative claims a blocked measure took effect (the review's T18 did).
+
+### RB-9 Fewer validation retries (P2, from the 30-turn review)
+- A bare id (`business`) maps to its unique prefixed id (`group:business`) before checking.
+- A clarifying question returned alongside actions is dropped, not retried.
+- `do_nothing` mixed with real actions is dropped from LLM interpretations, as offline.
+- The review had 11 retries in 131 calls; target under 3 per 30 turns.
+
 ### RB-5 Policy library (P2)
 As a player, I want to save a package I liked and reuse or adapt it later.
 - `save <name>` stores the confirmed action list, and `use <name>` loads it into the
@@ -200,4 +221,8 @@ As a player, I want to see the causal chain behind an outcome.
    - SD-3's offline library fixes the repetition Ed saw today, even without Claude.
    - RB-2 and RB-1 make responses expressive on top of the current interpreter.
 2. Then run the 30-turn Claude review (Project 6's done-when) and re-prioritise the P2
-   stories from what it shows.
+   stories from what it shows. Done 2026-10-03: see
+   [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
+3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), then a
+   re-run of the review, then RB-9 and the P2 stories in the order SD-5, SD-4, SD-6, TT-2,
+   RB-5.
