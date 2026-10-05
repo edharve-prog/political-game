@@ -268,6 +268,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - **Wider balance issues** (back-end review, 2026-10-01) moved to Project 16.
   - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; addressed by PR #13 (merged: deficit shocks from spend and tax, debt penalty above a 6% deficit); PR #12 (merged) records indicator and group history so the effect is visible turn by turn.
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
+- **Backlog:** CA-1 to CA-7 in [backlog/calibration.md](backlog/calibration.md).
 
 ### Project 12 — Stretch Goals
 - Foreign countries as LLM- or rule-driven agents with their own goals and responses.
@@ -382,7 +383,7 @@ Smallest thing that is fun and proves the architecture:
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | In progress (TT-1 done, PR #7; TT-2 done, PR #46) | Stories TT-1 and TT-2 in backlog/scenarios-and-responses.md |
-| 11 | Evaluation & Calibration | Not started | |
+| 11 | Evaluation & Calibration | In progress (CA-1 backtests done; 23 of 32 checks pass, 9 known gaps) | Stories CA-1 to CA-7 in backlog/calibration.md |
 | 12 | Stretch | Not started | |
 | 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36; RB-9 done, PR #42; RB-5 done, PR #47) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
