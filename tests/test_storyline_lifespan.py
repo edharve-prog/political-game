@@ -151,7 +151,11 @@ def greedy_game(turns: int):
     config = GameConfig(election_turn=turns + 2, k_draws=10)
     world = toy_world()
     game = Game(
-        config, world, LLMScenarioSource(client), LLMInterpreter(client), EngineForecaster()
+        config,
+        world,
+        LLMScenarioSource(client, calendar=False),
+        LLMInterpreter(client),
+        EngineForecaster(),
     )
     for _ in range(turns):
         game.play_turn("Windfall tax on energy firms")

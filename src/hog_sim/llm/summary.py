@@ -14,6 +14,7 @@ from pydantic import Field
 from hog_sim.core.models import Model
 from hog_sim.core.state import WorldState
 from hog_sim.policy.pledges import pledge_line
+from hog_sim.world.calendar import calendar_lines
 from hog_sim.world.cast import active_cast, cast_line
 from hog_sim.world.graph import build_graph, edges_of
 
@@ -77,6 +78,9 @@ class StateSummary(Model):
     pledges: list[str] = Field(
         default_factory=list, description="Promises the leader made, kept or broken (SD-5)"
     )
+    calendar: list[str] = Field(
+        default_factory=list, description="Scheduled events coming up (SD-6)"
+    )
     cast: dict[str, str] = Field(
         default_factory=dict, description="Active cast member id -> one-line profile (SD-4)"
     )
@@ -121,6 +125,9 @@ class StateSummary(Model):
         if self.recent_events:
             lines += ["", "Recent events (most recent last):"]
             lines += [f"- {e}" for e in self.recent_events]
+        if self.calendar:
+            lines += ["", "Coming up on the political calendar:"]
+            lines += [f"- {c}" for c in self.calendar]
         if self.cast:
             lines += [
                 "",
@@ -222,6 +229,7 @@ def summarise_state(
         precedents=list(precedents or []),
         pledges=[pledge_line(p) for p in state.pledges],
         cast={c.id: cast_line(c) for c in active_cast(state)},
+        calendar=calendar_lines(state.turn),
         catalogue={node.id: node.name for node in state.nodes()},
     )
 

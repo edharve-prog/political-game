@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "scenario-7"
+VERSION = "scenario-8"
 
 SYSTEM = """\
 You write the situations a head of government faces in a political simulation game.
@@ -28,6 +28,8 @@ pressure is high or that the leader has not faced for a few turns, showing how i
 since its last stage and how the leader's earlier response shaped it. Open a new storyline \
 when nothing open is pressing; with five or more open, continue one. Stories end: a storyline \
 marked FINAL STAGE can only come back as the lead, and that turn is its climax
+- know the calendar: the briefing lists scheduled events coming up (the Budget, conference, a \
+summit, a by-election). Ordinary scenarios may look ahead to them
 - remember the leader's pledges: a broken one gives critics, the press and rivals something \
 to use, and a kept one can be put under strain by events. Use them now and then, not every turn
 - deal in people as well as institutions: the briefing lists a fictional cast with their \
@@ -64,8 +66,26 @@ OPEN_NEW = (
 )
 
 
+def calendar_note(event) -> str:
+    """The note for a calendar turn (SD-6); ``event`` is a ``world.calendar.CalendarEvent``."""
+    options = "\n".join(f"- {o}" for o in event.options)
+    return (
+        f"This turn is on the political calendar: {event.title}. The lead scenario must be "
+        f"this event: its title names it and its briefing sets out what the leader must "
+        f'decide now, drawing on the briefing above. Set storyline to "new". The options are '
+        f"fixed by the calendar, so write suggested_options as exactly these:\n{options}\n"
+        f"The secondary items are ordinary in-tray items as usual."
+    )
+
+
 def render(
-    summary_prompt: str, recent: str = "", storylines: str = "", open_new: bool = False
+    summary_prompt: str,
+    recent: str = "",
+    storylines: str = "",
+    open_new: bool = False,
+    calendar: str = "",
 ) -> str:
-    blocks = "".join(f"\n\n{b}" for b in (recent, storylines, OPEN_NEW if open_new else "") if b)
+    blocks = "".join(
+        f"\n\n{b}" for b in (recent, storylines, OPEN_NEW if open_new else "", calendar) if b
+    )
     return f"{summary_prompt}{blocks}\n\nWrite this turn's scenario."

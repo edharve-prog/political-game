@@ -18,6 +18,7 @@ from hog_sim.llm.interpreter import Interpretation, interpret
 from hog_sim.llm.scenario_gen import GeneratedScenario, generate_scenario
 from hog_sim.llm.summary import summarise_state
 from hog_sim.policy.feasibility import Role
+from hog_sim.world.calendar import CalendarEvent, calendar_event, fill
 from hog_sim.world.storylines import (
     final_storylines,
     must_open_new,
@@ -43,7 +44,8 @@ def recent_events(history: Sequence[Any], limit: int = 8) -> list[str]:
 
 
 class LLMScenarioSource:
-    """``recall(state)`` (optional) returns precedent lines from the knowledge store."""
+    """``recall(state)`` (optional) returns precedent lines from the knowledge store.
+    ``calendar=False`` turns off the political calendar (SD-6)."""
 
     def __init__(
         self,
@@ -51,11 +53,13 @@ class LLMScenarioSource:
         role: Role = "prime_minister",
         config: ModelConfig | None = None,
         recall: Callable[[WorldState], list[str]] | None = None,
+        calendar: bool = True,
     ) -> None:
         self.client = client
         self.role = role
         self.config = config
         self.recall = recall
+        self.calendar = calendar
 
     def next_scenario(self, state: WorldState, history: Sequence[Any]) -> GeneratedScenario:
         precedents = self.recall(state) if self.recall else None
@@ -70,7 +74,12 @@ class LLMScenarioSource:
             storylines_prompt=storylines_text(state),
             final=final_storylines(state),
             open_new=must_open_new(state, history),
+            calendar=self._calendar(state),
         )
+
+    def _calendar(self, state: WorldState) -> CalendarEvent | None:
+        event = calendar_event(state.turn) if self.calendar else None
+        return fill(event, state) if event else None
 
 
 class LLMInterpreter:
