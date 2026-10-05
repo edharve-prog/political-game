@@ -32,7 +32,7 @@ episode is known for moves the right way.
 
 | Gap | Episodes | What is missing |
 |---|---|---|
-| A slump does not cost jobs | 2008, 2010 | No link from finance, public sector output or UK growth to unemployment |
+| ~~A slump does not cost jobs~~ (closed by CA-3) | 2008, 2010 | No link from finance, public sector output or UK growth to unemployment |
 | The Bank of England ignores slumps | 2008, 2020 | Bank Rate only follows inflation and the deficit |
 | Credit does not reach house prices | 2008 | Finance only feeds housing output, and less building raises prices |
 | Energy costs do not reach industry | 2022 | No link from energy prices to manufacturing |
@@ -56,6 +56,14 @@ An exchange rate is a new indicator and may wait for Project 2's real seed data.
 
 Each change must keep `tests/test_balance.py` passing; agree any change to its `LIMITS` with
 the Project 16 owner first.
+
+**Progress:**
+
+- **Slumps cost jobs (2026-10-05).** Finance (0.4), manufacturing (0.5) and the public sector
+  (0.5) now feed UK growth, and growth drives unemployment a turn later (-0.4, Okun's law).
+  Backtests: 25 of 32 pass. The 2008 crash now raises unemployment by 0.4 points and the 2020
+  lockdown by 2.1; 2010 austerity by 0.2. The real 2008 rise was about 3 points, which is CA-4's
+  business. The balance test and the 120-turn stability check still pass.
 
 ## CA-4 Sizes, not just directions (P2)
 

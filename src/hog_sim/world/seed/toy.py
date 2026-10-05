@@ -138,6 +138,11 @@ def toy_world() -> WorldState:
         # Input-output links
         _edge("sector:energy", "sector:manufacturing", E.SUPPLIES, 0.15),
         _edge("sector:finance", "sector:housing", E.SUPPLIES, 0.25),
+        # Sectors add up to the economy: a step (5%) off a sector's output takes roughly its
+        # share of GDP off growth. Finance also carries credit to everyone else (CA-3).
+        _edge("sector:finance", "country:uk", E.SUPPLIES, 0.4),
+        _edge("sector:manufacturing", "country:uk", E.SUPPLIES, 0.5),
+        _edge("sector:public", "country:uk", E.SUPPLIES, 0.5),
         # Sectors and institutions drive indicators
         # More energy output means lower prices
         _edge("sector:energy", "indicator:energy_prices", E.DRIVES, -0.6, unc=0.2),
@@ -150,6 +155,8 @@ def toy_world() -> WorldState:
         _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.5, lag=3),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
         _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
+        # Okun's law: slower growth costs jobs a turn later (CA-3).
+        _edge("country:uk", "indicator:unemployment", E.DRIVES, -0.4, lag=1),
         _edge("sector:housing", "indicator:house_prices", E.DRIVES, -0.3, lag=12),
         # Borrowing: markets demand higher rates and it feeds prices. What spending and tax
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).

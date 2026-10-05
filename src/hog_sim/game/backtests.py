@@ -90,12 +90,7 @@ EPISODES = [
             Check(node="sector:finance", direction=1, against="no_policy"),
             Check(node="indicator:deficit", direction=1),
             Check(node="group:business", direction=-1),
-            Check(
-                node="indicator:unemployment",
-                direction=1,
-                against="shocks_only",
-                gap="No link from finance (or lending) to jobs or the wider economy.",
-            ),
+            Check(node="indicator:unemployment", direction=1, against="shocks_only"),
             Check(
                 node="indicator:interest_rate",
                 direction=-1,
@@ -122,11 +117,7 @@ EPISODES = [
             Check(node="indicator:deficit", direction=-1),
             Check(node="sector:public", direction=-1),
             Check(node="group:public_workers", direction=-1),
-            Check(
-                node="indicator:unemployment",
-                direction=1,
-                gap="Public sector output does not drive jobs.",
-            ),
+            Check(node="indicator:unemployment", direction=1),
         ],
     ),
     Episode(
