@@ -15,6 +15,7 @@ from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import SideIssue
 from hog_sim.core.state import WorldState
+from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal
 from hog_sim.game.persistence import SaveStore
@@ -119,6 +120,9 @@ def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | No
         if raw.strip().lower().split()[:1] == ["advise"]:
             print(_advice(game, advisers, raw.strip()[len("advise") :].strip()))
             continue
+        if raw.strip().lower() in EXPLAIN:
+            print(_explain(game, raw.strip().lower()))
+            continue
         options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
@@ -143,9 +147,24 @@ def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | No
             print(f"  {err}")
 
 
+EXPLAIN_HINT = "(Type why or alternatives at the next prompt to see how that came about.)"
+
 RESPONSE_PROMPT = (
     "\nYour response (option numbers, words, or both: 1 3 + freeze fares; or advise <question>)> "
 )
+
+
+EXPLAIN = ("why", "alternatives")
+
+
+def _explain(game: Game, command: str) -> str:
+    """``why`` and ``alternatives`` for the last turn played (story TT-2)."""
+    if not game.history:
+        return "  Nothing has happened yet: play a turn first."
+    record = game.history[-1]
+    if command == "alternatives":
+        return "\n".join(alternatives(record))
+    return "\n".join(why(record, _previous(game)))
 
 
 def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
@@ -660,6 +679,7 @@ def _main(argv: list[str] | None) -> None:
             left = _left_alone(record)
             if left:
                 print(left)
+            print(EXPLAIN_HINT)
             if client:
                 print(_usage_line(client, calls_before))
         print("\n" + _dashboard(game.start, game.state, _previous(game)))
