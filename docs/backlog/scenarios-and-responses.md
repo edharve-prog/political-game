@@ -221,11 +221,15 @@ As a player, I want to see the advisers' forecast before committing, at a cost.
 - Startup banner says OFFLINE PRACTICE or CLAUDE with the model.
 - `--check-llm` confirms the connection, and each Claude turn prints calls, tokens and cost.
 
-### TT-2 Why did that happen? (P2)
+### TT-2 Why did that happen? (P2) - done (PR #46)
 As a player, I want to see the causal chain behind an outcome.
 - `why` prints the top 3 engine paths from the player's actions to the biggest indicator
   and approval moves, for example "energy tax → prices +3% → low-income approval −4".
 - `alternatives` lists the candidate outcomes that were not chosen, with their scores.
+- Done: `game/explain.py`. `why` re-runs each action and shock through the engine on its own
+  to find what drove the biggest indicator moves, shows the graph path it took, and names
+  the events and indicators behind the biggest approval moves. Both commands work at the
+  response prompt.
 
 ---
 
@@ -239,5 +243,5 @@ As a player, I want to see the causal chain behind an outcome.
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
    in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
-   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44), SD-6 done (PR #45). Next: the P2
-   stories in the order TT-2, RB-5.
+   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44), SD-6 done (PR #45), TT-2 done (PR #46).
+   Next: RB-5.

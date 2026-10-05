@@ -381,7 +381,7 @@ Smallest thing that is fun and proves the architecture:
 | 7 | News Ingestion | Not started | |
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
-| 10 | Interface | Not started | |
+| 10 | Interface | In progress (TT-1 done, PR #7; TT-2 done, PR #46) | Stories TT-1 and TT-2 in backlog/scenarios-and-responses.md |
 | 11 | Evaluation & Calibration | Not started | |
 | 12 | Stretch | Not started | |
 | 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
