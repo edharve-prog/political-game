@@ -197,6 +197,13 @@ class Game:
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
         return self._limit(response, requested, delivery=delivery, pledges=pledges, sacked=sacked)
 
+    def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
+        """A proposal from a ready-made action list (a saved package, story RB-5), checked
+        against this turn's limits without calling the interpreter."""
+        if self.over:
+            raise RuntimeError("the game is over")
+        return self._limit(response, actions)
+
     def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits."""
         return self._limit(
