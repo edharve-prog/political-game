@@ -40,6 +40,8 @@ batch, because required checks are named by job, and CI-3 and CI-4 rename jobs.
 
 ## PR plan
 
+**Status 2026-10-03:** CI-7, CI-6 and CI-3 are done. PR #31 merged; Ed turned on CodeQL default setup and a `main` ruleset (PR required, 0 approvals, the six checks required). Next: CI-4 and CI-2 once Project 17 lands.
+
 - **PR A (CI-7 + CI-6 workflow part).** Bump actions, add permissions, concurrency,
   timeouts, Dependabot.
 - **PR B (CI-3).** Matrix, `--locked`, wheel build and installed-CLI smoke test.

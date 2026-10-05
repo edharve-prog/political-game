@@ -608,3 +608,18 @@ pensions, spend on everything and so on), plus a "do nothing" bot. The test fail
 - acting does worse on average than doing nothing by more than half a point of vote share.
 
 Run `uv run python -m hog_sim.game.balance` to see the table.
+
+### Checking against history
+
+*Source: `game/backtests.py`, `tests/test_backtests.py`*
+
+Seven real episodes (the 2008 bailout, 2010 austerity, the 2022 energy shock and price
+guarantee, the 2022 mini-budget, the 2020 lockdown and the 2016 Brexit vote) are replayed on the
+starting world as shocks plus the government's response. Each check asks whether one number
+moved the way it did in reality, against the start, against the same shocks with no policy, or
+for the shocks alone. A move under 0.05 steps counts as no move.
+
+Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
+expects them to keep failing until the link is added. The main gaps: a slump does not cost
+jobs, the Bank of England ignores slumps, there is no exchange rate, and the UK–EU trade weights
+look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
