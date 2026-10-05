@@ -192,11 +192,14 @@ As a player, I want the outcome to reflect that the Commons blocked my measure.
   and the outcome writer use it for the three slips above. A closed storyline continued by
   the scenario writer still costs a retry, since there is no single right fix.
 
-### RB-5 Policy library (P2)
+### RB-5 Policy library (P2) - done (PR #47)
 As a player, I want to save a package I liked and reuse or adapt it later.
 - `save <name>` stores the confirmed action list, and `use <name>` loads it into the
   builder for editing.
 - The library is saved per game and exportable.
+- Done: `game/packages.py` keeps packages in the save file. `save <name>` works at the
+  review step, `use <name>` and `packages` at the response prompt, and
+  `hog-sim packages list|export|import` from the command line.
 
 ### RB-6 New policy levers (P2)
 As a player, I want to try things the game doesn't list yet, such as a citizens' assembly,
@@ -243,5 +246,5 @@ As a player, I want to see the causal chain behind an outcome.
    [../reviews/2026-10-03-claude-30-turn.md](../reviews/2026-10-03-claude-30-turn.md).
 3. From the review: P1 SD-9 and RB-8 (with EB-13 and EB-14 in engine-balance.md), all done
    in PRs #36 to #39 (merged 2026-10-04); the re-run on 2026-10-04 met every target. RB-9
-   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44), SD-6 done (PR #45), TT-2 done (PR #46).
-   Next: RB-5.
+   done (PR #42), SD-5 done (PR #43), SD-4 done (PR #44), SD-6 done (PR #45), TT-2 done (PR #46), RB-5 done
+   (PR #47). That finishes this order.

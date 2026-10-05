@@ -18,6 +18,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal
+from hog_sim.game.packages import PolicyLibrary
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
@@ -86,7 +87,9 @@ def _report(record: TurnRecord) -> str:
     return "\n".join(lines)
 
 
-REVIEW_PROMPT = "\nEnter to confirm, or edit (drop 2 · 2 size 0.3 · 2 turns 4 · redo)> "
+REVIEW_PROMPT = (
+    "\nEnter to confirm, or edit (drop 2 · 2 size 0.3 · 2 turns 4 · save <name> · redo)> "
+)
 
 
 def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
@@ -111,18 +114,33 @@ def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | N
     return "\n".join(lines)
 
 
-def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | None:
+def _ask_for_turn(
+    game: Game, advisers: Advisers | None = None, library: PolicyLibrary | None = None
+) -> Proposal | None:
     """Build, review and confirm this turn's actions. ``None`` means start the response again.
 
-    ``advise <question>`` asks the advisers for more options instead (Claude mode only)."""
+    ``advise <question>`` asks the advisers for more options instead (Claude mode only).
+    With a ``library``, ``use <name>`` loads a saved package, ``packages`` lists them and
+    ``save <name>`` at the review step saves the actions (story RB-5)."""
     while True:
         raw = input(RESPONSE_PROMPT)
-        if raw.strip().lower().split()[:1] == ["advise"]:
+        words = raw.strip().lower().split()
+        if words[:1] == ["advise"]:
             print(_advice(game, advisers, raw.strip()[len("advise") :].strip()))
             continue
         if raw.strip().lower() in EXPLAIN:
             print(_explain(game, raw.strip().lower()))
             continue
+        if library is not None and words == ["packages"]:
+            print(library.listing())
+            continue
+        if library is not None and len(words) == 2 and words[0] == "use":
+            try:
+                proposal = game.propose_actions(f"(package {words[1]})", library.get(words[1]))
+                break
+            except ValueError as err:
+                print(f"  {err}")
+                continue
         options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
@@ -140,6 +158,14 @@ def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | No
             return proposal
         if command.lower() == "redo":
             return None
+        parts = command.split()
+        if library is not None and len(parts) == 2 and parts[0].lower() == "save":
+            try:
+                name = library.save(parts[1], proposal.actions, game.state.turn)
+                print(f"  Saved as {name}. Load it on a later turn with: use {name}")
+            except ValueError as err:
+                print(f"  {err}")
+            continue
         try:
             proposal = game.revise(proposal, edit_actions(proposal.actions, command))
             dropped = []
@@ -150,7 +176,8 @@ def _ask_for_turn(game: Game, advisers: Advisers | None = None) -> Proposal | No
 EXPLAIN_HINT = "(Type why or alternatives at the next prompt to see how that came about.)"
 
 RESPONSE_PROMPT = (
-    "\nYour response (option numbers, words, or both: 1 3 + freeze fares; or advise <question>)> "
+    "\nYour response (option numbers, words, or both: 1 3 + freeze fares; "
+    "or advise <question>, use <package>, packages)> "
 )
 
 
@@ -289,6 +316,42 @@ def _provenance(client, since: int):
     models = sorted({r.served_model or r.model for r in calls})
     versions = sorted({r.prompt_version for r in calls})
     return Provenance(model=", ".join(models) or None, prompt_version=", ".join(versions) or None)
+
+
+def packages_main(argv: list[str]) -> None:
+    """``hog-sim packages list|export|import``: a game's saved policy packages (story RB-5)."""
+    parser = argparse.ArgumentParser(
+        prog="hog-sim packages", description="Saved policy packages, one set per game"
+    )
+    parser.add_argument("--save", default="saves/game.db", help="the save file")
+    parser.add_argument("--game", help="game id (default: the latest game)")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("list", help="list the game's packages")
+    export = sub.add_parser("export", help="write the game's packages as JSON")
+    export.add_argument("file", nargs="?", help="output file (default: print them)")
+    load = sub.add_parser("import", help="add packages from an exported JSON file")
+    load.add_argument("file")
+    args = parser.parse_args(argv)
+    store = SaveStore(args.save)
+    try:
+        game_id = args.game or store.latest_game()
+        if game_id is None:
+            raise SystemExit("No games in that save file yet.")
+        library = PolicyLibrary(store.conn, game_id)
+        if args.command == "list":
+            print(library.listing())
+        elif args.command == "export":
+            text = library.export()
+            if args.file:
+                Path(args.file).write_text(text, encoding="utf-8")
+                print(f"Wrote {len(library.names())} packages to {args.file}.")
+            else:
+                print(text)
+        else:
+            count = library.import_(Path(args.file).read_text(encoding="utf-8"))
+            print(f"Imported {count} packages into game {game_id}.")
+    finally:
+        store.close()
 
 
 def knowledge_main(argv: list[str]) -> None:
@@ -532,6 +595,9 @@ def main(argv: list[str] | None = None) -> None:
     if argv[:1] == ["logs"]:
         logs_main(argv[1:])
         return
+    if argv[:1] == ["packages"]:
+        packages_main(argv[1:])
+        return
     try:
         _main(argv)
     except LLMUnavailable as exc:
@@ -660,6 +726,7 @@ def _main(argv: list[str] | None) -> None:
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
     _log_turns(client, game_id, lambda: game.state.turn)
+    library = PolicyLibrary(store.conn, game_id)
     try:
         while not game.over:
             print("\n" + _dashboard(game.start, game.state, _previous(game)))
@@ -668,7 +735,7 @@ def _main(argv: list[str] | None) -> None:
             state_before = game.state
             proposal = None
             while proposal is None:
-                proposal = _ask_for_turn(game, advisers)
+                proposal = _ask_for_turn(game, advisers, library)
             record = game.commit(proposal)
             store.save_turn(game_id, record)
             if client:
