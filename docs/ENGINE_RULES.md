@@ -273,7 +273,8 @@ Example from the starting world: higher energy prices raise inflation (weight 0.
 later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
 prices (0.5, three turns later) and inflation (0.4, six turns later), and raises unemployment
 (0.2, six turns later). A higher deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
-turns).
+turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
+0.5), and slower growth raises unemployment a turn later (0.4).
 
 ### Stability guard
 
@@ -620,8 +621,8 @@ moved the way it did in reality, against the start, against the same shocks with
 for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
-expects them to keep failing until the link is added. The main gaps: a slump does not cost
-jobs, the Bank of England ignores slumps, there is no exchange rate, and the UK–EU trade weights
+expects them to keep failing until the link is added. The main gaps: the Bank of England
+ignores slumps, there is no exchange rate, and the UK–EU trade weights
 look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 ### Long games
