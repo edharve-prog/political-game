@@ -172,9 +172,21 @@ big, but the real one was limited by rates already being near zero.
   10). The 2020 Bank Rate cut now overshoots, at 1.75 points against a real 0.65: the game
   starts Bank Rate at 4%, but in 2020 it was already at 0.75% and could fall no further.
   Directions unchanged (34 of 35); the balance test and stability check still pass.
+- **Markets lose faith (2026-10-08, picked by Ed).** A new rule: an unfunded tax cut worth at
+  least 0.75 points of deficit a turn makes Bank Rate jump (0.4 per point) and the pound fall (8
+  index points per point), and costs every group 0.12 approval per point. Spending is not
+  judged this way. The mini-budget now pushes Bank Rate up 0.95 points (real 0.25 to 1), the
+  pound down 6 points (real 2 to 8) and vote intention down 8 points (real 8 to 12), which
+  closes the last known gap: 35 of 35 backtests pass. 14 of 28 sizes are in range (was 12). The
+  balance test and stability check still pass.
 
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.
+
+Still off, each needing a new mechanism rather than a weight: furlough saves too few jobs
+(there is no job-protection policy, only sector spending), the 2010 cuts shrink public output
+too much for the deficit they save (the balance between a spending change's output and budget
+effects), and the 2020 Bank Rate cut overshoots because the game starts Bank Rate at 4%.
 
 ## CA-5 Forecast calibration (P2)
 
@@ -197,4 +209,4 @@ setting them by hand, within limits that keep the balance test passing.
 
 ## Order
 
-CA-1, CA-2 and CA-3 (done, bar the mini-budget's pound), then CA-4 and CA-5. CA-6 and CA-7 later.
+CA-1, CA-2 and CA-3 (done), CA-4 (under way), then CA-5. CA-6 and CA-7 later.

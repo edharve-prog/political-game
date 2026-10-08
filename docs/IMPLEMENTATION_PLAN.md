@@ -383,7 +383,7 @@ Smallest thing that is fun and proves the architecture:
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | In progress (TT-1 done, PR #7; TT-2 done, PR #46) | Stories TT-1 and TT-2 in backlog/scenarios-and-responses.md |
-| 11 | Evaluation & Calibration | In progress (CA-1 backtests done, PR #48: 23 of 32 checks pass, 9 known gaps; CA-2 120-turn stability done, PR #49; CA-3 done: 34 of 35 pass, with a new exchange rate; CA-4 under way: 12 of 28 sizes within real ranges, energy, deficit and Bank Rate links retuned) | Stories CA-1 to CA-7 in backlog/calibration.md |
+| 11 | Evaluation & Calibration | In progress (CA-1 backtests done, PR #48: 23 of 32 checks pass, 9 known gaps; CA-2 120-turn stability done, PR #49; CA-3 done: 34 of 35 pass, with a new exchange rate; CA-4 under way: 35 of 35 directions and 14 of 28 sizes match, energy, deficit and Bank Rate links retuned, markets punish unfunded tax cuts) | Stories CA-1 to CA-7 in backlog/calibration.md |
 | 12 | Stretch | Not started | |
 | 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36; RB-9 done, PR #42; RB-5 done, PR #47) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |

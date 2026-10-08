@@ -271,7 +271,7 @@ class EngineForecaster:
         }
 
         projected = apply_deltas(state, engine.at(min(self.TURN, engine.horizon - 1)))
-        projected.events = [*state.events, *policy_events(actions)]
+        projected.events = [*state.events, *policy_events(actions, state.groups)]
         before, after = target_approval(state, state), target_approval(projected, state)
         change = {g: after[g] - before[g] for g in state.groups}
         winners = sorted(g for g, c in change.items() if c > self.THRESHOLD)

@@ -113,7 +113,7 @@ def resolve(
     now = pending.pop(state.turn, {})
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
-    new.events = [*new.events, *policy_events(actions), *outcome.approval_events]
+    new.events = [*new.events, *policy_events(actions, state.groups), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
     new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
