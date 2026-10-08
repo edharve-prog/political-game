@@ -98,8 +98,11 @@ the Project 16 owner first.
   test is still within limits, with no single lever winning more than 1 game in 5.
 - **UK–EU trade weights swapped (2026-10-08).** The EU now moves UK growth with weight 0.45
   and the UK moves the EU's with 0.1, matching the EU taking over 40% of UK exports. Backtests:
-  30 of 32 pass. The Brexit episode now takes 0.17 points off UK growth. Left: no exchange rate,
-  and EU trade still does not reach UK industry's output.
+  30 of 32 pass. The Brexit episode now takes 0.17 points off UK growth.
+- **EU demand reaches UK factories (2026-10-08).** EU growth now drives UK manufacturing a turn
+  later (0.3): the EU takes about half of UK goods exports. Backtests: 31 of 32 pass. Brexit now
+  takes 0.12 steps off manufacturing output. Courting the EU helps industry too; the balance
+  test is still within limits. Left: the exchange rate, a new indicator.
 
 ## CA-4 Sizes, not just directions (P2)
 

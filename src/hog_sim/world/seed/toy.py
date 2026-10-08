@@ -136,6 +136,8 @@ def toy_world() -> WorldState:
         _edge("country:china", "country:uk", E.TRADES_WITH, 0.03),
         _edge("country:uk", "country:eu", E.ALLIED_WITH, 0.5),
         _edge("country:china", "sector:manufacturing", E.SUPPLIES, 0.2, unc=0.05),
+        # Half of UK goods exports go to the EU, so its demand reaches factories directly (CA-3).
+        _edge("country:eu", "sector:manufacturing", E.SUPPLIES, 0.3, lag=1),
         # Input-output links
         _edge("sector:energy", "sector:manufacturing", E.SUPPLIES, 0.15),
         _edge("sector:finance", "sector:housing", E.SUPPLIES, 0.25),
