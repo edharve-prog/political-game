@@ -100,7 +100,6 @@ EPISODES = [
                 node="indicator:house_prices",
                 direction=-1,
                 against="shocks_only",
-                gap="Finance only feeds housing output, and less building raises prices.",
             ),
         ],
     ),
