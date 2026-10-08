@@ -270,9 +270,9 @@ what its drivers pass on: **weight × 0.9 × the driver's deviation**, taken `la
 together until they settle. Only `DRIVES`, `SUPPLIES`, `TRADES_WITH` and `INFLUENCES` edges
 spread changes, and never into population groups (approval has its own rules, section 6).
 
-Example from the starting world: higher energy prices raise inflation (weight 0.3, one turn
-later) and cut manufacturing output (0.2, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
-prices (0.5, three turns later) and inflation (0.4, six turns later), and raises unemployment
+Example from the starting world: higher energy prices raise inflation (weight 0.6, one turn
+later) and cut manufacturing output (0.1, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
+prices (0.25, three turns later) and inflation (0.4, six turns later), and raises unemployment
 (0.2, six turns later). Higher unemployment lowers Bank Rate (0.5, one turn later): the Bank cuts
 in a slump. More output from finance raises house prices a turn later (0.4): credit. A higher
 deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
@@ -638,8 +638,7 @@ borrowing, because markets never lose faith in a government's plans. Run `uv run
 Most checks also record the rough range the number really moved within the episode's year, in
 its own units (points for rates, index points for prices, per cent of output for sectors). The
 same command prints how big the engine's move is against that range. This is a report, not a
-test: today the engine's moves are mostly too small (the middle one is about 38% of the real
-one).
+test: 10 of 28 sized moves fall inside their range, and most of the rest are too small.
 
 ### Long games
 

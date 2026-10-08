@@ -145,7 +145,7 @@ EPISODES = [
             "Gas prices soared after the invasion of Ukraine. Inflation reached 11%, the Bank of "
             "England raised rates, house prices dipped and pensioners felt the squeeze."
         ),
-        shocks=[shock("indicator:energy_prices", 3)],
+        shocks=[shock("indicator:energy_prices", 8)],
         checks=[
             Check(node="indicator:energy_prices", direction=1, real=(50, 180)),
             Check(node="indicator:inflation", direction=1, real=(4, 7)),
@@ -161,7 +161,7 @@ EPISODES = [
             "The government capped household bills and paid suppliers the difference. Bills "
             "and inflation peaked lower than they would have, at a cost to borrowing."
         ),
-        shocks=[shock("indicator:energy_prices", 3)],
+        shocks=[shock("indicator:energy_prices", 8)],
         actions=[act("spend", "indicator:energy_prices", -0.8, 6)],
         checks=[
             Check(
