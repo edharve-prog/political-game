@@ -147,6 +147,8 @@ def toy_world() -> WorldState:
         # More energy output means lower prices
         _edge("sector:energy", "indicator:energy_prices", E.DRIVES, -0.6, unc=0.2),
         _edge("indicator:energy_prices", "indicator:inflation", E.DRIVES, 0.3, lag=1),
+        # Dearer energy raises industry's costs and cuts its output (CA-3).
+        _edge("indicator:energy_prices", "sector:manufacturing", E.DRIVES, -0.2, lag=1),
         # The Bank of England sets Bank Rate (Indicator.controlled_by); how it reacts to
         # inflation is applied straight to Bank Rate. Its support for the government does
         # not move rates.

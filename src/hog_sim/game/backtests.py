@@ -134,7 +134,6 @@ EPISODES = [
             Check(
                 node="sector:manufacturing",
                 direction=-1,
-                gap="Energy prices do not feed back into industry's costs.",
             ),
         ],
     ),
