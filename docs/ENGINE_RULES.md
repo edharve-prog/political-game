@@ -272,7 +272,8 @@ spread changes, and never into population groups (approval has its own rules, se
 Example from the starting world: higher energy prices raise inflation (weight 0.3, one turn
 later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
 prices (0.5, three turns later) and inflation (0.4, six turns later), and raises unemployment
-(0.2, six turns later). A higher deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
+(0.2, six turns later). Higher unemployment lowers Bank Rate (0.5, one turn later): the Bank cuts
+in a slump. A higher deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
 turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
 0.5), and slower growth raises unemployment a turn later (0.4).
 
@@ -568,15 +569,15 @@ happening.*
 
 This is what the engine actually produces (no outcome effects, no scenario shocks):
 
-| After turn | Public sector output | Deficit | Bank Rate | Public workers | Business owners |
-|---|---|---|---|---|---|
-| start | £500bn | 4.50% | 4.00% | 0.450 | 0.500 |
-| 1 | £550bn | 5.75% | 4.00% | 0.489 | 0.479 |
-| 2 | £545bn | 5.75% | 4.34% | 0.505 | 0.467 |
-| 3 | £541bn | 5.75% | 4.34% | 0.507 | 0.460 |
-| 6 | £530bn | 5.75% | 4.39% | 0.495 | 0.454 |
-| 7 | £527bn | 5.12% | 4.39% | 0.498 | 0.467 |
-| 8 | £524bn | 4.81% | 4.22% | 0.499 | 0.480 |
+| After turn | Public sector output | Deficit | Bank Rate | Unemployment | Public workers | Business owners |
+|---|---|---|---|---|---|---|
+| start | £500bn | 4.50% | 4.00% | 4.50% | 0.450 | 0.500 |
+| 1 | £550bn | 5.75% | 4.00% | 4.50% | 0.489 | 0.479 |
+| 2 | £545bn | 5.75% | 4.34% | 4.16% | 0.505 | 0.467 |
+| 3 | £540bn | 5.75% | 4.49% | 4.19% | 0.507 | 0.459 |
+| 6 | £530bn | 5.75% | 4.50% | 4.28% | 0.495 | 0.452 |
+| 7 | £527bn | 5.12% | 4.49% | 4.30% | 0.498 | 0.466 |
+| 8 | £524bn | 4.81% | 4.31% | 4.38% | 0.499 | 0.478 |
 
 Reading it:
 
@@ -584,6 +585,9 @@ Reading it:
 - The deficit rises 1.25 points and stays there for the minimum 6 turns, then halves its excess
   each turn.
 - A turn later, Bank Rate rises by 1.25 × 0.3 × 0.9 ≈ 0.34 points through the deficit link.
+- The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
+  growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
+  Bank Rate up by about 0.15 a turn after that, which is why it climbs to about 4.5%.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
   (0.03 × 0.75 = 0.0225, felt by everyone while the deficit is 5.75%) takes some of that back.
@@ -621,8 +625,8 @@ moved the way it did in reality, against the start, against the same shocks with
 for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
-expects them to keep failing until the link is added. The main gaps: the Bank of England
-ignores slumps, there is no exchange rate, and the UK–EU trade weights
+expects them to keep failing until the link is added. The main gaps: there is no exchange
+rate, credit does not reach house prices, energy costs do not reach industry, and the UK–EU trade weights
 look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 ### Long games
@@ -632,7 +636,7 @@ look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
 Players from the balance test, plus one who picks a random suggested option, play 120 offline
 turns. The test fails if any number turns non-finite, an indicator ends up more than 8 steps
 from its start, an indicator's average distance from its start grows by more than half again
-from the first half to the second (plus 0.5 steps), indicators sit at a hard bound in more than 10%
+from the first half to the second (plus 0.5 steps) and ends up averaging 2 steps or more, indicators sit at a hard bound in more than 10%
 of turns, or the world goes still: over the last 48 turns vote intention must move at least a
 point and at least half the indicators must still move. Run
 `uv run python -m hog_sim.game.stability` to see the table.

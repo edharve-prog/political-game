@@ -33,7 +33,7 @@ episode is known for moves the right way.
 | Gap | Episodes | What is missing |
 |---|---|---|
 | ~~A slump does not cost jobs~~ (closed by CA-3) | 2008, 2010 | No link from finance, public sector output or UK growth to unemployment |
-| The Bank of England ignores slumps | 2008, 2020 | Bank Rate only follows inflation and the deficit |
+| ~~The Bank of England ignores slumps~~ (closed by CA-3) | 2008, 2020 | Bank Rate only follows inflation and the deficit |
 | Credit does not reach house prices | 2008 | Finance only feeds housing output, and less building raises prices |
 | Energy costs do not reach industry | 2022 | No link from energy prices to manufacturing |
 | No exchange rate | 2016 | A weaker pound cannot raise prices |
@@ -50,7 +50,7 @@ moving when scenarios keep coming).
   marks:
   - no indicator more than 8 steps from its start;
   - no indicator whose average distance from its start in the second half is more than 1.5
-    times the first half's plus 0.5 steps (a growing trend);
+    times the first half's plus 0.5 steps and is 2 steps or more (a growing trend);
   - indicators at a hard bound in no more than 10% of turns;
   - over the last 48 turns, vote intention moves at least a point and at least half the
     indicators still move.
@@ -81,6 +81,13 @@ the Project 16 owner first.
   Backtests: 25 of 32 pass. The 2008 crash now raises unemployment by 0.4 points and the 2020
   lockdown by 2.1; 2010 austerity by 0.2. The real 2008 rise was about 3 points, which is CA-4's
   business. The balance test and the 120-turn stability check still pass.
+- **The Bank of England cuts in a slump (2026-10-08).** Higher unemployment now lowers Bank Rate
+  a turn later (-0.5), alongside its response to inflation. Backtests: 27 of 32 pass. The shock
+  alone now cuts Bank Rate by 0.2 points in 2008 and 1.1 in 2020 (real: about 4.5 and 0.65).
+  The stability check then flagged house prices under "spend on everything" as growing: a
+  12-turn lag from housebuilding settles slowly, from an average of 0.6 steps in the first half
+  to 1.5 in the second. That is a held policy settling, not a runaway, so the growth check now
+  also needs the late average to reach 2 steps.
 
 ## CA-4 Sizes, not just directions (P2)
 
