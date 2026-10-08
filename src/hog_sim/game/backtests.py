@@ -193,12 +193,7 @@ EPISODES = [
         ),
         actions=[act("diplomatic", "country:eu", -0.8, 6)],
         checks=[
-            Check(
-                node="country:uk",
-                direction=-1,
-                gap="The EU moves UK growth with weight 0.1 and the UK moves the EU's with "
-                "0.45, though the EU takes over 40% of UK exports; the two look swapped.",
-            ),
+            Check(node="country:uk", direction=-1),
             Check(
                 node="indicator:inflation",
                 direction=1,

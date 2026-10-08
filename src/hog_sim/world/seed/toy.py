@@ -129,8 +129,9 @@ def toy_world() -> WorldState:
     ]
     edges = [
         # Foreign relations and trade
-        _edge("country:uk", "country:eu", E.TRADES_WITH, 0.45),
-        _edge("country:eu", "country:uk", E.TRADES_WITH, 0.10),
+        # The EU buys over 40% of UK exports; the UK is a small share of the EU's (CA-3).
+        _edge("country:uk", "country:eu", E.TRADES_WITH, 0.10),
+        _edge("country:eu", "country:uk", E.TRADES_WITH, 0.45),
         _edge("country:uk", "country:china", E.TRADES_WITH, 0.10),
         _edge("country:china", "country:uk", E.TRADES_WITH, 0.03),
         _edge("country:uk", "country:eu", E.ALLIED_WITH, 0.5),

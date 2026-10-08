@@ -626,9 +626,8 @@ moved the way it did in reality, against the start, against the same shocks with
 for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
-expects them to keep failing until the link is added. The main gaps: there is no exchange
-rate, and the UK–EU trade weights
-look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
+expects them to keep failing until the link is added. The two left: there is no exchange
+rate, and EU trade does not reach UK industry's output. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 ### Long games
 
