@@ -39,12 +39,29 @@ episode is known for moves the right way.
 | No exchange rate | 2016 | A weaker pound cannot raise prices |
 | Trade weights look swapped | 2016 | The EU moves UK growth with 0.1, the UK moves the EU's with 0.45 |
 
-## CA-2 Stability over 120 turns (P1)
+## CA-2 Stability over 120 turns (P1) — done
 
 The plan's "done when" asks for a stable engine over 120 turns. Run doing nothing, the balance
 bots and a seeded random player for 120 offline turns and check that no indicator runs away,
 nothing sits at a bound for long, and the world does not flatline (approval and indicators keep
 moving when scenarios keep coming).
+
+- `game/stability.py` plays each player for 120 offline turns. `LIMITS` there holds the pass
+  marks:
+  - no indicator more than 8 steps from its start;
+  - no indicator whose average distance from its start in the second half is more than 1.5
+    times the first half's plus 0.5 steps (a growing trend);
+  - indicators at a hard bound in no more than 10% of turns;
+  - over the last 48 turns, vote intention moves at least a point and at least half the
+    indicators still move.
+- The test plays four players on one seed (about 10 seconds). `uv run python -m
+  hog_sim.game.stability --seeds 5` runs all 15 players; CI-4's nightly job can call it.
+
+**First run (2026-10-05, 15 players, 2 seeds):** stable. Nothing non-finite, nothing at a
+bound, and the furthest any indicator went was the deficit at 5.5 points over its start under
+"spend on everything". No runaway trends. Worth knowing for CA-3: doing nothing keeps vote
+intention within 44% to 49% for all 120 turns, and even its busiest indicator averages only 0.1
+to 0.2 steps from where it started. The world is quiet when the player is.
 
 ## CA-3 Close the backtest gaps (P1)
 
@@ -84,4 +101,4 @@ setting them by hand, within limits that keep the balance test passing.
 
 ## Order
 
-CA-1 (done), then CA-2, then CA-3 one gap at a time, then CA-4 and CA-5. CA-6 and CA-7 later.
+CA-1 and CA-2 (done), then CA-3 one gap at a time, then CA-4 and CA-5. CA-6 and CA-7 later.

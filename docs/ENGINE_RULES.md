@@ -623,3 +623,15 @@ Checks the engine gets wrong today are marked as known gaps with the missing lin
 expects them to keep failing until the link is added. The main gaps: a slump does not cost
 jobs, the Bank of England ignores slumps, there is no exchange rate, and the UK–EU trade weights
 look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
+
+### Long games
+
+*Source: `game/stability.py`, `tests/test_stability.py`*
+
+Players from the balance test, plus one who picks a random suggested option, play 120 offline
+turns. The test fails if any number turns non-finite, an indicator ends up more than 8 steps
+from its start, an indicator's average distance from its start grows by more than half again
+from the first half to the second (plus 0.5 steps), indicators sit at a hard bound in more than 10%
+of turns, or the world goes still: over the last 48 turns vote intention must move at least a
+point and at least half the indicators must still move. Run
+`uv run python -m hog_sim.game.stability` to see the table.
