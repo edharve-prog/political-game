@@ -104,11 +104,36 @@ the Project 16 owner first.
   takes 0.12 steps off manufacturing output. Courting the EU helps industry too; the balance
   test is still within limits. Left: the exchange rate, a new indicator.
 
-## CA-4 Sizes, not just directions (P2)
+## CA-4 Sizes, not just directions (P1, under way)
 
 Once directions pass, give each check a rough expected size band from the record (for example,
 the 2022 energy shock took inflation up several points, not a fraction of one) and report how
 far each run is from it. Start as a report only; tighten into a test once the bands are agreed.
+
+- 25 of the 32 checks now carry `real`, a rough range from the record for the episode's first
+  year, in the number's own units. The ranges are first guesses and want Ed's eye before they
+  become a test.
+- `uv run python -m hog_sim.game.backtests` prints a second table: the engine's move, the real
+  range, and the move as a share of the range's middle.
+
+**First run (2026-10-08):** 6 of 25 sized checks fall inside their range, and the middle engine
+move is 38% of the real one. The engine is mostly too timid:
+
+| Pattern | Share of real | What it suggests |
+|---|---|---|
+| Bank Rate barely reacts to a crash or an energy shock | 5% (2008), 15% (2022) | Its links from inflation and unemployment are too weak |
+| Energy shocks barely reach inflation | 15% (2022), 14% (price guarantee) | The energy-to-inflation link is too weak, or the shock too small (+30 index points against a real +50 to +180) |
+| Every deficit move is exactly 1 point | 10% to 67% | The deficit only follows spending decisions; slumps do not widen it (no automatic stabilisers) |
+| 2008 unemployment | 15% | Okun's link is too weak, or the finance shock too small |
+| The mini-budget's poll hit | 17% | Markets turning on a government should cost more votes |
+
+A few go too far: the 2010 public spending cut takes 6% off public sector output (real: 1% to
+4%), and the 2020 lockdown raises unemployment 2.1 points (real: 0.5 to 1.5) because furlough
+does too little (14% of the job losses it really prevented). The 2020 Bank Rate cut is also too
+big, but the real one was limited by rates already being near zero.
+
+Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
+test and the stability check passing, then agree the ranges and make them a test.
 
 ## CA-5 Forecast calibration (P2)
 
@@ -131,4 +156,5 @@ setting them by hand, within limits that keep the balance test passing.
 
 ## Order
 
-CA-1 and CA-2 (done), then CA-3 one gap at a time, then CA-4 and CA-5. CA-6 and CA-7 later.
+CA-1 and CA-2 (done), CA-3 (all but the exchange rate, which waits for Project 2), then CA-4
+and CA-5. CA-6 and CA-7 later.

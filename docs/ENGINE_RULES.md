@@ -630,6 +630,12 @@ Checks the engine gets wrong today are marked as known gaps with the missing lin
 expects them to keep failing until the link is added. The one left: there is no exchange
 rate, so a weaker pound cannot raise prices. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
+Most checks also record the rough range the number really moved within the episode's year, in
+its own units (points for rates, index points for prices, per cent of output for sectors). The
+same command prints how big the engine's move is against that range. This is a report, not a
+test: today the engine's moves are mostly too small (the middle one is about 38% of the real
+one).
+
 ### Long games
 
 *Source: `game/stability.py`, `tests/test_stability.py`*
