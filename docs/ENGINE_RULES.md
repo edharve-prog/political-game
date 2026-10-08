@@ -275,9 +275,10 @@ later) and cut manufacturing output (0.1, one turn later); higher inflation rais
 prices (0.25, three turns later) and inflation (0.4, six turns later), and raises unemployment
 (0.2, six turns later). Higher unemployment lowers Bank Rate (0.5, one turn later): the Bank cuts
 in a slump. More output from finance raises house prices a turn later (0.4): credit. A higher
-deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
+deficit raises Bank Rate (0.15, one turn) and inflation (0.1, two
 turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
-0.5), and slower growth raises unemployment a turn later (0.4). EU growth reaches UK growth
+0.5), and slower growth raises unemployment a turn later (0.4) and widens the deficit (0.5): tax
+receipts fall and benefit bills rise. EU growth reaches UK growth
 (0.45) and, a turn later, UK manufacturing (0.3), since the EU buys half of UK goods exports.
 The pound rises with UK growth (0.3) and Bank Rate (0.2) and falls with the deficit (0.4), all in
 the same turn; a weaker pound raises inflation two turns later (0.3). No policy can aim at the
@@ -579,26 +580,27 @@ This is what the engine actually produces (no outcome effects, no scenario shock
 |---|---|---|---|---|---|---|
 | start | £500bn | 4.50% | 4.00% | 4.50% | 0.450 | 0.500 |
 | 1 | £550bn | 5.75% | 4.00% | 4.50% | 0.489 | 0.479 |
-| 2 | £545bn | 5.75% | 4.34% | 4.16% | 0.505 | 0.467 |
-| 3 | £540bn | 5.75% | 4.49% | 4.19% | 0.507 | 0.459 |
-| 6 | £530bn | 5.75% | 4.52% | 4.27% | 0.495 | 0.452 |
-| 7 | £527bn | 5.12% | 4.51% | 4.29% | 0.497 | 0.466 |
-| 8 | £524bn | 4.81% | 4.34% | 4.37% | 0.498 | 0.478 |
+| 2 | £545bn | 5.33% | 4.17% | 4.16% | 0.510 | 0.478 |
+| 3 | £540bn | 5.36% | 4.26% | 4.19% | 0.514 | 0.475 |
+| 6 | £530bn | 5.47% | 4.28% | 4.27% | 0.503 | 0.469 |
+| 7 | £527bn | 4.87% | 4.28% | 4.29% | 0.503 | 0.480 |
+| 8 | £524bn | 4.58% | 4.20% | 4.34% | 0.500 | 0.488 |
 
 Reading it:
 
 - Output jumps by 2 steps (2 × 5% of £500bn = £50bn), then keeps 90% of the push each turn.
-- The deficit rises 1.25 points and stays there for the minimum 6 turns, then halves its excess
-  each turn.
-- A turn later, Bank Rate rises by 1.25 × 0.3 × 0.9 ≈ 0.34 points through the deficit link.
+- The deficit rises 1.25 points and the spending holds it there for the minimum 6 turns, then
+  it halves its excess each turn. The faster growth claws some back a turn later (0.5 × 0.9 ×
+  0.9 ≈ 0.4 points), which is why it sits nearer 5.4%.
+- A turn later, Bank Rate rises by 1.25 × 0.15 × 0.9 ≈ 0.17 points through the deficit link.
 - The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
   growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
-  Bank Rate up by about 0.15 a turn after that, which is why it climbs to about 4.5%.
+  Bank Rate up by about 0.1 a turn after that, which is why it climbs to about 4.3%.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
-  (0.03 × 0.75 = 0.0225, felt by everyone while the deficit is 5.75%) takes some of that back.
+  (0.03 for each point above 5%, so 0.0225 at 5.75%, felt by everyone) takes some of that back.
 - Business owners care about the deficit and Bank Rate, so they lose approval until the deficit
-  falls back below 5%.
+  falls back below 5% in turn 7.
 
 One quirk shows here: even with no policy at all, public workers would drift slightly above their
 lean of 0.45 (to about 0.455), because the Commons' support of 0.6 is counted from 0.5, not from

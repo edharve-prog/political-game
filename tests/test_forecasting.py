@@ -32,7 +32,7 @@ from hog_sim.game.stubs import CannedScenarios
 from hog_sim.llm.client import FakeClient, LLMOutputError
 from hog_sim.llm.interpreter import Interpretation
 from hog_sim.llm.scenario_gen import ScenarioDraft, SideIssueDraft, StakeholderPosition
-from hog_sim.world.propagation import actions_to_shocks, propagate
+from hog_sim.world.propagation import NodeForecast, actions_to_shocks, propagate
 from hog_sim.world.seed.toy import toy_world
 
 TAX = PolicyAction(kind="tax", target="sector:energy", magnitude=0.5, rationale="windfall tax")
@@ -196,7 +196,11 @@ def test_none_is_the_only_tag_when_used(world, engine) -> None:
 
 
 def test_engine_text_lists_moving_indicators(world, engine) -> None:
-    text = engine_text(world, engine)
+    still = NodeForecast(
+        mean=[0.0] * engine.horizon, p10=[0.0] * engine.horizon, p90=[0.0] * engine.horizon
+    )
+    quiet = engine.model_copy(update={"nodes": {**engine.nodes, "indicator:deficit": still}})
+    text = engine_text(world, quiet)
     assert "indicator:energy_prices" in text and "indicator:deficit" not in text
 
 

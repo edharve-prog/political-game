@@ -151,6 +151,17 @@ big, but the real one was limited by rates already being near zero.
   shock now raises inflation 4.3 points and Bank Rate 1.9, takes 4.4 points off house prices and
   3.6% off manufacturing, all in or near their ranges. 10 of 28 sized checks are in range (was
   7). Directions unchanged (34 of 35); the balance test and stability check still pass.
+- **Slumps widen the deficit (2026-10-08).** Slower UK growth now raises the deficit a turn later
+  (0.5): tax receipts fall and benefit bills rise, the "automatic stabilisers". That made Bank
+  Rate rise in the 2008 crash, because borrowing pushed it up harder than the slump pulled it
+  down, so the deficit's pull on Bank Rate is halved (0.15, was 0.3): Bank Rate is set by the
+  Bank, and borrowing mostly shows in gilt yields, which the game does not have. The 2020
+  lockdown now widens the deficit by 3.7 points (was 1.0; real 8 to 13) and the 2020 Bank Rate
+  cut is in range. In play, spending now partly pays for itself through growth: a full-size
+  public spending rise lifts the deficit about 0.8 points after a turn, not 1.25. Directions
+  unchanged (34 of 35), 10 of 28 sizes in range; the balance test and stability check still
+  pass. Still timid: Bank Rate in 2008 (the crash shock only takes 1.1 points off growth,
+  against a real 4 to 6) and the mini-budget's poll hit.
 
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.

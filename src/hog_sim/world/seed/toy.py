@@ -179,7 +179,9 @@ def toy_world() -> WorldState:
         _edge("sector:finance", "indicator:house_prices", E.DRIVES, 0.4, lag=1),
         # Borrowing: markets demand higher rates and it feeds prices. What spending and tax
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
-        _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.3, lag=1),
+        # A slump widens the deficit by itself: tax receipts fall and benefit bills rise (CA-4).
+        _edge("country:uk", "indicator:deficit", E.DRIVES, -0.5, lag=1),
+        _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.15, lag=1),
         _edge("indicator:deficit", "indicator:inflation", E.DRIVES, 0.1, lag=2),
         # The pound: growth and higher rates attract money, heavy borrowing scares it off, and
         # a weaker pound makes imports dearer a couple of turns later (CA-3).
