@@ -33,7 +33,8 @@ def test_a_spending_rise_moves_the_deficit_directly() -> None:
     game = new_game()
     before = game.state
     record = game.play_turn("Fund a pay rise for nurses and teachers")
-    deficit = next(line for line in why(record, before) if "Budget deficit" in line)
+    lines = why(record, before)
+    deficit = next(line for line in lines if line.strip().startswith("Budget deficit"))
     assert "mostly your spend on Public Sector" in deficit and deficit.endswith("directly")
 
 

@@ -126,6 +126,16 @@ def toy_world() -> WorldState:
             high=25,
             persistence=0.5,
         ),
+        # Sterling against a basket of trading partners' currencies; markets set it, so no
+        # policy aims at it directly (CA-3).
+        Indicator(
+            id="indicator:exchange_rate",
+            name="Sterling exchange rate",
+            value=100,
+            unit="index",
+            low=40,
+            high=200,
+        ),
     ]
     edges = [
         # Foreign relations and trade
@@ -171,6 +181,12 @@ def toy_world() -> WorldState:
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
         _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.3, lag=1),
         _edge("indicator:deficit", "indicator:inflation", E.DRIVES, 0.1, lag=2),
+        # The pound: growth and higher rates attract money, heavy borrowing scares it off, and
+        # a weaker pound makes imports dearer a couple of turns later (CA-3).
+        _edge("country:uk", "indicator:exchange_rate", E.DRIVES, 0.3),
+        _edge("indicator:interest_rate", "indicator:exchange_rate", E.DRIVES, 0.2),
+        _edge("indicator:deficit", "indicator:exchange_rate", E.DRIVES, -0.4),
+        _edge("indicator:exchange_rate", "indicator:inflation", E.DRIVES, -0.3, lag=2),
         # Employment
         _edge("sector:public", "group:public_workers", E.EMPLOYS, 0.9, unc=0.0),
         _edge("sector:finance", "group:business", E.EMPLOYS, 0.2, unc=0.0),

@@ -51,6 +51,7 @@ def test_query_helpers(graph) -> None:
         "indicator:energy_prices": 0.3,
         "indicator:interest_rate": -0.4,
         "indicator:deficit": 0.1,
+        "indicator:exchange_rate": -0.3,
     }
     assert set(groups_caring_about(graph, "indicator:house_prices")) == {
         "group:pensioners",

@@ -36,7 +36,7 @@ episode is known for moves the right way.
 | ~~The Bank of England ignores slumps~~ (closed by CA-3) | 2008, 2020 | Bank Rate only follows inflation and the deficit |
 | ~~Credit does not reach house prices~~ (closed by CA-3) | 2008 | Finance only feeds housing output, and less building raises prices |
 | ~~Energy costs do not reach industry~~ (closed by CA-3) | 2022 | No link from energy prices to manufacturing |
-| No exchange rate | 2016 | A weaker pound cannot raise prices |
+| ~~No exchange rate~~ (closed by CA-3) | 2016 | A weaker pound cannot raise prices |
 | ~~Trade weights look swapped~~ (closed by CA-3) | 2016 | The EU moves UK growth with 0.1, the UK moves the EU's with 0.45 |
 
 ## CA-2 Stability over 120 turns (P1) — done
@@ -63,7 +63,7 @@ bound, and the furthest any indicator went was the deficit at 5.5 points over it
 intention within 44% to 49% for all 120 turns, and even its busiest indicator averages only 0.1
 to 0.2 steps from where it started. The world is quiet when the player is.
 
-## CA-3 Close the backtest gaps (P1)
+## CA-3 Close the backtest gaps (P1) — done
 
 Add or retune the links the gaps above call for, one gap per change, re-running the backtests
 and the balance test each time. Likely changes: UK growth and the finance and public sectors
@@ -103,6 +103,15 @@ the Project 16 owner first.
   later (0.3): the EU takes about half of UK goods exports. Backtests: 31 of 32 pass. Brexit now
   takes 0.12 steps off manufacturing output. Courting the EU helps industry too; the balance
   test is still within limits. Left: the exchange rate, a new indicator.
+- **The pound (2026-10-08, picked by Ed).** A new indicator, the sterling exchange rate (an index
+  starting at 100). UK growth (0.3) and Bank Rate (0.2) lift it and the deficit (-0.4) weighs on
+  it, all in the same turn; a weaker pound raises inflation two turns later (-0.3). Markets set
+  it, so no policy aims at it directly. The Brexit episode now carries the pound's overnight fall
+  as a shock (-15 index points), which raises inflation by 0.4 points (real: about 2). Three new
+  checks: the pound falls in 2008 (it does, by 3 points against a real 20 to 30), after Brexit,
+  and after the mini-budget. The mini-budget one is a new known gap: the tax cut's lift to growth
+  and rates outweighs the borrowing, so the pound rises slightly. Backtests: 34 of 35 pass. The
+  balance test and the stability check still pass.
 
 ## CA-4 Sizes, not just directions (P1, under way)
 
@@ -156,5 +165,4 @@ setting them by hand, within limits that keep the balance test passing.
 
 ## Order
 
-CA-1 and CA-2 (done), CA-3 (all but the exchange rate, which waits for Project 2), then CA-4
-and CA-5. CA-6 and CA-7 later.
+CA-1, CA-2 and CA-3 (done, bar the mini-budget's pound), then CA-4 and CA-5. CA-6 and CA-7 later.

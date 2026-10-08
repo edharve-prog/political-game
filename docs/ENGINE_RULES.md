@@ -57,7 +57,8 @@ weight -0.4, so higher inflation lowers their approval.
 The only world today is the hand-built UK in `world/seed/toy.py`: the UK, the EU and China; five
 sectors (energy, finance, manufacturing, housing, public); four groups (pensioners, young
 renters, public sector workers, business owners); the House of Commons and the Bank of England;
-and six indicators (inflation, unemployment, Bank Rate, energy prices, house prices, deficit).
+and seven indicators (inflation, unemployment, Bank Rate, energy prices, house prices, deficit,
+and the pound's exchange rate).
 Its numbers are illustrative round figures, not sourced data.
 
 ---
@@ -278,6 +279,9 @@ deficit raises Bank Rate (0.3, one turn) and inflation (0.1, two
 turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
 0.5), and slower growth raises unemployment a turn later (0.4). EU growth reaches UK growth
 (0.45) and, a turn later, UK manufacturing (0.3), since the EU buys half of UK goods exports.
+The pound rises with UK growth (0.3) and Bank Rate (0.2) and falls with the deficit (0.4), all in
+the same turn; a weaker pound raises inflation two turns later (0.3). No policy can aim at the
+pound directly.
 
 ### Stability guard
 
@@ -577,9 +581,9 @@ This is what the engine actually produces (no outcome effects, no scenario shock
 | 1 | £550bn | 5.75% | 4.00% | 4.50% | 0.489 | 0.479 |
 | 2 | £545bn | 5.75% | 4.34% | 4.16% | 0.505 | 0.467 |
 | 3 | £540bn | 5.75% | 4.49% | 4.19% | 0.507 | 0.459 |
-| 6 | £530bn | 5.75% | 4.50% | 4.27% | 0.495 | 0.452 |
-| 7 | £527bn | 5.12% | 4.49% | 4.29% | 0.498 | 0.466 |
-| 8 | £524bn | 4.81% | 4.31% | 4.37% | 0.499 | 0.478 |
+| 6 | £530bn | 5.75% | 4.52% | 4.27% | 0.495 | 0.452 |
+| 7 | £527bn | 5.12% | 4.51% | 4.29% | 0.497 | 0.466 |
+| 8 | £524bn | 4.81% | 4.34% | 4.37% | 0.498 | 0.478 |
 
 Reading it:
 
@@ -627,8 +631,9 @@ moved the way it did in reality, against the start, against the same shocks with
 for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
-expects them to keep failing until the link is added. The one left: there is no exchange
-rate, so a weaker pound cannot raise prices. Run `uv run python -m hog_sim.game.backtests` to see the report.
+expects them to keep failing until the link is added. The one left: the 2022 mini-budget
+should sink the pound, but in the game its lift to growth and Bank Rate outweighs the extra
+borrowing, because markets never lose faith in a government's plans. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 Most checks also record the rough range the number really moved within the episode's year, in
 its own units (points for rates, index points for prices, per cent of output for sectors). The
