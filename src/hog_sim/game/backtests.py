@@ -199,11 +199,7 @@ EPISODES = [
                 direction=1,
                 gap="There is no exchange rate, so a weaker pound cannot raise prices.",
             ),
-            Check(
-                node="sector:manufacturing",
-                direction=-1,
-                gap="EU trade does not reach UK industry's output.",
-            ),
+            Check(node="sector:manufacturing", direction=-1),
         ],
     ),
 ]
