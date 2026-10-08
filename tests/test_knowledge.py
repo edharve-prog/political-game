@@ -74,8 +74,10 @@ def test_valid_graph_changes_apply(world) -> None:
     assert new.countries["country:china"].relationship == pytest.approx(
         world.countries["country:china"].relationship - 0.1
     )
+    before = {(e.source, e.target, e.kind): e.weight for e in world.edges}
     weights = {(e.source, e.target, e.kind): e.weight for e in new.edges}
-    assert weights[("country:uk", "country:eu", EdgeKind.TRADES_WITH)] == pytest.approx(0.5)
+    uk_eu = ("country:uk", "country:eu", EdgeKind.TRADES_WITH)
+    assert weights[uk_eu] == pytest.approx(before[uk_eu] + 0.05)
     assert weights[("sector:finance", "sector:public", EdgeKind.SUPPLIES)] == 0.2
     assert len(world.edges) == len(new.edges) - 1  # the input state is untouched
 

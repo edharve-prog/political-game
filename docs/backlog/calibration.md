@@ -37,7 +37,7 @@ episode is known for moves the right way.
 | ~~Credit does not reach house prices~~ (closed by CA-3) | 2008 | Finance only feeds housing output, and less building raises prices |
 | ~~Energy costs do not reach industry~~ (closed by CA-3) | 2022 | No link from energy prices to manufacturing |
 | No exchange rate | 2016 | A weaker pound cannot raise prices |
-| Trade weights look swapped | 2016 | The EU moves UK growth with 0.1, the UK moves the EU's with 0.45 |
+| ~~Trade weights look swapped~~ (closed by CA-3) | 2016 | The EU moves UK growth with 0.1, the UK moves the EU's with 0.45 |
 
 ## CA-2 Stability over 120 turns (P1) — done
 
@@ -96,6 +96,10 @@ the Project 16 owner first.
   output (real: energy-intensive industry fell far more, manufacturing as a whole a few
   percent). Energy levers (deregulating, capping bills) now also help industry; the balance
   test is still within limits, with no single lever winning more than 1 game in 5.
+- **UK–EU trade weights swapped (2026-10-08).** The EU now moves UK growth with weight 0.45
+  and the UK moves the EU's with 0.1, matching the EU taking over 40% of UK exports. Backtests:
+  30 of 32 pass. The Brexit episode now takes 0.17 points off UK growth. Left: no exchange rate,
+  and EU trade still does not reach UK industry's output.
 
 ## CA-4 Sizes, not just directions (P2)
 
