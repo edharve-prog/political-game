@@ -116,6 +116,12 @@ EPISODES = [
             Check(
                 node="indicator:house_prices", direction=-1, against="shocks_only", real=(-20, -12)
             ),
+            Check(
+                node="indicator:exchange_rate",
+                direction=-1,
+                against="shocks_only",
+                real=(-30, -20),
+            ),
         ],
     ),
     Episode(
@@ -178,6 +184,13 @@ EPISODES = [
             Check(node="indicator:house_prices", direction=-1, real=(-4, -1)),
             Check(node="group:business", direction=-1),
             Check(node=VOTE, direction=-1, real=(-0.12, -0.08)),
+            Check(
+                node="indicator:exchange_rate",
+                direction=-1,
+                gap="The tax cut's lift to growth and rates outweighs the borrowing; markets "
+                "never lose faith in a government's plans.",
+                real=(-8, -2),
+            ),
         ],
     ),
     Episode(
@@ -203,16 +216,17 @@ EPISODES = [
     Episode(
         name="2016 Brexit referendum",
         happened=(
-            "The vote to leave hit relations with the EU and the pound fell. Imported "
-            "inflation rose, business investment stalled and growth slowed."
+            "The vote to leave hit relations with the EU and the pound fell by about a sixth "
+            "overnight. Imported inflation rose, business investment stalled and growth slowed."
         ),
+        shocks=[shock("indicator:exchange_rate", -1.5)],
         actions=[act("diplomatic", "country:eu", -0.8, 6)],
         checks=[
             Check(node="country:uk", direction=-1, real=(-1.5, -0.5)),
+            Check(node="indicator:exchange_rate", direction=-1, real=(-20, -10)),
             Check(
                 node="indicator:inflation",
                 direction=1,
-                gap="There is no exchange rate, so a weaker pound cannot raise prices.",
                 real=(1.5, 2.5),
             ),
             Check(node="sector:manufacturing", direction=-1),
