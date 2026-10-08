@@ -273,7 +273,7 @@ spread changes, and never into population groups (approval has its own rules, se
 Example from the starting world: higher energy prices raise inflation (weight 0.6, one turn
 later) and cut manufacturing output (0.1, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
 prices (0.25, three turns later) and inflation (0.4, six turns later), and raises unemployment
-(0.2, six turns later). Higher unemployment lowers Bank Rate (0.5, one turn later): the Bank cuts
+(0.2, six turns later). Higher unemployment lowers Bank Rate (1.0, one turn later): the Bank cuts
 in a slump. More output from finance raises house prices a turn later (0.4): credit. A higher
 deficit raises Bank Rate (0.15, one turn) and inflation (0.1, two
 turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
@@ -581,10 +581,10 @@ This is what the engine actually produces (no outcome effects, no scenario shock
 | start | £500bn | 4.50% | 4.00% | 4.50% | 0.450 | 0.500 |
 | 1 | £550bn | 5.75% | 4.00% | 4.50% | 0.489 | 0.479 |
 | 2 | £545bn | 5.33% | 4.17% | 4.16% | 0.510 | 0.478 |
-| 3 | £540bn | 5.36% | 4.26% | 4.19% | 0.514 | 0.475 |
-| 6 | £530bn | 5.47% | 4.28% | 4.27% | 0.503 | 0.469 |
-| 7 | £527bn | 4.87% | 4.28% | 4.29% | 0.503 | 0.480 |
-| 8 | £524bn | 4.58% | 4.20% | 4.34% | 0.500 | 0.488 |
+| 3 | £540bn | 5.36% | 4.42% | 4.19% | 0.514 | 0.474 |
+| 6 | £530bn | 5.47% | 4.40% | 4.27% | 0.503 | 0.467 |
+| 7 | £527bn | 4.87% | 4.38% | 4.29% | 0.503 | 0.478 |
+| 8 | £524bn | 4.58% | 4.29% | 4.34% | 0.500 | 0.486 |
 
 Reading it:
 
@@ -595,7 +595,7 @@ Reading it:
 - A turn later, Bank Rate rises by 1.25 × 0.15 × 0.9 ≈ 0.17 points through the deficit link.
 - The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
   growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
-  Bank Rate up by about 0.1 a turn after that, which is why it climbs to about 4.3%.
+  Bank Rate up by about 0.3 a turn after that, which is why it climbs to about 4.4%.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
   (0.03 for each point above 5%, so 0.0225 at 5.75%, felt by everyone) takes some of that back.
