@@ -141,6 +141,17 @@ A few go too far: the 2010 public spending cut takes 6% off public sector output
 does too little (14% of the job losses it really prevented). The 2020 Bank Rate cut is also too
 big, but the real one was limited by rates already being near zero.
 
+**Progress:**
+
+- **Energy shocks at real size (2026-10-08).** The 2022 episodes now put energy prices up 80
+  index points, inside the real rise, instead of 30. With the old weights inflation then rose
+  only 2.2 points and manufacturing fell 7% (real: 4 to 7 points and 1% to 5%). So energy prices
+  now feed inflation twice as hard (0.6, was 0.3) and manufacturing half as hard (0.1, was 0.2).
+  Bank Rate then overshot house prices, so its pull on them is halved (0.25, was 0.5). The 2022
+  shock now raises inflation 4.3 points and Bank Rate 1.9, takes 4.4 points off house prices and
+  3.6% off manufacturing, all in or near their ranges. 10 of 28 sized checks are in range (was
+  7). Directions unchanged (34 of 35); the balance test and stability check still pass.
+
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.
 

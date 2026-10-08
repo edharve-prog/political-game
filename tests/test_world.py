@@ -48,7 +48,7 @@ def test_edges_of_filters_by_kind_and_direction(graph) -> None:
 def test_query_helpers(graph) -> None:
     assert groups_employed_by(graph, "sector:public") == {"group:public_workers": 0.9}
     assert drivers_of(graph, "indicator:inflation") == {
-        "indicator:energy_prices": 0.3,
+        "indicator:energy_prices": 0.6,
         "indicator:interest_rate": -0.4,
         "indicator:deficit": 0.1,
         "indicator:exchange_rate": -0.3,
