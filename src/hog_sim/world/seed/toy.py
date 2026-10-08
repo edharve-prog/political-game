@@ -151,6 +151,8 @@ def toy_world() -> WorldState:
         # inflation is applied straight to Bank Rate. Its support for the government does
         # not move rates.
         _edge("indicator:inflation", "indicator:interest_rate", E.DRIVES, 0.5, lag=1),
+        # It also cuts when unemployment rises, as in 2008 and 2020 (CA-3).
+        _edge("indicator:unemployment", "indicator:interest_rate", E.DRIVES, -0.5, lag=1),
         _edge("indicator:interest_rate", "indicator:inflation", E.DRIVES, -0.4, lag=6),
         _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.5, lag=3),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),

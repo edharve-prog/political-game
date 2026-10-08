@@ -39,6 +39,10 @@ LIMITS = {
     # inside the bound above. Averages, not peaks, so one late shock that fades is fine.
     "max_late_growth": 1.5,
     "late_growth_slack": 0.5,
+    # ...and only once that late average is big enough to matter. A policy held for the whole
+    # game through a long-lag link (housebuilding moves prices 12 turns later) settles slowly
+    # and can look like growth while it is still well inside normal swings.
+    "min_late_level_for_growth": 2.0,
     "max_share_of_turns_at_a_bound": 0.1,
     # Still moving at the end: vote intention's range and the share of indicators with any
     # spread over the closing window.
@@ -126,7 +130,8 @@ def problems(runs: list[Run]) -> list[str]:
             early, late = _level(values[:half]), _level(values[half:])
             if _peak(values) > LIMITS["max_steps_from_start"]:
                 found.append(f"{who}: {name} moved {_peak(values):.1f} steps from its start")
-            if late > LIMITS["max_late_growth"] * early + LIMITS["late_growth_slack"]:
+            growing = late > LIMITS["max_late_growth"] * early + LIMITS["late_growth_slack"]
+            if growing and late >= LIMITS["min_late_level_for_growth"]:
                 found.append(
                     f"{who}: {name} keeps growing (average {early:.2f} then {late:.2f} steps)"
                 )

@@ -95,7 +95,6 @@ EPISODES = [
                 node="indicator:interest_rate",
                 direction=-1,
                 against="shocks_only",
-                gap="The Bank of England only reacts to inflation and the deficit, not to a slump.",
             ),
             Check(
                 node="indicator:house_prices",
@@ -185,7 +184,6 @@ EPISODES = [
                 node="indicator:interest_rate",
                 direction=-1,
                 against="shocks_only",
-                gap="The Bank of England does not react to a slump (rates went to 0.1%).",
             ),
         ],
     ),
