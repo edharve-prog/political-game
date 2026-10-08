@@ -160,6 +160,8 @@ def toy_world() -> WorldState:
         # Okun's law: slower growth costs jobs a turn later (CA-3).
         _edge("country:uk", "indicator:unemployment", E.DRIVES, -0.4, lag=1),
         _edge("sector:housing", "indicator:house_prices", E.DRIVES, -0.3, lag=12),
+        # Credit: when banks lend more, buyers can borrow more and prices rise (CA-3).
+        _edge("sector:finance", "indicator:house_prices", E.DRIVES, 0.4, lag=1),
         # Borrowing: markets demand higher rates and it feeds prices. What spending and tax
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
         _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.3, lag=1),

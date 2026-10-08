@@ -34,7 +34,7 @@ episode is known for moves the right way.
 |---|---|---|
 | ~~A slump does not cost jobs~~ (closed by CA-3) | 2008, 2010 | No link from finance, public sector output or UK growth to unemployment |
 | ~~The Bank of England ignores slumps~~ (closed by CA-3) | 2008, 2020 | Bank Rate only follows inflation and the deficit |
-| Credit does not reach house prices | 2008 | Finance only feeds housing output, and less building raises prices |
+| ~~Credit does not reach house prices~~ (closed by CA-3) | 2008 | Finance only feeds housing output, and less building raises prices |
 | Energy costs do not reach industry | 2022 | No link from energy prices to manufacturing |
 | No exchange rate | 2016 | A weaker pound cannot raise prices |
 | Trade weights look swapped | 2016 | The EU moves UK growth with 0.1, the UK moves the EU's with 0.45 |
@@ -88,6 +88,9 @@ the Project 16 owner first.
   12-turn lag from housebuilding settles slowly, from an average of 0.6 steps in the first half
   to 1.5 in the second. That is a held policy settling, not a runaway, so the growth check now
   also needs the late average to reach 2 steps.
+- **Credit reaches house prices (2026-10-08).** Finance output now drives house prices a turn
+  later (0.4): when banks lend more, buyers can borrow more. Backtests: 28 of 32 pass. The 2008
+  shock alone now takes about 11 points off the house price index (real: roughly 15% to 20%).
 
 ## CA-4 Sizes, not just directions (P2)
 
