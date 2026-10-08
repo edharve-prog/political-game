@@ -162,6 +162,16 @@ big, but the real one was limited by rates already being near zero.
   unchanged (34 of 35), 10 of 28 sizes in range; the balance test and stability check still
   pass. Still timid: Bank Rate in 2008 (the crash shock only takes 1.1 points off growth,
   against a real 4 to 6) and the mini-budget's poll hit.
+- **2008 as a full recession (2026-10-08).** The 2008 episode only hit the banks, so growth fell
+  1 point against a real swing of about 7 (from +2.4% in 2007 to -4.6% in 2009). It now also
+  carries the world recession that came with it (-5 points of UK growth). And the Bank of England
+  now cuts twice as hard when unemployment rises (1.0 per point, was 0.5). The crash alone now
+  raises unemployment 2.3 points (real 2 to 3.5), widens the deficit 3.6 points (real 4 to 8),
+  takes 25 points off the pound (real 20 to 30) and cuts Bank Rate 1.7 points (real about 4.5,
+  when the Bank also cut in one go and began printing money). 12 of 28 sizes are in range (was
+  10). The 2020 Bank Rate cut now overshoots, at 1.75 points against a real 0.65: the game
+  starts Bank Rate at 4%, but in 2020 it was already at 0.75% and could fall no further.
+  Directions unchanged (34 of 35); the balance test and stability check still pass.
 
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.

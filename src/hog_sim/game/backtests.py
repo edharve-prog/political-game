@@ -99,7 +99,9 @@ EPISODES = [
             "jumped, the Bank of England cut rates to 0.5%, unemployment rose from about 5% to "
             "8% and house prices fell."
         ),
-        shocks=[shock("sector:finance", -3)],
+        # Bank losses, and the world recession that came with them: UK growth swung from
+        # +2.4% in 2007 to -4.6% in 2009.
+        shocks=[shock("sector:finance", -3), shock("country:uk", -5)],
         actions=[act("spend", "sector:finance", 0.8, 4)],
         checks=[
             Check(node="sector:finance", direction=-1),
