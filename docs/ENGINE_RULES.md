@@ -270,7 +270,7 @@ together until they settle. Only `DRIVES`, `SUPPLIES`, `TRADES_WITH` and `INFLUE
 spread changes, and never into population groups (approval has its own rules, section 6).
 
 Example from the starting world: higher energy prices raise inflation (weight 0.3, one turn
-later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
+later) and cut manufacturing output (0.2, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
 prices (0.5, three turns later) and inflation (0.4, six turns later), and raises unemployment
 (0.2, six turns later). Higher unemployment lowers Bank Rate (0.5, one turn later): the Bank cuts
 in a slump. More output from finance raises house prices a turn later (0.4): credit. A higher
@@ -627,7 +627,7 @@ for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
 expects them to keep failing until the link is added. The main gaps: there is no exchange
-rate, energy costs do not reach industry, and the UK–EU trade weights
+rate, and the UK–EU trade weights
 look swapped. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 ### Long games
