@@ -158,10 +158,10 @@ CONFIDENCE_THRESHOLD = 0.75
 CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": -0.8}
 
 
-def unfunded_tax_cut(actions: list[PolicyAction]) -> float:
+def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
     """Steps of deficit a turn from this turn's tax cuts that nothing else this turn pays for,
     or 0 when that is under ``CONFIDENCE_THRESHOLD``."""
-    costs = [fiscal_cost(a) for a in actions]
+    costs = [fiscal_cost(a, state) for a in actions]
     cuts = sum(c for a, c in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0)
     savings = sum(-c for c in costs if c < 0)
     unfunded = cuts - savings
@@ -249,12 +249,24 @@ def fiscal_size(action: PolicyAction) -> float:
     return action.magnitude
 
 
-def fiscal_cost(action: PolicyAction) -> float:
+def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float:
+    """Steps of deficit a turn per unit of magnitude. Aimed at a sector, the cost is the
+    output the action pushes, as a share of the player's GDP (CA-4): the money spent on, or
+    taxed from, the sector is the output it adds or removes. Anything else costs
+    ``FISCAL_STEPS``."""
+    if state is None or action.target not in state.sectors:
+        return FISCAL_STEPS
+    gdp = state.countries[state.player_country].gdp_bn
+    output = ACTION_STEPS * scale(state, action.target)
+    return output / gdp * 100 / scale(state, FISCAL_NODE)
+
+
+def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     """Standard steps a turn that the action adds to the deficit while it runs (negative
     when it takes them off). Actions aimed at the deficit itself have no separate cost."""
     if action.target == FISCAL_NODE:
         return 0.0
-    return _FISCAL_SIGN.get(action.kind, 0.0) * fiscal_size(action) * FISCAL_STEPS
+    return _FISCAL_SIGN.get(action.kind, 0.0) * fiscal_size(action) * fiscal_steps(action, state)
 
 
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
@@ -288,7 +300,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     and e.target == action.target
                     and e.source in state.sectors
                 ]
-        cost = fiscal_cost(action)
+        cost = fiscal_cost(action, state)
         if fiscal and cost:
             shocks.append(
                 Shock(
@@ -298,7 +310,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     hold=True,
                 )
             )
-    loss = unfunded_tax_cut(actions)
+    loss = unfunded_tax_cut(actions, state)
     if state is not None and loss:
         shocks += [
             Shock(node=node, delta=size * loss)
