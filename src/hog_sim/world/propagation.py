@@ -168,6 +168,39 @@ def unfunded_tax_cut(actions: list[PolicyAction]) -> float:
     return unfunded if unfunded >= CONFIDENCE_THRESHOLD else 0.0
 
 
+# Job protection (CA-4): spending aimed at unemployment is a wage subsidy, such as the 2020
+# furlough scheme. It does not push unemployment down. While it runs it holds back
+# JOB_PROTECTION of any rise in unemployment its drivers would cause, per unit of magnitude,
+# so firms keep their staff through a slump; in good times it only costs money. It covers job
+# losses from shocks that land while it runs, not ones already under way, and costs the same as
+# any other spending.
+JOB_NODE = "indicator:unemployment"
+JOB_PROTECTION = 0.8
+
+
+def protects_jobs(action: PolicyAction) -> bool:
+    return action.kind == "spend" and action.target == JOB_NODE
+
+
+def job_protection(state: WorldState, actions: list[PolicyAction]) -> dict[int, float]:
+    """Share of job losses held back on each absolute turn: what earlier schemes still cover,
+    plus this turn's spending on unemployment. Overlapping schemes cover the larger share."""
+    cover = {t: share for t, share in state.job_protection.items() if t >= state.turn}
+    for action in actions:
+        if protects_jobs(action):
+            share = min(1.0, JOB_PROTECTION * abs(action.magnitude))
+            for t in range(state.turn, state.turn + action.duration_turns):
+                cover[t] = max(cover.get(t, 0.0), share)
+    return cover
+
+
+def _held(node_id: str, push: float, share: float) -> float:
+    """What drivers pass on to a node once job protection holds back its share of a rise."""
+    if node_id == JOB_NODE and share and push > 0:
+        return push * (1 - share)
+    return push
+
+
 # Regulating an indicator (a price cap, a rent control) trims the output of the sectors that
 # drive it, by this share of the push.
 REGULATION_OUTPUT_COST = 0.25
@@ -239,7 +272,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
             continue
-        push = action_factor(action) * action.magnitude
+        push = 0.0 if protects_jobs(action) else action_factor(action) * action.magnitude
         if push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
@@ -315,12 +348,16 @@ def simulate(
     shocks: list[Shock],
     horizon: int,
     weights: dict[int, float] | None = None,
+    protection: dict[int, float] | None = None,
 ) -> dict[str, list[float]]:
     """One deterministic run. Returns standard-step deviations per node per turn.
 
     ``weights`` overrides edge weights by index into the propagating edge list (used by
-    Monte Carlo draws).
+    Monte Carlo draws). ``protection`` is the job protection in force by absolute turn (see
+    ``job_protection``); None uses the state's own.
     """
+    if protection is None:
+        protection = state.job_protection
     edges = _propagating_edges(state)
     lagged: dict[str, list[tuple[str, float, int]]] = defaultdict(list)
     instant: dict[str, list[tuple[str, float]]] = defaultdict(list)
@@ -347,17 +384,20 @@ def simulate(
     trajectory: dict[str, list[float]] = {n: [] for n in node_ids}
     for t in range(horizon):
         now = arrivals.pop(t, {})
-        base = {}
+        share = protection.get(state.turn + t, 0.0)
+        driven = {}
+        level = {}
         for n in node_ids:
             own[n] = own[n] * keep[n] + now.get(n, 0.0)
-            base[n] = own[n] + sum(
+            driven[n] = sum(
                 f * trajectory[src][t - lag] for src, f, lag in lagged[n] if t - lag >= 0
             )
-        level = dict(base)
+            level[n] = own[n] + _held(n, driven[n], share)
         for _ in range(MAX_ITERATIONS):
             change = 0.0
             for n, inputs in instant.items():
-                value = base[n] + sum(f * level[src] for src, f in inputs)
+                push = driven[n] + sum(f * level[src] for src, f in inputs)
+                value = own[n] + _held(n, push, share)
                 change = max(change, abs(value - level[n]) / max(1.0, abs(value)))
                 level[n] = value
             if change < TOLERANCE:
@@ -378,6 +418,7 @@ def propagate(
     horizon: int = 12,
     k_draws: int = 200,
     seed: int = 0,
+    protection: dict[int, float] | None = None,
 ) -> DeltaDistribution:
     """Monte Carlo propagation. Returns mean and 10th/90th percentiles in native units."""
     edges = _propagating_edges(state)
@@ -385,7 +426,7 @@ def propagate(
     for k in range(k_draws):
         rng = make_rng(seed, state.turn, f"mc:{k}")
         weights = {i: rng.gauss(e.weight, e.uncertainty) for i, e in enumerate(edges)}
-        draws.append(simulate(state, shocks, horizon, weights))
+        draws.append(simulate(state, shocks, horizon, weights, protection))
 
     scales = {node_id: scale(state, node_id) for node_id in state.node_ids()}
     nodes = {}

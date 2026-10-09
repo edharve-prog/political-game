@@ -88,7 +88,13 @@ def toy_world() -> WorldState:
             id="indicator:inflation", name="CPI inflation", value=3.5, unit="%", low=-3, high=30
         ),
         Indicator(
-            id="indicator:unemployment", name="Unemployment", value=4.5, unit="%", low=2, high=25
+            id="indicator:unemployment",
+            name="Unemployment",
+            value=4.5,
+            unit="%",
+            low=2,
+            high=25,
+            interventions=["spend"],  # a wage subsidy such as furlough (CA-4)
         ),
         Indicator(
             id="indicator:interest_rate",

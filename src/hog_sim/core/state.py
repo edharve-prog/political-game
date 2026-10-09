@@ -37,6 +37,10 @@ class WorldState(Model):
         default_factory=dict,
         description="Effects still in flight: absolute turn -> node id -> native-unit change",
     )
+    job_protection: dict[int, float] = Field(
+        default_factory=dict,
+        description="Wage subsidies in force: absolute turn -> share of job losses held back",
+    )
     storylines: dict[str, Storyline] = Field(default_factory=dict)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     characters: dict[str, Character] = Field(

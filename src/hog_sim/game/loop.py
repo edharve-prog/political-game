@@ -47,7 +47,14 @@ from hog_sim.population.popularity import policy_events, run_election, step_appr
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.events import event_shocks
-from hog_sim.world.propagation import actions_to_shocks, apply_deltas, propagate, scale, simulate
+from hog_sim.world.propagation import (
+    actions_to_shocks,
+    apply_deltas,
+    job_protection,
+    propagate,
+    scale,
+    simulate,
+)
 from hog_sim.world.storylines import advance_storylines
 
 INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each turn
@@ -97,7 +104,8 @@ def resolve(
         + outcome.shocks
         + event_shocks(outcome.events, state)
     )
-    trajectory = simulate(state, shocks, config.horizon)
+    cover = job_protection(state, actions)
+    trajectory = simulate(state, shocks, config.horizon, protection=cover)
 
     pending = {t: dict(d) for t, d in state.pending.items()}
     for node_id, series in trajectory.items():
@@ -113,6 +121,7 @@ def resolve(
     now = pending.pop(state.turn, {})
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
+    new.job_protection = {t: share for t, share in cover.items() if t > state.turn}
     new.events = [*new.events, *policy_events(actions, state.groups), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
     new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
@@ -252,7 +261,14 @@ class Game:
         state, scenario, cfg = self.state, self.scenario, self.config
         actions = proposal.actions
         shocks = actions_to_shocks(actions, state) + scenario.shocks
-        engine = propagate(state, shocks, cfg.horizon, cfg.k_draws, cfg.seed)
+        engine = propagate(
+            state,
+            shocks,
+            cfg.horizon,
+            cfg.k_draws,
+            cfg.seed,
+            protection=job_protection(state, actions),
+        )
         candidates = self.forecaster.forecast(
             state,
             scenario,
