@@ -176,16 +176,20 @@ An action holds its push at full strength for its whole duration, then lets it f
 
 ### Money: the deficit
 
-Spending and tax also move `indicator:deficit`, as a flow. Each unit of spending (or of tax
-cut) keeps the deficit **1.25 points of GDP higher** for as long as the policy runs, and for at
-least 6 turns even for a one-off. A tax rise of the same size takes the same off. Spending or
+Spending and tax also move `indicator:deficit`, as a flow, for as long as the policy runs, and
+for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) is the
+output the action adds (or removes), as a share of GDP: a full-size rise in public spending
+adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while the same rise
+for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
+whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
+points higher**. A tax rise of the same size takes the same off. Spending or
 taxing aimed at an indicator always costs or raises money in the obvious way: a subsidy to lower
 bills still costs, and a tax to cool house prices still raises revenue. Actions aimed at the
 deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
-deficit (a tax cut of magnitude 0.6 or more). For each point of unfunded cut, Bank Rate jumps 0.4
+deficit (a tax cut of magnitude 0.6 or more on the whole country). For each point of unfunded cut, Bank Rate jumps 0.4
 points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
@@ -564,7 +568,7 @@ what is coming in the next six turns.
 | Forecast horizon, random draws | 24 turns, 100 draws | `core/config.py` |
 | Political capital a turn | 1.5 | `core/config.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
-| Deficit cost per unit of spending | 1.25 points, for at least 6 turns | `world/propagation.py` |
+| Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |
 | Max same-turn loop gain | 0.9 | `world/propagation.py` |
 | Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
@@ -599,28 +603,30 @@ This is what the engine actually produces (no outcome effects, no scenario shock
 | After turn | Public sector output | Deficit | Bank Rate | Unemployment | Public workers | Business owners |
 |---|---|---|---|---|---|---|
 | start | £500bn | 4.50% | 4.00% | 4.50% | 0.450 | 0.500 |
-| 1 | £550bn | 5.75% | 4.00% | 4.50% | 0.489 | 0.479 |
-| 2 | £545bn | 5.33% | 4.17% | 4.16% | 0.510 | 0.478 |
-| 3 | £540bn | 5.36% | 4.42% | 4.19% | 0.514 | 0.474 |
-| 6 | £530bn | 5.47% | 4.40% | 4.27% | 0.503 | 0.467 |
-| 7 | £527bn | 4.87% | 4.38% | 4.29% | 0.503 | 0.478 |
-| 8 | £524bn | 4.58% | 4.29% | 4.34% | 0.500 | 0.486 |
+| 1 | £550bn | 6.35% | 4.00% | 4.50% | 0.482 | 0.466 |
+| 2 | £545bn | 5.93% | 4.25% | 4.16% | 0.499 | 0.457 |
+| 3 | £540bn | 5.96% | 4.50% | 4.19% | 0.500 | 0.449 |
+| 6 | £530bn | 6.07% | 4.53% | 4.27% | 0.487 | 0.439 |
+| 7 | £527bn | 5.17% | 4.51% | 4.29% | 0.492 | 0.458 |
+| 8 | £524bn | 4.73% | 4.38% | 4.36% | 0.495 | 0.475 |
 
 Reading it:
 
 - Output jumps by 2 steps (2 × 5% of £500bn = £50bn), then keeps 90% of the push each turn.
-- The deficit rises 1.25 points and the spending holds it there for the minimum 6 turns, then
-  it halves its excess each turn. The faster growth claws some back a turn later (0.5 × 0.9 ×
-  0.9 ≈ 0.4 points), which is why it sits nearer 5.4%.
-- A turn later, Bank Rate rises by 1.25 × 0.15 × 0.9 ≈ 0.17 points through the deficit link.
+- The deficit rises by the £50bn spent as a share of £2,700bn GDP, 1.85 points, and the
+  spending holds it there for the minimum 6 turns, then it halves its excess each turn. The
+  faster growth claws some back a turn later (0.5 × 0.9 × 0.9 ≈ 0.4 points), which is why it
+  sits nearer 6%.
+- A turn later, Bank Rate rises by 1.85 × 0.15 × 0.9 ≈ 0.25 points through the deficit link.
 - The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
   growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
-  Bank Rate up by about 0.3 a turn after that, which is why it climbs to about 4.4%.
+  Bank Rate up by about 0.3 a turn after that, which is why it climbs to about 4.5%.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
-  (0.03 for each point above 5%, so 0.0225 at 5.75%, felt by everyone) takes some of that back.
-- Business owners care about the deficit and Bank Rate, so they lose approval until the deficit
-  falls back below 5% in turn 7.
+  (0.03 for each point above 5%, so about 0.04 at 6.35%, felt by everyone) takes some of that
+  back.
+- Business owners care about the deficit and Bank Rate, so they lose approval until the
+  spending's cost ends after turn 6 and the deficit starts to fall.
 
 One quirk shows here: even with no policy at all, public workers would drift slightly above their
 lean of 0.45 (to about 0.455), because the Commons' support of 0.6 is counted from 0.5, not from
@@ -658,7 +664,7 @@ expects them to keep failing until the link is added. None are left today. Run `
 Most checks also record the rough range the number really moved within the episode's year, in
 its own units (points for rates, index points for prices, per cent of output for sectors). The
 same command prints how big the engine's move is against that range. This is a report, not a
-test: 16 of 28 sized moves fall inside their range, and most of the rest are too small.
+test: 18 of 28 sized moves fall inside their range, and most of the rest are too small.
 
 ### Long games
 

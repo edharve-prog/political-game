@@ -103,7 +103,7 @@ def fit_deficit(
     if deficit is None:
         return actions, None
     step = scale(state, FISCAL_NODE)
-    costs = [fiscal_cost(a) * step for a in actions]
+    costs = [fiscal_cost(a, state) * step for a in actions]
     loosening = sum(c for c in costs if c > 0)
     landing = state.pending.get(state.turn, {}).get(FISCAL_NODE, 0.0)
     projected = deficit.value + landing + sum(costs)

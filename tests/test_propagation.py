@@ -108,7 +108,7 @@ def test_spending_and_tax_move_the_deficit(world) -> None:
         [PolicyAction(kind="spend", target="sector:housing", magnitude=0.5)], world
     )
     tax = actions_to_shocks(
-        [PolicyAction(kind="tax", target="sector:finance", magnitude=0.5)], world
+        [PolicyAction(kind="tax", target="sector:housing", magnitude=0.5)], world
     )
     talk = actions_to_shocks(
         [PolicyAction(kind="communicate", target="sector:housing", magnitude=0.5)], world
@@ -117,6 +117,11 @@ def test_spending_and_tax_move_the_deficit(world) -> None:
     assert deficit > 0
     assert {s.node: s.delta for s in tax}["indicator:deficit"] == -deficit
     assert "indicator:deficit" not in {s.node for s in talk}
+    # Aimed at a sector, the cost is the output pushed, so a bigger sector costs more (CA-4)
+    public = actions_to_shocks(
+        [PolicyAction(kind="spend", target="sector:public", magnitude=0.5)], world
+    )
+    assert {s.node: s.delta for s in public}["indicator:deficit"] > deficit
     # Without a state there is no fiscal shock, so worlds without a deficit still work
     assert (
         len(actions_to_shocks([PolicyAction(kind="spend", target="sector:housing", magnitude=0.5)]))

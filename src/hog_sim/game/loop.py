@@ -122,7 +122,7 @@ def resolve(
     new = apply_deltas(_record_history(state), now)
     new.pending = pending
     new.job_protection = {t: share for t, share in cover.items() if t > state.turn}
-    new.events = [*new.events, *policy_events(actions, state.groups), *outcome.approval_events]
+    new.events = [*new.events, *policy_events(actions, state), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
     new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)

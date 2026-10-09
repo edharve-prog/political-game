@@ -129,11 +129,11 @@ EPISODES = [
     Episode(
         name="2010 austerity",
         happened=(
-            "Spending cuts aimed at the deficit. Borrowing fell, public sector pay was frozen "
-            "and around 500,000 public sector jobs went; public sector workers turned against "
-            "the government."
+            "Spending cuts and a VAT rise (to 20%) aimed at the deficit. Borrowing fell, public "
+            "sector pay was frozen and around 500,000 public sector jobs went; public sector "
+            "workers turned against the government."
         ),
-        actions=[act("spend", "sector:public", -0.6, 12)],
+        actions=[act("spend", "sector:public", -0.35, 12), act("tax", "country:uk", 0.4, 12)],
         checks=[
             Check(node="indicator:deficit", direction=-1, real=(-3, -1)),
             Check(node="sector:public", direction=-1, real=(-4, -1)),
