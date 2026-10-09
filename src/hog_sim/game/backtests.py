@@ -196,7 +196,7 @@ EPISODES = [
             "so unemployment rose far less than feared, while borrowing hit a peacetime record."
         ),
         shocks=[shock("country:uk", -5), shock("sector:manufacturing", -3)],
-        actions=[act("spend", "sector:manufacturing", 0.8, 6)],
+        actions=[act("spend", "indicator:unemployment", -1.0, 12)],
         checks=[
             Check(node="indicator:unemployment", direction=1, real=(0.5, 1.5)),
             Check(node="indicator:unemployment", direction=-1, against="no_policy", real=(-6, -2)),

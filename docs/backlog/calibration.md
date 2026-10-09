@@ -179,12 +179,18 @@ big, but the real one was limited by rates already being near zero.
   pound down 6 points (real 2 to 8) and vote intention down 8 points (real 8 to 12), which
   closes the last known gap: 35 of 35 backtests pass. 14 of 28 sizes are in range (was 12). The
   balance test and stability check still pass.
+- **Job protection (2026-10-09, picked by Ed).** Spending aimed at unemployment is now a wage
+  subsidy, like furlough. It does not push unemployment down; while it runs it holds back 80% of
+  any rise in unemployment at full size (40% at half size), for shocks that land while it runs,
+  and costs the deficit like any other spending. The 2020 episode now uses it (full size, 12
+  turns) instead of spending on manufacturing: unemployment rises 0.5 points (real 0.5 to 1.5,
+  was 2.1) and 2 points fewer than with no scheme (real 2 to 6, was 0.6). 16 of 28 sizes are in
+  range (was 14). The balance test and stability check still pass.
 
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.
 
-Still off, each needing a new mechanism rather than a weight: furlough saves too few jobs
-(there is no job-protection policy, only sector spending), the 2010 cuts shrink public output
+Still off, each needing a new mechanism rather than a weight: the 2010 cuts shrink public output
 too much for the deficit they save (the balance between a spending change's output and budget
 effects), and the 2020 Bank Rate cut overshoots because the game starts Bank Rate at 4%.
 

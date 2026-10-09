@@ -30,8 +30,9 @@ node; never invent ids. Housing policy targets the housing sector, a pension ris
 pensioners, a deal with Brussels targets the EU. When the leader aims at a price or rate \
 itself, target that indicator only if the briefing lists that kind of action for it as \
 [direct: ...] (a cap on energy bills is regulate on energy prices). Otherwise target the \
-sector, group or institution the policy works through: spending to cut unemployment targets \
-the sector that hires, not unemployment itself.
+sector, group or institution the policy works through: spending to create jobs targets the \
+sector that hires, while paying wages so firms keep staff (a furlough scheme) is spend on \
+unemployment.
 - magnitude: -1..1, the size relative to the largest plausible move of that kind. A modest \
 tweak is about 0.1-0.2, a major policy 0.4-0.6, a historic upheaval 0.8+. When the target is \
 an indicator, the sign is the direction the leader wants it to move, whatever the kind: a \

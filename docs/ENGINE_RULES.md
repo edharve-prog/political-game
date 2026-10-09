@@ -125,7 +125,7 @@ Every response becomes one or more **actions**. An action has:
 | A sector | tax, spend, regulate, deregulate, legislate, communicate |
 | A population group | tax, spend, regulate, deregulate, legislate, communicate |
 | An institution | spend, regulate, deregulate, legislate, communicate, appoint |
-| An indicator | only the interventions it lists (energy prices: regulate or spend, meaning a price cap or a bill subsidy; house prices: regulate or tax, meaning lending rules or stamp duty) |
+| An indicator | only the interventions it lists (energy prices: regulate or spend, meaning a price cap or a bill subsidy; house prices: regulate or tax, meaning lending rules or stamp duty; unemployment: spend, meaning a wage subsidy such as furlough) |
 
 "Do nothing" fits anything. Any other indicator can only be moved indirectly, by acting on
 something that drives it, so the world graph carries the trade-offs.
@@ -191,6 +191,15 @@ approval hit that fades with the usual half-life. This is the 2022 mini-budget: 
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
 and the government's poll rating down by over 10 points. Spending is not judged this way:
 markets lent freely for the 2008 bailout and the 2020 lockdown.
+
+**Job protection.** Spending aimed at unemployment is a wage subsidy, like the 2020 furlough
+scheme: the state pays wages so firms keep their staff. It does not push unemployment down.
+Instead, while it runs, it holds back a share of any rise in unemployment: 80% for a full-size
+scheme (magnitude 1), 40% at half size. It costs the deficit like any other spending. It
+covers job losses from shocks that land while it runs, including later turns' shocks, but not
+losses already under way when it starts, and when it ends the jobs it was holding up are lost
+after all if the economy has not recovered. In good times it only costs money. In 2020 output
+fell by a fifth but unemployment rose only from 4% to about 5%.
 
 ### Foreign policy
 
@@ -566,6 +575,7 @@ what is coming in the next six turns.
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |
 | Approval event cap per group | ±0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
+| Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
 | Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
@@ -648,7 +658,7 @@ expects them to keep failing until the link is added. None are left today. Run `
 Most checks also record the rough range the number really moved within the episode's year, in
 its own units (points for rates, index points for prices, per cent of output for sectors). The
 same command prints how big the engine's move is against that range. This is a report, not a
-test: 14 of 28 sized moves fall inside their range, and most of the rest are too small.
+test: 16 of 28 sized moves fall inside their range, and most of the rest are too small.
 
 ### Long games
 
