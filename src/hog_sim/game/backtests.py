@@ -186,13 +186,7 @@ EPISODES = [
             Check(node="indicator:house_prices", direction=-1, real=(-4, -1)),
             Check(node="group:business", direction=-1),
             Check(node=VOTE, direction=-1, real=(-0.12, -0.08)),
-            Check(
-                node="indicator:exchange_rate",
-                direction=-1,
-                gap="The tax cut's lift to growth and rates outweighs the borrowing; markets "
-                "never lose faith in a government's plans.",
-                real=(-8, -2),
-            ),
+            Check(node="indicator:exchange_rate", direction=-1, real=(-8, -2)),
         ],
     ),
     Episode(

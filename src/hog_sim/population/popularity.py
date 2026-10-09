@@ -22,9 +22,11 @@ several turns rather than all at once, and approval drifts back to lean once it 
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
-from hog_sim.world.propagation import METRICS, action_factor, scale
+from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_tax_cut
 
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
@@ -45,18 +47,31 @@ def _event_weight(age: int, half_life: float, hold: int = 0) -> float:
     return 0.5 ** (max(0, age - hold) / half_life)
 
 
+# Approval every group loses per step of unfunded tax cut, when markets turn on the plan.
+CONFIDENCE_APPROVAL = 0.12
+
+
 # A policy aimed straight at a group (a pension rise, a tax on landlords) moves that group's
 # target approval by this much per standard step, for as long as the policy runs.
 GROUP_STEP = 0.05
 
 
-def policy_events(actions: list[PolicyAction]) -> list[ApprovalEvent]:
+def policy_events(actions: list[PolicyAction], groups: Iterable[str] = ()) -> list[ApprovalEvent]:
     """Approval events for actions targeting population groups.
 
     The effect holds at full strength for the action's duration, then fades with the usual
-    half-life, so a lasting benefit keeps its voters for as long as it is paid for.
+    half-life, so a lasting benefit keeps its voters for as long as it is paid for. An
+    unfunded tax cut that spooks markets also costs every one of ``groups`` approval.
     """
     events = []
+    loss = unfunded_tax_cut(actions)
+    if loss and groups:
+        events.append(
+            ApprovalEvent(
+                name="Markets lose confidence in the government's plans",
+                group_effects={g: -CONFIDENCE_APPROVAL * loss for g in groups},
+            )
+        )
     for action in actions:
         if not action.target.startswith("group:"):
             continue

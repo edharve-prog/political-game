@@ -183,6 +183,15 @@ taxing aimed at an indicator always costs or raises money in the obvious way: a 
 bills still costs, and a tax to cool house prices still raises revenue. Actions aimed at the
 deficit itself have no separate cost.
 
+**Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
+spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
+deficit (a tax cut of magnitude 0.6 or more). For each point of unfunded cut, Bank Rate jumps 0.4
+points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
+approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
+with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
+and the government's poll rating down by over 10 points. Spending is not judged this way:
+markets lent freely for the 2008 bailout and the 2020 lockdown.
+
 ### Foreign policy
 
 *Source: `world/propagation.py` (`foreign_shocks`), `world/changes.py` (`action_changes`)*
@@ -557,6 +566,7 @@ what is coming in the next six turns.
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |
 | Approval event cap per group | ±0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
+| Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
 | Outcome extra shock cap | ±1 step | `forecasting/candidates.py` |
@@ -633,14 +643,12 @@ moved the way it did in reality, against the start, against the same shocks with
 for the shocks alone. A move under 0.05 steps counts as no move.
 
 Checks the engine gets wrong today are marked as known gaps with the missing link, and the test
-expects them to keep failing until the link is added. The one left: the 2022 mini-budget
-should sink the pound, but in the game its lift to growth and Bank Rate outweighs the extra
-borrowing, because markets never lose faith in a government's plans. Run `uv run python -m hog_sim.game.backtests` to see the report.
+expects them to keep failing until the link is added. None are left today. Run `uv run python -m hog_sim.game.backtests` to see the report.
 
 Most checks also record the rough range the number really moved within the episode's year, in
 its own units (points for rates, index points for prices, per cent of output for sectors). The
 same command prints how big the engine's move is against that range. This is a report, not a
-test: 10 of 28 sized moves fall inside their range, and most of the rest are too small.
+test: 14 of 28 sized moves fall inside their range, and most of the rest are too small.
 
 ### Long games
 

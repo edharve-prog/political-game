@@ -148,6 +148,26 @@ _FISCAL_SIGN = {"spend": 1.0, "tax": -1.0}
 FISCAL_STEPS = 1.25
 MIN_FISCAL_TURNS = 6
 
+# Markets and unfunded tax cuts (CA-4): a tax cut that this turn's other decisions do not pay
+# for, worth at least CONFIDENCE_THRESHOLD steps of deficit a turn, makes markets doubt the
+# government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes Bank
+# Rate up and the pound down once, and costs every group approval (see
+# ``population.popularity.policy_events``). Spending is not judged this way: markets lent
+# freely for the 2008 bailout and the 2020 lockdown.
+CONFIDENCE_THRESHOLD = 0.75
+CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": -0.8}
+
+
+def unfunded_tax_cut(actions: list[PolicyAction]) -> float:
+    """Steps of deficit a turn from this turn's tax cuts that nothing else this turn pays for,
+    or 0 when that is under ``CONFIDENCE_THRESHOLD``."""
+    costs = [fiscal_cost(a) for a in actions]
+    cuts = sum(c for a, c in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0)
+    savings = sum(-c for c in costs if c < 0)
+    unfunded = cuts - savings
+    return unfunded if unfunded >= CONFIDENCE_THRESHOLD else 0.0
+
+
 # Regulating an indicator (a price cap, a rent control) trims the output of the sectors that
 # drive it, by this share of the push.
 REGULATION_OUTPUT_COST = 0.25
@@ -245,6 +265,13 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     hold=True,
                 )
             )
+    loss = unfunded_tax_cut(actions)
+    if state is not None and loss:
+        shocks += [
+            Shock(node=node, delta=size * loss)
+            for node, size in CONFIDENCE_SHOCKS.items()
+            if node in state.indicators
+        ]
     return shocks
 
 
