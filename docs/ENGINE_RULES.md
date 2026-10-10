@@ -337,10 +337,10 @@ then uses one run with the central weights.
 Every turn, each group has a **target approval**:
 
 - start from its **lean**;
-- for each indicator it cares about: + 0.05 × weight × the indicator's change since the game
-  began, in steps;
-- for each sector that employs it: + 0.05 × weight × that sector's output change since the game
-  began, in steps;
+- for each indicator it cares about: + 0.05 × weight × the indicator's change from what voters
+  are used to (below), in steps;
+- for each sector that employs it: + 0.05 × weight × that sector's output change from what
+  voters are used to, in steps;
 - for each institution that influences it: + 0.05 × weight × how far the institution's support
   is above or below 0.5, in steps (measured from 0.5, not from the start, so an institution
   that already backs the government lifts the group from turn one);
@@ -349,6 +349,14 @@ Every turn, each group has a **target approval**:
   point above 5. Borrowing is tolerated up to a point, then costs credibility with everyone.
 
 The target is kept within 0 to 1.
+
+### What voters are used to
+
+Voters adapt. Each indicator and sector a group feels starts with a **baseline** at its value
+when the game began. After each turn the baseline closes part of the gap to the current value,
+so voters take half of a lasting change as normal after **12 turns**. A price rise hurts most
+when it is new; a year later it is partly forgotten, and a lasting improvement likewise stops
+earning credit. Approval each turn is judged against the baselines voters held coming into it.
 
 ### Moving towards it
 
@@ -577,6 +585,7 @@ what is coming in the next six turns.
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |
+| Voters get used to a lasting change | half-life 12 turns | `population/popularity.py` (`HABIT_HALF_LIFE`) |
 | Approval event cap per group | ±0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
 | Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
