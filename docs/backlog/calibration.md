@@ -219,8 +219,78 @@ Claude calls are needed. Feeds the next 30-turn review.
 Once CA-3 and CA-4 are in, fit the main edge weights against the backtest bands rather than
 setting them by hand, within limits that keep the balance test passing.
 
+## CA-8 Schools of thought (P1)
+
+Asked for by Ed on 2026-10-10: calibration should make room for heterodox ways of thinking
+about the economy, society and labour, not only the mainstream view the engine is tuned to
+today.
+
+**Idea.** Schools mostly disagree about a handful of causal links: how much a deficit pushes
+up interest rates or inflation, how big a spending multiplier is, whether unemployment leaves
+lasting scars, who bears a spending cut. In this engine those links are edge weights, a few
+rules and the nodes that exist. So a school becomes a **lens**: a named overlay on the shared
+world that changes some weights and rules and can add nodes. The engine stays one engine, and
+no school is hard-coded as the truth. Today's tuning becomes the mainstream lens and stays the
+default.
+
+**First lenses**, with what each changes:
+
+| Lens | Core claim | Engine changes |
+|---|---|---|
+| Mainstream (today) | New Keynesian: markets clear in time; the central bank steers demand; debt raises borrowing costs | Current weights and rules |
+| Post-Keynesian | Output is led by demand; slumps scar; investment follows expectations | Bigger spending multiplier when unemployment is high; slower fade of unemployment rises (hysteresis); weaker deficit to Bank Rate link; business confidence drives investment |
+| Modern Monetary Theory | A government that issues its own currency can't run out of money; the limit is inflation and real resources | Deficit to Bank Rate near zero; deficit pushes inflation only near full employment (a nonlinear rule); debt penalty replaced by an inflation penalty; a job guarantee policy (the state as employer of last resort) |
+| Marxian political economy | Wages and profits are in conflict; unemployment disciplines labour | New wage share indicator; unemployment pushes the wage share down; a high wage share squeezes profits and investment (capital strike); workers and business owners polarise |
+| Feminist economics | Unpaid care is work the economy runs on | New unpaid care node and a carers group; public spending cuts shift work onto unpaid carers, lowering participation; care spending counts as infrastructure with a jobs multiplier |
+| Austrian | Cheap credit causes booms that end in busts; stimulus crowds out | Low Bank Rate builds up a house price and finance boom that later reverses; smaller spending multiplier |
+
+Ecological economics (growth against resource limits) is a natural sixth lens once the green
+transition goal (Project 9) exists.
+
+**Society and labour.** The same overlay can change how people react, not only the economy:
+class-based voting in which groups follow their material position, against today's model
+based on mood and issues; union strength as a node that sets how strikes play out; and how
+much people blame the government for things outside its control.
+
+**Calibrating lenses.** Every lens runs the same seven backtest episodes, the balance test and
+the 120-turn stability check. The report shows each lens side by side. The bar is different
+from tuning one model:
+
+- Directions every school accepts must pass in every lens; the 2008 crash raises
+  unemployment, whatever the lens.
+- Sizes only need to fall inside a wider band, because the schools' disagreement is real and
+  the data rarely settle it.
+- Each lens's weights cite their source in a code comment (an author, paper or school), so a
+  weight is a stated position, not a hidden choice.
+- New episodes that tell schools apart: 1970s stagflation; Japan's decades of low rates and
+  high debt; 2010s quantitative easing with low inflation; the 1984-85 miners' strike; the care
+  burden after 2010 austerity; and the 2021-23 profits-led inflation debate.
+
+**Stories.**
+
+- **CA-8a Lens structure.** `world/lenses.py` holds a `Lens` (name, summary, edge overrides,
+  rule constant overrides, extra nodes and groups), plus `GameConfig.lens`. Mainstream is
+  today's world, so nothing changes by default. Backtests, balance and stability gain a
+  `--lens` option and a side-by-side report.
+- **CA-8b Post-Keynesian and MMT lenses.** These are closest to today's structure: mostly
+  weights, plus the nonlinear rule for deficit and inflation and the job guarantee.
+- **CA-8c Wage share and the Marxian lens.** Adds the new indicator and the investment and
+  strike links.
+- **CA-8d Care economy and the feminist lens.** Adds the care node, the carers group and the
+  cut-shifting rule.
+- **CA-8e Austrian lens.** Adds the credit cycle.
+- **CA-8f Lenses in play.** The lens is chosen at the start, alongside the goal. Scenario and
+  outcome prompts are told the lens so the story fits it, and the explanation says which lens
+  links drove a result. Optional extras: advisers from different schools give competing
+  briefings, and a "contested world" difficulty in which the forecast mixes lenses and the
+  player doesn't know which one is true.
+- **CA-8g Discriminating episodes.** The new backtests above.
+
+All of this is offline (no Claude calls) except the prompt wording in CA-8f.
+
 ---
 
 ## Order
 
-CA-1, CA-2 and CA-3 (done), CA-4 (under way), then CA-5. CA-6 and CA-7 later.
+CA-1, CA-2 and CA-3 (done), CA-4 (under way), then CA-8 (schools of thought, starting with
+CA-8a and CA-8b), then CA-5. CA-6 and CA-7 later; CA-7 fits weights per lens.
