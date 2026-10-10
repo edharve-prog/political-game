@@ -46,6 +46,7 @@ from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import policy_events, run_election, step_approval
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
+from hog_sim.world.debt import interest_shocks, step_debt
 from hog_sim.world.events import event_shocks
 from hog_sim.world.propagation import (
     actions_to_shocks,
@@ -103,6 +104,7 @@ def resolve(
         + scenario.shocks
         + outcome.shocks
         + event_shocks(outcome.events, state)
+        + interest_shocks(state, start)
     )
     cover = job_protection(state, actions)
     trajectory = simulate(state, shocks, config.horizon, protection=cover)
@@ -128,6 +130,7 @@ def resolve(
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)
+    new = step_debt(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions)
     new.turn = state.turn + 1

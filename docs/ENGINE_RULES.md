@@ -87,7 +87,8 @@ A game is 24 turns of one month each, with a general election after the last one
 **Resolve** (pure Python, no Claude, so a saved game replays exactly from its log):
 
 1. All the turn's shocks are gathered: the actions, the scenario's own shocks, any extra shocks
-   in the chosen outcome, and the shocks implied by the outcome's event tags (section 7).
+   in the chosen outcome, the shocks implied by the outcome's event tags (section 7), and any
+   rise in the interest bill on the debt (section 3).
 2. They are run through the world once, with the edge weights at their central values, and the
    resulting changes are booked turn by turn into a **pending** list. This turn's slice is
    applied now; later slices land on later turns, so a policy's lagged effects keep arriving.
@@ -95,7 +96,8 @@ A game is 24 turns of one month each, with a general election after the last one
 4. Approval events from the actions and the outcome are added (section 6).
 5. Foreign-policy actions change the target country's relationship and stability, and any
    lasting graph changes in the outcome are checked and applied (section 7).
-6. Every group's approval moves one step (section 6).
+6. The debt grows by the month's deficit and its average rate reprices toward Bank Rate
+   (section 3). Every group's approval moves one step (section 6).
 7. Storylines advance (section 9), and the turn counter goes up.
 
 Before anything changes, each indicator's value and each group's approval are added to their
@@ -204,6 +206,15 @@ covers job losses from shocks that land while it runs, including later turns' sh
 losses already under way when it starts, and when it ends the jobs it was holding up are lost
 after all if the economy has not recovered. In good times it only costs money. In 2020 output
 fell by a fifth but unemployment rose only from 4% to about 5%.
+
+**Debt and its interest bill.** The UK starts with public debt of **100% of GDP** at an average
+rate of 4%, an interest bill of 4% of GDP a year that is already part of the starting deficit.
+Each turn (a month) the debt grows by a twelfth of the deficit and shrinks by a twelfth of
+nominal growth (growth plus inflation) times the debt; at the start the two cancel. The average
+rate drifts toward Bank Rate as old debt is refinanced, half the gap in **24 turns**. Whatever
+the bill has risen since the start is added to the deficit, so borrowing compounds and higher
+rates cost money: Bank Rate about 2 points higher for two years adds nearly 1 point of GDP to the
+deficit. A lower bill saves money the same way. The briefing shows the debt, rate and bill.
 
 ### Foreign policy
 
@@ -573,6 +584,7 @@ what is coming in the next six turns.
 | Max same-turn loop gain | 0.9 | `world/propagation.py` |
 | Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
+| Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
 | Legislature majority | support 0.5 | `policy/feasibility.py` |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |

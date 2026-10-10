@@ -43,6 +43,12 @@ class Country(Node):
     growth_pct: float
     relationship: float = Field(0.0, ge=-1, le=1, description="Stance towards the player")
     stability: float = Field(0.5, ge=0, le=1)
+    debt_pct: float = Field(
+        0.0, ge=0, description="Public debt, % of GDP (EB-9); 0 means debt is not tracked"
+    )
+    debt_rate_pct: float | None = Field(
+        None, description="Average interest rate paid on the debt; None starts it at Bank Rate"
+    )
 
 
 class Sector(Node):
