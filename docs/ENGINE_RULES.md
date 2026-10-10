@@ -87,14 +87,16 @@ A game is 24 turns of one month each, with a general election after the last one
 **Resolve** (pure Python, no Claude, so a saved game replays exactly from its log):
 
 1. All the turn's shocks are gathered: the actions, the scenario's own shocks, any extra shocks
-   in the chosen outcome, and the shocks implied by the outcome's event tags (section 7).
+   in the chosen outcome, the shocks implied by the outcome's event tags (section 7), each
+   sector's business mood, and any crisis in an unstable foreign country (section 7).
 2. They are run through the world once, with the edge weights at their central values, and the
    resulting changes are booked turn by turn into a **pending** list. This turn's slice is
    applied now; later slices land on later turns, so a policy's lagged effects keep arriving.
 3. Indicators are clamped to their floors and ceilings.
 4. Approval events from the actions and the outcome are added (section 6).
-5. Foreign-policy actions change the target country's relationship and stability, and any
-   lasting graph changes in the outcome are checked and applied (section 7).
+5. Business moods settle a fifth of the way back to neutral. Foreign-policy actions change the
+   target country's relationship and stability, and any lasting graph changes in the outcome are
+   checked and applied (section 7).
 6. Every group's approval moves one step (section 6).
 7. Storylines advance (section 9), and the turn counter goes up.
 
@@ -215,6 +217,8 @@ fell by a fifth but unemployment rose only from 4% to about 5%.
 - **Military** escalation (positive magnitude) worsens the relationship by 0.15 per unit, cuts
   the country's stability by 0.05 per unit and knocks 1 step per unit off its growth, which
   reaches the UK through trade. De-escalation (negative magnitude) only mends the relationship.
+- A relationship change also scales the trade between the two countries (section 7), so
+  diplomacy deepens trade for good and a row thins it.
 - **Communicate** aimed at a foreign country follows the general rule above and nudges that
   country's growth by 0.4 steps per unit. This is a side effect of the general rule rather
   than a deliberate design choice.
@@ -425,7 +429,7 @@ defend the leader.
 
 ## 7. What outcomes can change
 
-*Source: `world/events.py`, `world/changes.py`, `forecasting/candidates.py`*
+*Source: `world/events.py`, `world/changes.py`, `world/standing.py`, `forecasting/candidates.py`*
 
 Beyond its narrative, a chosen outcome can carry four kinds of effect, all capped.
 
@@ -475,6 +479,21 @@ against the current world:
 
 Anything that fails is rejected. The player's own diplomatic and military actions make their
 relationship and stability changes through the same mechanism (section 3).
+
+### What those node fields do
+
+- **Relationship** scales trade. Each unit a country's relationship with the UK moves changes
+  both trade edges between them by half their weight in the same direction (+0.1 is 5% more
+  trade), unless that would make same-turn feedback unstable.
+- **Stability** sets the odds of a crisis abroad. Below 0.5, each turn has a chance of a 1-step
+  (1 point) hit to the country's growth, rising in a straight line to 30% a turn at stability 0.
+  The draw comes from the game seed and the turn, so a replay sees the same crises.
+- **Sentiment** is a sector's business mood. Each turn it pushes the sector's output by 0.2
+  steps per unit, then settles a fifth of the way back to neutral, so a knock to confidence
+  costs output for a while and then passes.
+
+The starting world (sentiment 0, stability 0.5) has none of these effects until something
+changes it.
 
 ---
 
@@ -596,6 +615,9 @@ what is coming in the next six turns.
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
 | Outcome extra shock cap | ±1 step | `forecasting/candidates.py` |
 | Graph changes per outcome | 3 | `world/changes.py` |
+| Trade per unit of relationship | 50% of the trade weight | `world/changes.py` (`TRADE_PER_RELATIONSHIP`) |
+| Crisis abroad | below stability 0.5, up to 30% a turn, -1 step growth | `world/standing.py` |
+| Sentiment push, settling | 0.2 steps per unit a turn, 20% back a turn | `world/standing.py` |
 | Storyline escalation | after 3 idle turns, +0.15 pressure | `world/storylines.py` |
 | Broken pledge hit | 0.05 per caring group, or 0.02 for all | `policy/pledges.py` |
 | Loyalty: backed, crossed, consulted, ignored | +0.08, -0.08, +0.04, -0.03 | `world/cast.py` |
