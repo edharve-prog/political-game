@@ -22,8 +22,6 @@ several turns rather than all at once, and approval drifts back to lean once it 
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_tax_cut
@@ -56,15 +54,18 @@ CONFIDENCE_APPROVAL = 0.12
 GROUP_STEP = 0.05
 
 
-def policy_events(actions: list[PolicyAction], groups: Iterable[str] = ()) -> list[ApprovalEvent]:
+def policy_events(
+    actions: list[PolicyAction], state: WorldState | None = None
+) -> list[ApprovalEvent]:
     """Approval events for actions targeting population groups.
 
     The effect holds at full strength for the action's duration, then fades with the usual
-    half-life, so a lasting benefit keeps its voters for as long as it is paid for. An
-    unfunded tax cut that spooks markets also costs every one of ``groups`` approval.
+    half-life, so a lasting benefit keeps its voters for as long as it is paid for. Given the
+    state, an unfunded tax cut that spooks markets also costs every group approval.
     """
     events = []
-    loss = unfunded_tax_cut(actions)
+    loss = unfunded_tax_cut(actions, state)
+    groups = state.groups if state is not None else {}
     if loss and groups:
         events.append(
             ApprovalEvent(

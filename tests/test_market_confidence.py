@@ -47,8 +47,8 @@ def test_markets_push_rates_up_and_the_pound_down() -> None:
 
 def test_every_group_loses_approval() -> None:
     world = toy_world()
-    events = policy_events([BIG_CUT], world.groups)
+    events = policy_events([BIG_CUT], world)
     assert len(events) == 1
     loss = -CONFIDENCE_APPROVAL * unfunded_tax_cut([BIG_CUT])
     assert events[0].group_effects == {g: pytest.approx(loss) for g in world.groups}
-    assert policy_events([act("tax", "country:uk", -0.5)], world.groups) == []
+    assert policy_events([act("tax", "country:uk", -0.5)], world) == []

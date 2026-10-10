@@ -95,12 +95,12 @@ def test_a_package_cannot_borrow_past_the_deficit_limit() -> None:
 def test_tax_rises_make_room_for_borrowing() -> None:
     world = toy_world()
     world.indicators["indicator:deficit"].value = 9.9
-    alone = constrain([act("spend", "sector:public", 0.5)], world, [])
+    alone = constrain([act("spend", "sector:public", 0.4)], world, [])
     paid = constrain(
-        [act("spend", "sector:public", 0.5), act("tax", "sector:finance", 0.5)], world, []
+        [act("spend", "sector:public", 0.4), act("tax", "sector:finance", 1.0)], world, []
     )
-    assert alone.actions[0].magnitude < 0.5
-    assert paid.actions[0].magnitude == pytest.approx(0.5)
+    assert alone.actions[0].magnitude < 0.4
+    assert paid.actions[0].magnitude == pytest.approx(0.4)
     assert not any(n.startswith("Deficit limit") for n in paid.notes)
 
 
