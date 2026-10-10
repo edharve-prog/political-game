@@ -225,70 +225,79 @@ Asked for by Ed on 2026-10-10: calibration should make room for heterodox ways o
 about the economy, society and labour, not only the mainstream view the engine is tuned to
 today.
 
-**Idea.** Schools mostly disagree about a handful of causal links: how much a deficit pushes
-up interest rates or inflation, how big a spending multiplier is, whether unemployment leaves
-lasting scars, who bears a spending cut. In this engine those links are edge weights, a few
-rules and the nodes that exist. So a school becomes a **lens**: a named overlay on the shared
-world that changes some weights and rules and can add nodes. The engine stays one engine, and
-no school is hard-coded as the truth. Today's tuning becomes the mainstream lens and stays the
-default.
+**Idea (revised with Ed, 2026-10-10).** What other schools say comes in two kinds.
 
-**First lenses**, with what each changes:
+- **Added mechanisms.** Most of what Marxian, feminist, post-Keynesian or Austrian economics
+  brings is a mechanism the mainstream model leaves out, not a contradiction of it. These go
+  into the **one shared world**, so every game feels them and no lens is needed.
+- **Contested links.** A few links get opposite answers from different schools, and one world
+  can hold only one number for each. For these the shared world takes a value in the middle of
+  the schools' range, and the forecast's uncertainty covers the whole range. Each school's own
+  values are kept as a **lens**, which the advisers use (CA-8f).
 
-| Lens | Core claim | Engine changes |
+The world is then neither mainstream nor any one school, so no adviser is right every time.
+
+**Added mechanisms for the shared world:**
+
+| From | Mechanism | Engine change |
 |---|---|---|
-| Mainstream (today) | New Keynesian: markets clear in time; the central bank steers demand; debt raises borrowing costs | Current weights and rules |
-| Post-Keynesian | Output is led by demand; slumps scar; investment follows expectations | Bigger spending multiplier when unemployment is high; slower fade of unemployment rises (hysteresis); weaker deficit to Bank Rate link; business confidence drives investment |
-| Modern Monetary Theory | A government that issues its own currency can't run out of money; the limit is inflation and real resources | Deficit to Bank Rate near zero; deficit pushes inflation only near full employment (a nonlinear rule); debt penalty replaced by an inflation penalty; a job guarantee policy (the state as employer of last resort) |
-| Marxian political economy | Wages and profits are in conflict; unemployment disciplines labour | New wage share indicator; unemployment pushes the wage share down; a high wage share squeezes profits and investment (capital strike); workers and business owners polarise |
-| Feminist economics | Unpaid care is work the economy runs on | New unpaid care node and a carers group; public spending cuts shift work onto unpaid carers, lowering participation; care spending counts as infrastructure with a jobs multiplier |
-| Austrian | Cheap credit causes booms that end in busts; stimulus crowds out | Low Bank Rate builds up a house price and finance boom that later reverses; smaller spending multiplier |
+| Marxian | Wages and profits are in conflict, and unemployment weakens workers' bargaining power | New wage share indicator; unemployment pushes it down; a high wage share squeezes profits and business investment; union strength as a node that sets how strikes play out |
+| Feminist | Unpaid care is work the economy runs on | New unpaid care node and a carers group; public service cuts shift work onto unpaid carers, lowering participation; care spending creates jobs |
+| Post-Keynesian | Slumps leave scars | Rises in unemployment fade more slowly (hysteresis); business confidence drives investment |
+| Austrian | Cheap credit builds booms that end in busts | A long spell of low Bank Rate builds a house price and finance boom that later reverses |
+| MMT | The state can act as employer of last resort | A job guarantee policy |
+| Sociology of voting | People also vote their material position | Part of each group's approval follows its own wages, prices and jobs, beside mood and issues |
 
-Ecological economics (growth against resource limits) is a natural sixth lens once the green
-transition goal (Project 9) exists.
+**Contested links and the lenses that hold each school's values:**
 
-**Society and labour.** The same overlay can change how people react, not only the economy:
-class-based voting in which groups follow their material position, against today's model
-based on mood and issues; union strength as a node that sets how strikes play out; and how
-much people blame the government for things outside its control.
+| Link | Mainstream | Post-Keynesian | MMT | Austrian |
+|---|---|---|---|---|
+| Deficit to Bank Rate and borrowing costs | Clear rise | Weak | Near zero for a currency issuer | Strong |
+| Deficit to inflation | Steady | Only near full employment | Only near full employment (nonlinear) | Strong |
+| Spending multiplier | Medium | Large, larger in slumps | Large | Small (crowding out) |
+| What limits the budget | Debt (approval penalty) | Debt, weakly | Inflation (penalty moves to inflation) | Debt, strongly |
 
-**Calibrating lenses.** Every lens runs the same seven backtest episodes, the balance test and
-the 120-turn stability check. The report shows each lens side by side. The bar is different
-from tuning one model:
+Marxian and feminist economics mostly add mechanisms, so they sit in the shared world. Their
+advisers read the same world but stress different numbers: wage share and profits, or care
+and who carries the cost. Ecological economics (growth against resource limits) joins once
+the green transition goal (Project 9) exists.
+
+**Calibrating.** The shared world must keep passing the seven backtest episodes, the balance
+test and the 120-turn stability check, with the new mechanisms in. Each lens runs the same
+checks side by side:
 
 - Directions every school accepts must pass in every lens; the 2008 crash raises
   unemployment, whatever the lens.
-- Sizes only need to fall inside a wider band, because the schools' disagreement is real and
-  the data rarely settle it.
-- Each lens's weights cite their source in a code comment (an author, paper or school), so a
-  weight is a stated position, not a hidden choice.
-- New episodes that tell schools apart: 1970s stagflation; Japan's decades of low rates and
-  high debt; 2010s quantitative easing with low inflation; the 1984-85 miners' strike; the care
-  burden after 2010 austerity; and the 2021-23 profits-led inflation debate.
+- Sizes for contested links only need to fall inside a wider band, because the disagreement
+  is real and the data rarely settle it.
+- Each weight for a new mechanism or a lens cites its source in a code comment (an author,
+  paper or school), so a weight is a stated position, not a hidden choice.
+- New episodes that test the new mechanisms and tell the schools apart: 1970s stagflation;
+  Japan's decades of low rates and high debt; 2010s quantitative easing with low inflation;
+  the 1984-85 miners' strike; the care burden after 2010 austerity; and the 2021-23
+  profits-led inflation debate.
 
 **Stories.**
 
-- **CA-8a Lens structure.** `world/lenses.py` holds a `Lens` (name, summary, edge overrides,
-  rule constant overrides, extra nodes and groups), plus `GameConfig.lens`. Mainstream is
-  today's world, so nothing changes by default. Backtests, balance and stability gain a
-  `--lens` option and a side-by-side report.
-- **CA-8b Post-Keynesian and MMT lenses.** These are closest to today's structure: mostly
-  weights, plus the nonlinear rule for deficit and inflation and the job guarantee.
-- **CA-8c Wage share and the Marxian lens.** Adds the new indicator and the investment and
-  strike links.
-- **CA-8d Care economy and the feminist lens.** Adds the care node, the carers group and the
-  cut-shifting rule.
-- **CA-8e Austrian lens.** Adds the credit cycle.
-- **CA-8f Advisers (picked by Ed, 2026-10-10).** The world itself runs on the mainstream lens.
-  Each turn a panel of advisers gives briefings, one per lens. Each forecasts the player's
-  plan by running the engine under its own lens and argues from that school's ideas. Advisers
-  carry neutral names and no school labels. The player is never told which perspective is
-  whose and has to work it out from what each one says and how their forecasts compare with
-  what happens. The adviser order is shuffled each game, so names don't give it away. The
-  briefing wording comes from the scenario prompt (Claude) with the lens's ideas as hidden
-  context. Offline play uses canned lines per lens. The explanation shows each adviser's
-  forecast against the result, never the school.
-- **CA-8g Discriminating episodes.** The new backtests above.
+- **CA-8a Wage share and union strength** in the shared world (Marxian).
+- **CA-8b Care economy and the carers group** in the shared world (feminist).
+- **CA-8c Hysteresis, confidence and the credit cycle** in the shared world (post-Keynesian
+  and Austrian).
+- **CA-8d Material voting and the job guarantee** in the shared world.
+- **CA-8e Lens structure and contested links.** `world/lenses.py` holds a `Lens` (name and
+  overrides for the contested weights and rules). The shared world takes the middle value
+  for each contested link, and the forecast's uncertainty widens to cover the range.
+  Backtests, balance and stability gain a `--lens` option and a side-by-side report.
+- **CA-8f Advisers (picked by Ed, 2026-10-10).** Each turn a panel of advisers gives
+  briefings, one per school. Each forecasts the player's plan by running the engine under its
+  own lens and argues from that school's ideas and the numbers it cares about. Advisers carry
+  neutral names and no school labels. The player is never told which perspective is whose and
+  has to work it out from what each one says and how their forecasts compare with what
+  happens. The adviser order is shuffled each game, so names don't give it away. The briefing
+  wording comes from the scenario prompt (Claude) with the school's ideas as hidden context.
+  Offline play uses canned lines per school. The explanation shows each adviser's forecast
+  against the result, never the school.
+- **CA-8g New episodes.** The backtests above.
 
 All of this is offline (no Claude calls) except the prompt wording in CA-8f.
 
@@ -297,4 +306,4 @@ All of this is offline (no Claude calls) except the prompt wording in CA-8f.
 ## Order
 
 CA-1, CA-2 and CA-3 (done), CA-4 (under way), then CA-8 (schools of thought, starting with
-CA-8a and CA-8b), then CA-5. CA-6 and CA-7 later; CA-7 fits weights per lens.
+the shared-world mechanisms CA-8a to CA-8d), then CA-5. CA-6 and CA-7 later; CA-7 fits weights per lens.
