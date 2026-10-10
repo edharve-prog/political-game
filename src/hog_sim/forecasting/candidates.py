@@ -44,7 +44,7 @@ from hog_sim.llm.prompts import judge as judge_prompt
 from hog_sim.llm.prompts import outcomes as outcomes_prompt
 from hog_sim.llm.scenario_gen import scenario_text
 from hog_sim.llm.summary import StateSummary, relevant_links, resolve_id, summarise_state
-from hog_sim.policy.feasibility import Role
+from hog_sim.policy.feasibility import Role, check_feasibility
 from hog_sim.policy.pledges import broken_by
 from hog_sim.world.changes import validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
@@ -286,6 +286,7 @@ class LLMForecaster:
 
         judged = self._judge(context, drafts) if cfg.use_judge else None
         turn = min(CLAIM_TURN, engine.horizon - 1)
+        resistance = check_feasibility(list(actions), state, self.role).resistance
         scores = combine(
             [
                 CandidateScores(
@@ -293,7 +294,7 @@ class LLMForecaster:
                         {s.node: s.change for s in d.indicator_shifts}, engine, turn
                     ),
                     judge=judged[i] if judged else d.self_probability,
-                    base_rate=base_rate(list(d.event_tags), delivery),
+                    base_rate=base_rate(list(d.event_tags), delivery, resistance),
                     self_reported=d.self_probability,
                 )
                 for i, d in enumerate(drafts)

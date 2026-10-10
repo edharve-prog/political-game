@@ -24,6 +24,8 @@ Institutions settle back toward where they started the game: each turn closes
 ``INSTITUTION_SETTLE`` of the gap in their support. A rebellion still costs the government its
 majority for a few turns, but no longer for the rest of the game (EB-14: in the 30-turn
 review the Commons fell below a majority at turn 13 and blocked every spend and tax after).
+The legislature settles toward its starting support plus ``COMMONS_POLLS`` times the change in
+national approval since the start: backbenchers grow restless when the polls fall (EB-8).
 
 Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
 node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
@@ -41,9 +43,15 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
+from hog_sim.policy.feasibility import LEGISLATURE_ID
 from hog_sim.policy.limits import constrain
 from hog_sim.policy.pledges import apply_pledges
-from hog_sim.population.popularity import policy_events, run_election, step_approval
+from hog_sim.population.popularity import (
+    national_approval,
+    policy_events,
+    run_election,
+    step_approval,
+)
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.events import event_shocks
@@ -59,14 +67,18 @@ from hog_sim.world.standing import crisis_shocks, sentiment_shocks, settle_senti
 from hog_sim.world.storylines import advance_storylines
 
 INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each turn
+COMMONS_POLLS = 0.5  # legislature support gained or lost per point of national approval
 
 
 def _settle_institutions(state: WorldState, start: WorldState) -> WorldState:
     new = state.snapshot()
+    polls = national_approval(state) - national_approval(start) if state.groups else 0.0
     for inst_id, inst in new.institutions.items():
         origin = start.institutions.get(inst_id)
         if origin is not None:
-            inst.support += (origin.support - inst.support) * INSTITUTION_SETTLE
+            home = origin.support + (COMMONS_POLLS * polls if inst_id == LEGISLATURE_ID else 0.0)
+            home = min(1.0, max(0.0, home))
+            inst.support += (home - inst.support) * INSTITUTION_SETTLE
     return new
 
 
