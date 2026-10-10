@@ -194,6 +194,11 @@ big, but the real one was limited by rates already being near zero.
   public, 0.4 tax for a year). The deficit now falls 1.15 points (real 1 to 3), public output
   3.5% (real 1 to 4) and unemployment rises 0.4 points (real 0 to 0.5). 18 of 28 sizes are in
   range (was 16). The balance test and stability check still pass.
+- **After EB-8 to EB-11 (2026-10-10).** The engine balance thread's PRs #66 to #70 (outside
+  effects of relationships and mood, guarded graph changes, voters adapting, and a debt
+  interest bill that is neutral at the starting Bank Rate) leave the backtests where they
+  were: 35 of 35 directions pass and 18 of 28 sizes are in range. The 2008 deficit moved by
+  0.01 points.
 
 Next: tune one pattern at a time towards its range, keeping the direction checks, the balance
 test and the stability check passing, then agree the ranges and make them a test.
