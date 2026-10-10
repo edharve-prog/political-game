@@ -14,13 +14,17 @@ The last term is a loss of fiscal credibility felt by every group: borrowing is 
 to a point, then each extra point of deficit costs approval across the board, so spending
 on everything cannot buy an election.
 
-Changes are measured against a ``reference`` state (the start state, or a rolling
-snapshot chosen by the game loop). ``K`` converts one weighted standard step into
+Changes are measured against what voters are used to: each node's baseline starts at its
+level in the ``reference`` state (the start) and drifts towards the current level with a
+half-life of ``HABIT_HALF_LIFE`` turns (EB-11). A price rise hurts most when it is new; a
+year later it is partly the new normal. ``K`` converts one weighted standard step into
 approval points. Partial adjustment gives the electorate memory: a shock is felt over
 several turns rather than all at once, and approval drifts back to lean once it passes.
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
 
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
@@ -33,12 +37,45 @@ EVENT_CAP = 0.15  # most that all active events together can move a group's targ
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
+HABIT_HALF_LIFE = 12  # turns for voters to take half of a lasting change as normal (EB-11)
+HABITUATION = 1 - 0.5 ** (1 / HABIT_HALF_LIFE)  # share of the gap a baseline closes each turn
 
 
-def _steps(state: WorldState, reference: WorldState, node_id: str) -> float:
-    node, ref = state.node(node_id), reference.node(node_id)
-    field = METRICS[node.kind]
-    return (getattr(node, field) - getattr(ref, field)) / scale(reference, node_id)
+def _level(state: WorldState, node_id: str) -> float:
+    node = state.node(node_id)
+    return getattr(node, METRICS[node.kind])
+
+
+def _steps(
+    state: WorldState,
+    reference: WorldState,
+    node_id: str,
+    baselines: Mapping[str, float] | None = None,
+) -> float:
+    base = (baselines or {}).get(node_id)
+    if base is None:
+        base = _level(reference, node_id)
+    return (_level(state, node_id) - base) / scale(reference, node_id)
+
+
+def _felt_nodes(state: WorldState) -> set[str]:
+    """Nodes whose changes voters feel directly: what groups care about or work in."""
+    nodes = set()
+    for edge in state.edges:
+        if edge.kind == EdgeKind.CARES_ABOUT and edge.source in state.groups:
+            nodes.add(edge.target)
+        elif edge.kind == EdgeKind.EMPLOYS and edge.target in state.groups:
+            nodes.add(edge.source)
+    return nodes
+
+
+def adapt_baselines(state: WorldState, reference: WorldState) -> dict[str, float]:
+    """Move each felt node's baseline ``HABITUATION`` of the way to its current level."""
+    baselines = {}
+    for node_id in sorted(_felt_nodes(state)):
+        base = state.baselines.get(node_id, _level(reference, node_id))
+        baselines[node_id] = base + HABITUATION * (_level(state, node_id) - base)
+    return baselines
 
 
 def _event_weight(age: int, half_life: float, hold: int = 0) -> float:
@@ -90,13 +127,21 @@ def policy_events(
     return events
 
 
-def target_approval(state: WorldState, reference: WorldState) -> dict[str, float]:
+def target_approval(
+    state: WorldState,
+    reference: WorldState,
+    baselines: Mapping[str, float] | None = None,
+) -> dict[str, float]:
+    """Each group's target approval, with changes measured from ``baselines`` where given
+    and from ``reference`` otherwise."""
     targets = {gid: g.lean for gid, g in state.groups.items()}
     for edge in state.edges:
         if edge.kind == EdgeKind.CARES_ABOUT and edge.source in targets:
-            targets[edge.source] += K * edge.weight * _steps(state, reference, edge.target)
+            steps = _steps(state, reference, edge.target, baselines)
+            targets[edge.source] += K * edge.weight * steps
         elif edge.kind == EdgeKind.EMPLOYS and edge.target in targets:
-            targets[edge.target] += K * edge.weight * _steps(state, reference, edge.source)
+            steps = _steps(state, reference, edge.source, baselines)
+            targets[edge.target] += K * edge.weight * steps
         elif edge.kind == EdgeKind.INFLUENCES and edge.target in targets:
             institution = state.institutions.get(edge.source)
             if institution is not None:
@@ -117,9 +162,13 @@ def target_approval(state: WorldState, reference: WorldState) -> dict[str, float
 
 
 def step_approval(state: WorldState, reference: WorldState) -> WorldState:
-    """Advance approval one turn and age events. Returns a new state."""
-    targets = target_approval(state, reference)
+    """Advance approval one turn, let voters get used to the new levels, and age events.
+
+    Approval is judged against the baselines voters held coming into the turn; the
+    baselines then adapt. Returns a new state."""
+    targets = target_approval(state, reference, state.baselines)
     new = state.snapshot()
+    new.baselines = adapt_baselines(state, reference)
     for gid, group in new.groups.items():
         group.approval = min(
             1.0, max(0.0, group.approval + ADJUST * (targets[gid] - group.approval))
