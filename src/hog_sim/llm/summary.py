@@ -16,6 +16,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.policy.pledges import pledge_line
 from hog_sim.world.calendar import calendar_lines
 from hog_sim.world.cast import active_cast, cast_line
+from hog_sim.world.debt import debt_line
 from hog_sim.world.graph import build_graph, edges_of
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
@@ -81,6 +82,7 @@ class StateSummary(Model):
     calendar: list[str] = Field(
         default_factory=list, description="Scheduled events coming up (SD-6)"
     )
+    debt: str = Field("", description="Public debt and its interest bill (EB-9)")
     cast: dict[str, str] = Field(
         default_factory=dict, description="Active cast member id -> one-line profile (SD-4)"
     )
@@ -99,6 +101,8 @@ class StateSummary(Model):
             unit = i.unit if i.unit.startswith("%") or not i.unit else f" {i.unit}"
             direct = f"  [direct: {', '.join(i.interventions)}]" if i.interventions else ""
             lines.append(f"- {i.id} {i.name}: {i.value:g}{unit}{change}{stress}{direct}")
+        if self.debt:
+            lines.append(f"- {self.debt}")
         lines += ["", "Population groups (approval of government, 0-1):"]
         for g in self.groups:
             change = f" ({g.change:+.2f} recently)" if g.change is not None else ""
@@ -199,6 +203,7 @@ def summarise_state(
     }
     foreign = [c for c in state.countries.values() if c.id != state.player_country]
     return StateSummary(
+        debt=debt_line(state),
         turn=state.turn,
         role=role,
         player_country=state.player_country,

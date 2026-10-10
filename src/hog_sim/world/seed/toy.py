@@ -29,7 +29,14 @@ def _edge(
 
 def toy_world() -> WorldState:
     countries = [
-        Country(id="country:uk", name="United Kingdom", gdp_bn=2700, growth_pct=1.0),
+        Country(
+            id="country:uk",
+            name="United Kingdom",
+            gdp_bn=2700,
+            growth_pct=1.0,
+            debt_pct=100.0,
+            debt_rate_pct=4.0,
+        ),
         Country(
             id="country:eu", name="European Union", gdp_bn=17000, growth_pct=1.0, relationship=0.3
         ),
