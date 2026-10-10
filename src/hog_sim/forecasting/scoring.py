@@ -127,15 +127,33 @@ def delivery_factor(tag: str, delivery: Delivery | None) -> float:
     return factor
 
 
-def base_rate(tags: list[str], delivery: Delivery | None = None) -> float:
-    """How common the tagged events are, adjusted for delivery; untagged counts as a quiet
-    outcome.
+# Resistance (``policy.feasibility``: a thin or reluctant majority, or a deficit already past
+# the warning level) makes a rebellion likelier: the base rate is multiplied by
+# 1 + RESISTANCE_FACTOR * resistance (EB-8).
+RESISTANCE_FACTOR = {"backbench_rebellion": 2.0}
+
+
+def resistance_factor(tag: str, resistance: float) -> float:
+    return 1 + RESISTANCE_FACTOR.get(tag, 0.0) * resistance
+
+
+def base_rate(tags: list[str], delivery: Delivery | None = None, resistance: float = 0.0) -> float:
+    """How common the tagged events are, adjusted for delivery and the resistance the
+    actions meet; untagged counts as a quiet outcome.
 
     All the tags have to happen, so the rarest bounds the chance (P(A and B) <= min). Adding
     a tag can therefore never make an outcome look more common (EC-9).
     """
     tags = [t for t in tags if t != "none"] or ["none"]
-    return min(min(1.0, BASE_RATES.get(t, 0.1) * delivery_factor(t, delivery)) for t in tags)
+    return min(
+        min(
+            1.0,
+            BASE_RATES.get(t, 0.1)
+            * delivery_factor(t, delivery)
+            * resistance_factor(t, resistance),
+        )
+        for t in tags
+    )
 
 
 def combine(scores: list[CandidateScores], weights: ScoreWeights) -> list[CandidateScores]:

@@ -238,7 +238,14 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
      them is always allowed.
 
    A deficit above 5% gives a warning but does not block. The checks also compute a
-   "resistance" score, which nothing uses yet.
+   **resistance** score from 0 to 1: how thin the majority is ((1 - support) × the legislature's
+   power) or how far the deficit is past 5%, whichever is larger. With Claude, it makes a
+   backbench rebellion likelier (section 8).
+
+   Institutions settle back toward their starting support, closing a fifth of the gap each
+   turn, so a rebellion costs the majority for a few turns rather than the whole game. The
+   Commons settles toward its starting support **plus half the change in national approval**
+   since the start: when the polls fall 10 points, backbenchers drift 0.05 less supportive.
 2. **Diminishing returns.** Repeating the same kind of action on the same target within 4 turns
    halves its magnitude for each earlier use (one repeat: 50%, two: 25%). A policy meant to keep
    running should say so with its duration instead.
@@ -496,6 +503,10 @@ How the response was delivered shifts the base rates:
 | Imposed without consultation | strikes and protests 1.3×, rebellions 1.2×, media backlash 1.1× |
 | Phased in | market sell-offs and capital flight 0.75× |
 
+Resistance (section 4) multiplies the base rate of a backbench rebellion by 1 + 2 × resistance,
+so a spending bill with the Commons at 0.6 support (resistance 0.32) is 1.64 times as likely to
+spark one.
+
 The engine's numbers are always the ones applied. A candidate's own claimed indicator changes
 are only kept for display and logs.
 
@@ -574,6 +585,8 @@ what is coming in the next six turns.
 | Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
 | Legislature majority | support 0.5 | `policy/feasibility.py` |
+| Institutions settle back, Commons follows polls | 20% of the gap a turn; 0.5 support per point of approval | `game/loop.py` |
+| Rebellion odds per unit of resistance | +200% | `forecasting/scoring.py` (`RESISTANCE_FACTOR`) |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |

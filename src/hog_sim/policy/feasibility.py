@@ -104,6 +104,11 @@ class FeasibilityReport(Model):
     def all_feasible(self) -> bool:
         return all(c.feasible for c in self.checks)
 
+    @property
+    def resistance(self) -> float:
+        """The stiffest resistance any feasible action meets (0 to 1)."""
+        return max((c.resistance for c in self.checks if c.feasible), default=0.0)
+
 
 def requirements_for(action: PolicyAction, role: Role) -> list[str]:
     reqs = set(action.requires)
