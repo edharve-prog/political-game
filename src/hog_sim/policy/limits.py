@@ -7,7 +7,9 @@ Four limits, in order (Project 16, EB-2 and EB-3; Project 17, EC-5):
    the last ``REPEAT_WINDOW`` turns has its magnitude halved for each such use, so hammering
    one lever stops paying. A policy meant to keep running should say so with its duration.
 3. **Political capital**: a turn's package costs the sum of its magnitudes (speeches cost a
-   quarter). Above ``capital`` a turn, every measure is scaled down to fit.
+   quarter, but whipping the legislature costs in full, and a measure forced through without a
+   majority costs ``FORCE_CAPITAL`` times as much, EB-14). Above ``capital`` a turn, every
+   measure is scaled down to fit.
 4. **Deficit ceiling**: the deficit this package would leave (today's, plus what is
    already landing this turn, plus every tax and spending move in the package) may not pass
    ``DEFICIT_LIMIT``. Borrowing measures are scaled down to fit; tax rises and cuts in the
@@ -28,7 +30,13 @@ from pydantic import Field
 
 from hog_sim.core.models import Model, PolicyAction
 from hog_sim.core.state import WorldState
-from hog_sim.policy.feasibility import DEFICIT_LIMIT, Role, check_feasibility
+from hog_sim.policy.feasibility import (
+    DEFICIT_LIMIT,
+    FORCE_CAPITAL,
+    LEGISLATURE_ID,
+    Role,
+    check_feasibility,
+)
 from hog_sim.world.propagation import FISCAL_NODE, fiscal_cost, scale
 
 REPEAT_WINDOW = 4
@@ -41,8 +49,21 @@ class Constrained(Model):
     notes: list[str] = Field(default_factory=list)
 
 
-def capital_cost(actions: Sequence[PolicyAction]) -> float:
-    return sum(CAPITAL_COST.get(a.kind, 1.0) * abs(a.magnitude) for a in actions)
+def capital_cost(
+    actions: Sequence[PolicyAction], state: WorldState | None = None, role: Role = "prime_minister"
+) -> float:
+    """Political capital the package uses. Whipping the legislature is hard graft, not a
+    speech; given the state, measures forced through without a majority cost more."""
+    forced = (
+        [c.forced for c in check_feasibility(list(actions), state, role).checks]
+        if state is not None
+        else [False] * len(actions)
+    )
+    total = 0.0
+    for action, force in zip(actions, forced, strict=True):
+        unit = 1.0 if action.target == LEGISLATURE_ID else CAPITAL_COST.get(action.kind, 1.0)
+        total += unit * abs(action.magnitude) * (FORCE_CAPITAL if force else 1.0)
+    return total
 
 
 def constrain(
@@ -71,7 +92,12 @@ def constrain(
     )
     kept = []
     for action in report.feasible_actions:
-        uses = recent[(action.kind, action.target)] if action.kind != "do_nothing" else 0
+        # Whipping the legislature is routine graft that has to be kept up, so it does not
+        # wear out with repetition (EB-14).
+        whip = action.kind == "communicate" and action.target == LEGISLATURE_ID
+        uses = (
+            recent[(action.kind, action.target)] if action.kind != "do_nothing" and not whip else 0
+        )
         if uses:
             factor = REPEAT_DECAY**uses
             action = action.model_copy(update={"magnitude": action.magnitude * factor})
@@ -81,7 +107,12 @@ def constrain(
             )
         kept.append(action)
 
-    used = capital_cost(kept)
+    notes += [
+        f"Forced through: {c.action.kind} {c.action.target} ({'; '.join(c.warnings)})"
+        for c in report.checks
+        if c.forced
+    ]
+    used = capital_cost(kept, state, role)
     if used > capital:
         share = capital / used
         kept = [a.model_copy(update={"magnitude": a.magnitude * share}) for a in kept]

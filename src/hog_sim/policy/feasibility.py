@@ -7,7 +7,10 @@ against the WorldState. Blockers make an action infeasible; warnings and ``resis
 
 Rules for the MVP:
 - Tax, spend and legislation need a legislative majority, for a Prime Minister (Commons)
-  and a President (Congress) alike. A legislature with support under 0.5 blocks them.
+  and a President (Congress) alike. Short of a majority but at ``FORCE_FLOOR`` or above, a
+  measure is forced through at a cost (EB-14): it takes ``FORCE_CAPITAL`` times its political
+  capital (``policy.limits``), meets full resistance, and costs the legislature
+  ``FORCE_SUPPORT_STEPS`` of support (``forcing_shocks``). Below the floor it is blocked.
 - Everything else is within executive power for both roles.
 - Spending rises and tax cuts need fiscal headroom: a warning above ``deficit_warn`` and a
   blocker above ``deficit_limit`` (deficit in % of GDP).
@@ -26,7 +29,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from hog_sim.core.models import EdgeKind, Institution, Model, NodeKind, PolicyAction
+from hog_sim.core.models import EdgeKind, Institution, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import fiscal_size
 
@@ -42,6 +45,10 @@ DEFICIT_WARN = 5.0  # % of GDP
 DEFICIT_LIMIT = 10.0  # no new borrowing past this; ``policy.limits`` holds packages to it
 INDEPENDENCE_THRESHOLD = 0.7
 LEGISLATURE_ID = "institution:legislature"
+MAJORITY = 0.5
+FORCE_FLOOR = 0.4  # below this support a measure needing a majority cannot be forced through
+FORCE_CAPITAL = 2.0  # political capital multiplier for a measure forced through
+FORCE_SUPPORT_STEPS = -0.5  # legislature support lost per measure forced through (0.05)
 DEFICIT_ID = "indicator:deficit"
 
 
@@ -91,6 +98,9 @@ class ActionCheck(Model):
     blockers: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     resistance: float = Field(0.0, ge=0, le=1)
+    forced: bool = Field(
+        False, description="Short of a majority, so forced through at a cost (EB-14)"
+    )
 
 
 class FeasibilityReport(Model):
@@ -149,6 +159,7 @@ def _check(
     blockers: list[str] = []
     warnings: list[str] = []
     resistance = 0.0
+    forced = False
     node_ids = set(state.node_ids())
 
     if action.target not in node_ids:
@@ -160,8 +171,19 @@ def _check(
             name = _legislature_name(role, legislature)
             if legislature is None:
                 warnings.append("no legislature in the world model; majority assumed")
-            elif legislature.support < 0.5:
-                blockers.append(f"{name} support is {legislature.support:.2f}, short of a majority")
+            elif legislature.support < FORCE_FLOOR:
+                blockers.append(
+                    f"{name} support is {legislature.support:.2f}, too far short of a majority "
+                    f"to force it through (needs {FORCE_FLOOR:g})"
+                )
+            elif legislature.support < MAJORITY:
+                forced = True
+                resistance = 1.0
+                warnings.append(
+                    f"{name} support is {legislature.support:.2f}, short of a majority: forced "
+                    f"through at {FORCE_CAPITAL:g}x the political capital, and it costs "
+                    "support in the house"
+                )
             else:
                 resistance = max(resistance, (1 - legislature.support) * legislature.power)
         elif req == BUDGET_HEADROOM:
@@ -191,6 +213,7 @@ def _check(
         blockers=blockers,
         warnings=warnings,
         resistance=round(resistance, 3),
+        forced=forced and not blockers,
     )
 
 
@@ -236,3 +259,15 @@ def _independent_controller(target: str, state: WorldState) -> Institution | Non
         if owner.independence >= INDEPENDENCE_THRESHOLD:
             return owner
     return None
+
+
+def forcing_shocks(
+    actions: list[PolicyAction], state: WorldState, role: Role = "prime_minister"
+) -> list[Shock]:
+    """The legislature's lost support for each measure forced through this turn (EB-14)."""
+    if LEGISLATURE_ID not in state.institutions:
+        return []
+    report = check_feasibility(actions, state, role)
+    return [
+        Shock(node=LEGISLATURE_ID, delta=FORCE_SUPPORT_STEPS) for c in report.checks if c.forced
+    ]

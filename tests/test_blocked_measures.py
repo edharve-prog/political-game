@@ -20,7 +20,7 @@ SPEND = PolicyAction(kind="spend", target="group:pensioners", magnitude=0.4, rat
 
 def hung_commons():
     world = toy_world()
-    world.institutions["institution:legislature"].support = 0.4
+    world.institutions["institution:legislature"].support = 0.35
     return world
 
 
