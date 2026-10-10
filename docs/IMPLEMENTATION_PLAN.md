@@ -265,10 +265,11 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
   - Stability tests: long no-action runs shouldn't explode or flatline.
   - LLM output quality checks: diversity of candidates, consistency, rate of validation failures.
   - Calibration of outcome probabilities over many simulated turns.
+  - **Schools of thought (Ed, 2026-10-10):** mechanisms from heterodox views of the economy, society and labour (Marxian wage share and union strength, feminist care economy, post-Keynesian scarring, Austrian credit cycle, material voting) join the one shared world. Where schools contradict each other on a link (deficit and interest rates, multipliers), the world takes a middle value, and each school's values become a lens used by unlabelled advisers, whose schools players must work out themselves. CA-8.
   - **Wider balance issues** (back-end review, 2026-10-01) moved to Project 16.
   - **Known balance issue (2026-10-01):** spending on everything lifts approval from 46% to 61% by the election because the deficit barely hurts. Deficit and debt need a stronger, lagged cost (bond yields, Bank Rate, business confidence) and a backtest that catches it. Found by the "Fix scores not updating" thread; addressed by PR #13 (merged: deficit shocks from spend and tax, debt penalty above a 6% deficit); PR #12 (merged) records indicator and group history so the effect is visible turn by turn.
 - **Done when:** Agreed backtest suite passes direction checks and the engine is stable over 120 turns.
-- **Backlog:** CA-1 to CA-7 in [backlog/calibration.md](backlog/calibration.md).
+- **Backlog:** CA-1 to CA-8 in [backlog/calibration.md](backlog/calibration.md).
 
 ### Project 12 — Stretch Goals
 - Foreign countries as LLM- or rule-driven agents with their own goals and responses.
@@ -383,12 +384,12 @@ Smallest thing that is fun and proves the architecture:
 | 8 | Game Loop & Persistence | Done (PR #4) | Loop, saves, replay, CLI on stubs; see projects/08-game-loop.md |
 | 9 | Goals & Modes | Not started | |
 | 10 | Interface | In progress (TT-1 done, PR #7; TT-2 done, PR #46) | Stories TT-1 and TT-2 in backlog/scenarios-and-responses.md |
-| 11 | Evaluation & Calibration | In progress (CA-1 backtests done, PR #48: 23 of 32 checks pass, 9 known gaps; CA-2 120-turn stability done, PR #49; CA-3 done: 34 of 35 pass, with a new exchange rate; CA-4 under way: 35 of 35 directions and 18 of 28 sizes match, energy, deficit and Bank Rate links retuned, markets punish unfunded tax cuts, wage subsidies protect jobs, spending costs scale with sector size) | Stories CA-1 to CA-7 in backlog/calibration.md |
+| 11 | Evaluation & Calibration | In progress (CA-1 backtests done, PR #48: 23 of 32 checks pass, 9 known gaps; CA-2 120-turn stability done, PR #49; CA-3 done: 34 of 35 pass, with a new exchange rate; CA-4 under way: 35 of 35 directions and 18 of 28 sizes match, energy, deficit and Bank Rate links retuned, markets punish unfunded tax cuts, wage subsidies protect jobs, spending costs scale with sector size; CA-8 schools of thought planned) | Stories CA-1 to CA-8 in backlog/calibration.md |
 | 12 | Stretch | Not started | |
 | 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36; RB-9 done, PR #42; RB-5 done, PR #47) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
-| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency done, PR #38; EB-14 settling done, PR #39) | Built by the back-end review thread; see backlog/engine-balance.md |
+| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency done, PR #38; EB-14 settling done, PR #39; EB-8, EB-10 and EB-11 in progress, PRs #66 to #68) | Built by the back-end review thread; see backlog/engine-balance.md |
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 
@@ -420,6 +421,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-02 | Ed's 11 engine findings become Project 17, in four PRs, each fix shipped with a test that fails on main | All 11 held against main; two overlap Project 16 (EB-12, EB-13) and are done here |
 | 2026-10-02 | Ed's CI list becomes Project 18; P1 is CI-7, CI-6 and CI-3, and the P2 items wait for Project 17 | Cheap protection first; Project 17's fixes will move balance results and add the errors the property tests assert |
 | 2026-10-03 | After the 30-turn Claude review, the next P1 work is EB-13 (consistency tempering), SD-9 (storyline lifespan), EB-14 (Commons lockout) and RB-8 (blocked measures reach the outcome), then a re-run of the review | Variety and narrative met their targets; outcome selection, storyline turnover and the Commons lock-out did not |
+| 2026-10-10 | Heterodox schools of thought: their added mechanisms join the shared world; only links the schools contradict on become lenses, with the world at a middle value; players meet the lenses as unlabelled advisers whose schools they must work out (CA-8) | Ed asked that calibration allow for heterodox views, then pointed out that the mainstream world can take Marxian and other mechanisms directly; lenses are needed only where one world can't hold two answers |
 | 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---

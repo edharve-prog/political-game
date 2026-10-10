@@ -50,12 +50,13 @@ M1–M6, L1–L3) and enhancement numbers refer to the review.
 - **EB-7 Offline outcomes stop leaning negative** (H5).
 - **EB-8 Unused state matters** (M1, enhancement 7). Relationships scale trade, stability
   raises the odds of outside shocks, sector sentiment feeds output, legislature support moves
-  with rebellions, and resistance feeds rebellion odds.
+  with rebellions, and resistance feeds rebellion odds. **In progress, PR #66.**
 - **EB-9 Debt stock and interest bill** (enhancement 9). Interest rate × debt feeds the
   deficit.
 - **EB-10 Graph-change guardrails** (M3). Stop `edge_weight` changes from redefining group
-  identity edges.
+  identity edges. **In progress, PR #67.**
 - **EB-11 Voters adapt** (M4). Approval is measured against a moving reference, not turn 0.
+  **In progress, PR #68.**
 - **EB-12 Propagation limit** (M5). Make the 200-hop cut-off explicit, log it, and test it.
 - **EB-13 Forecast scoring nits** (L1, L2). Revisit the consistency minimum spread, and make
   outcome reuse take size into account. **Consistency part done in PR #38** (|z| capped at

@@ -29,8 +29,12 @@ ATTRS: dict[NodeKind, dict[str, tuple[float, float]]] = {
     NodeKind.SECTOR: {"sentiment": (-1.0, 1.0)},
 }
 
-# Edge kinds an outcome may create. CARES_ABOUT and EMPLOYS describe who people are, which a
-# single month's events do not change.
+# Edge kinds that describe who people are: what a group cares about and where it works. A
+# single month's events do not change them, so outcomes may neither create nor reweight them
+# (EB-10). INFLUENCES edges into a group are protected for the same reason.
+IDENTITY_KINDS = {EdgeKind.CARES_ABOUT, EdgeKind.EMPLOYS}
+
+# Edge kinds an outcome may create.
 NEW_EDGE_KINDS = {
     EdgeKind.TRADES_WITH,
     EdgeKind.ALLIED_WITH,
@@ -83,6 +87,8 @@ def check_graph_change(state: WorldState, change: GraphChange) -> list[str]:
     if change.kind == "edge_weight":
         if existing is None:
             return [f"no edge {label}; use add_edge to create one"]
+        if change.edge_kind in IDENTITY_KINDS or change.target.startswith("group:"):
+            return [f"{label}: edges that define a population group cannot change"]
         weight = state.edges[existing].weight
         if abs(change.delta) > max_weight_step(weight):
             return [f"{label}: weight may move by at most {max_weight_step(weight):.2f}"]
@@ -187,6 +193,32 @@ def _attr(node: str, attr: str, delta: float) -> GraphChange:
     return GraphChange(kind="node_attr", node=node, attr=attr, delta=delta, reason="player action")
 
 
+# A country's relationship with the player scales the trade between them (EB-8): each unit of
+# relationship gained or lost moves both trade edges by this share of their weight, so a trade
+# row makes the partner's slump hurt less and its boom help less, and a deal does the reverse.
+TRADE_PER_RELATIONSHIP = 0.5
+
+
+def _scale_trade(state: WorldState, country: str, moved: float) -> None:
+    """Scale the player's trade edges with ``country`` for a relationship move, in place,
+    unless that would make the same-turn feedback unstable."""
+    factor = max(0.0, 1 + TRADE_PER_RELATIONSHIP * moved)
+    pair = {state.player_country, country}
+    trade = [
+        e for e in state.edges if e.kind == EdgeKind.TRADES_WITH and {e.source, e.target} == pair
+    ]
+    if not trade or factor == 1:
+        return
+    before = lag0_gain(state)
+    old = [e.weight for e in trade]
+    for edge in trade:
+        edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight * factor))
+    after = lag0_gain(state)
+    if after >= MAX_LAG0_GAIN and after > before:
+        for edge, weight in zip(trade, old, strict=True):
+            edge.weight = weight
+
+
 def apply_graph_changes(
     state: WorldState, changes: list[GraphChange], *, trusted: bool = False
 ) -> WorldState:
@@ -205,9 +237,10 @@ def apply_graph_changes(
         if change.kind == "node_attr":
             node = new.node(change.node)
             low, high = ATTRS[node.kind][change.attr]
-            setattr(
-                node, change.attr, min(high, max(low, getattr(node, change.attr) + change.delta))
-            )
+            old = getattr(node, change.attr)
+            setattr(node, change.attr, min(high, max(low, old + change.delta)))
+            if change.attr == "relationship":
+                _scale_trade(new, change.node, getattr(node, change.attr) - old)
         elif change.kind == "edge_weight":
             edge = new.edges[_find_edge(new, change)]
             edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
