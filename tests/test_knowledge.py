@@ -96,6 +96,37 @@ def test_valid_graph_changes_apply(world) -> None:
         (NEW_LINK.model_copy(update={"kind": "edge_weight"}), "no edge"),
         (NEW_LINK.model_copy(update={"edge_kind": EdgeKind.CARES_ABOUT}), "cannot be created"),
         (NEW_LINK.model_copy(update={"lag": 12}), "lag"),
+        # EB-10: what a group cares about, where it works and who sways it are fixed.
+        (
+            GraphChange(
+                kind="edge_weight",
+                source="group:pensioners",
+                target="indicator:inflation",
+                edge_kind=EdgeKind.CARES_ABOUT,
+                delta=0.1,
+            ),
+            "population group",
+        ),
+        (
+            GraphChange(
+                kind="edge_weight",
+                source="sector:public",
+                target="group:public_workers",
+                edge_kind=EdgeKind.EMPLOYS,
+                delta=-0.1,
+            ),
+            "population group",
+        ),
+        (
+            GraphChange(
+                kind="edge_weight",
+                source="institution:legislature",
+                target="group:public_workers",
+                edge_kind=EdgeKind.INFLUENCES,
+                delta=0.05,
+            ),
+            "population group",
+        ),
     ],
 )
 def test_invalid_graph_changes_are_rejected_and_skipped(world, change, message) -> None:
