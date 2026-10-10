@@ -99,6 +99,8 @@ def test_dashboard_shows_score_changes() -> None:
     state.groups["group:pensioners"].approval = 0.50
     state.indicators["indicator:inflation"].value = 4.0
     out = cli._dashboard(start, state, previous)
-    assert "(last turn, since start)" in out
-    assert "50.0%  (-3.0, -5.0)" in out
-    assert "(+0.50, +0.50)" in out
+    assert "last turn  since start" in out
+    pensioners = next(line for line in out.splitlines() if "Pensioners" in line)
+    assert pensioners.split() == ["Pensioners", "50.0%", "-3.0", "-5.0"]
+    inflation = next(line for line in out.splitlines() if "CPI inflation" in line)
+    assert inflation.split()[-2:] == ["+0.50", "+0.50"]
