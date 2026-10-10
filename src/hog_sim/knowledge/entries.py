@@ -78,12 +78,26 @@ def scenario_id(scenario: Scenario) -> str:
     return f"llm-{slugify(scenario.title)[:48].strip('-')}-{digest}"
 
 
+# Size buckets for stored-outcome reuse (EB-13): a stored outcome is reused only for actions of
+# roughly the same size, so a small spend does not reuse outcomes written for a huge one. An
+# action's bucket is the largest bound its |magnitude| does not exceed.
+SIZE_BUCKETS = (("small", 0.3), ("medium", 0.7), ("large", float("inf")))
+
+
+def size_bucket(magnitude: float) -> str:
+    size = abs(magnitude)
+    return next(name for name, bound in SIZE_BUCKETS if size <= bound)
+
+
 def action_signature(actions: list[PolicyAction]) -> str:
-    """What was done, ignoring how much: sorted ``kind:target:sign`` items."""
-    items = set()
+    """What was done and roughly how much: sorted ``kind:target:sign:size`` items, where size
+    is the bucket of the summed magnitude of that kind, target and sign."""
+    totals: dict[str, float] = {}
     for a in actions:
         sign = "+" if a.magnitude > 0 else "-" if a.magnitude < 0 else "0"
-        items.add(f"{a.kind}:{a.target}:{sign}")
+        key = f"{a.kind}:{a.target}:{sign}"
+        totals[key] = totals.get(key, 0.0) + abs(a.magnitude)
+    items = [f"{key}:{size_bucket(total)}" for key, total in totals.items()]
     return "|".join(sorted(items)) or "none"
 
 

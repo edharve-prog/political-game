@@ -133,7 +133,7 @@ the current game come first.
   when the response matches exactly or closely (token overlap ≥ 0.6), re-checks the targets
   against the current world and feasibility, and otherwise falls back to `KeywordInterpreter`.
 - **Outcomes:** `StoredForecaster` reuses stored candidates for the same scenario and the same
-  action signature (kind, target, sign), with the engine's current deltas replacing the stored
+  action signature (kind, target, sign and size bucket, EB-13), with the engine's current deltas replacing the stored
   numbers and graph changes re-validated; otherwise it falls back to `EngineForecaster`.
 
 ## Interface
