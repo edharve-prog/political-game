@@ -301,7 +301,7 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Goal:** No single repeated action wins; indicators stay plausible; every lever has a cost and moves things the way the player meant.
 - **Why:** The back-end review's 45 scripted games found "huge deregulation of energy" wins 5/5 (energy index 100 → 3.4), spending runs the deficit to 17%, and the starting position loses with no action. See [review/backend-review.md](review/backend-review.md).
 - **First batch (approved 2026-10-01):** EB-1 balance test in CI; EB-2 feasibility in offline play (C3); EB-3 bounds, mean reversion, spending as a flow and costs for every lever (C1, C2, H3); EB-4 actions move indicators the right way, Bank of England edge, lasting group benefits (H1, H2).
-- **Backlog:** EB-5 to EB-13 in [backlog/engine-balance.md](backlog/engine-balance.md).
+- **Backlog:** EB-5 to EB-14 in [backlog/engine-balance.md](backlog/engine-balance.md).
 - **Done when:** The balance test passes in CI, no indicator leaves its bounds over 120 turns, and each action kind moves its intended indicator in the stated direction.
 
 ### Project 17 — Engine Correctness
@@ -389,7 +389,7 @@ Smallest thing that is fun and proves the architecture:
 | 13 | Scenario Depth | In progress (SD-1 to SD-3 done; SD-9 done, PR #37; SD-5 done, PR #43; SD-4 done, PR #44; SD-6 done, PR #45) | Stories SD-1 to SD-9 in backlog/scenarios-and-responses.md |
 | 14 | Response Builder | In progress (RB-1 to RB-4 done; RB-8 done, PR #36; RB-9 done, PR #42; RB-5 done, PR #47) | Stories RB-5 to RB-9 in backlog/scenarios-and-responses.md |
 | 15 | LLM Knowledge Store | Done (PR #14) | See projects/15-llm-knowledge-store.md |
-| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-13 consistency done, PR #38; EB-14 settling done, PR #39; EB-8 to EB-11 done, PRs #66 to #70) | Built by the back-end review thread; see backlog/engine-balance.md |
+| 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-8 to EB-11 done, PRs #66 to #70; EB-13 done, PRs #38 and #72; EB-12 done in Project 17; EB-14 done, PRs #39 and #74; EB-5 to EB-7 open) | Built by the back-end review thread; see backlog/engine-balance.md |
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 
