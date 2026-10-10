@@ -58,20 +58,26 @@ M1–M6, L1–L3) and enhancement numbers refer to the review.
 - **EB-11 Voters adapt** (M4). Approval is measured against a moving reference, not turn 0.
   **Done, PR #67.**
 - **EB-12 Propagation limit** (M5). Make the 200-hop cut-off explicit, log it, and test it.
+  **Done in Project 17** (EC-6 convergence check).
 - **EB-13 Forecast scoring nits** (L1, L2). Revisit the consistency minimum spread, and make
   outcome reuse take size into account. **Consistency part done in PR #38** (|z| capped at
   3), after being promoted to P1 by the 30-turn
   review (2026-10-03): consistency scores run from 1.0 down to 1e-25, so it alone picks the
   outcome (T0: judge 0.20, probability 0.98). Clip each claim's z or use a heavier-tailed
   fit; no candidate with a judge score of 0.15 or more should fall below 0.03 from
-  consistency alone.
+  consistency alone. **Size part done in PR #72**: offline play reuses a stored outcome only
+  for actions of similar size (small, medium or large). **Done.**
 - **EB-14 Commons lockout** (P1, from the 30-turn review; settling done in PR #39, whips and
-  passing at a cost still open). Legislature support fell below
+  passing at a cost in PR #74). Legislature support fell below
   0.5 by turn 13 and recovered about 0.007 a turn, so every spend, tax and legislate was
   blocked for the second half of the game. Support recovers toward its baseline on a
   half-life of a few turns, the player can rebuild it (whipping, concessions, communicate to
   the legislature), and a blocked measure can pass at a political cost. With the review's
-  scripted player, fewer than 10% of turns have every action blocked.
+  scripted player, fewer than 10% of turns have every action blocked. **Done, PR #74**:
+  between 0.4 and 0.5 support a measure is forced through at a price (double political
+  capital, full resistance, -0.05 Commons support); below 0.4 it is still blocked. A speech
+  to the legislature whips it (+0.1 support per unit, a full unit of capital, no wearing
+  out). With the Commons at 0.47, blocked turns fall from 75% to 21%, or 0% when whipping.
 
 ## Items placed in other projects
 
