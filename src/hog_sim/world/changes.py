@@ -29,8 +29,12 @@ ATTRS: dict[NodeKind, dict[str, tuple[float, float]]] = {
     NodeKind.SECTOR: {"sentiment": (-1.0, 1.0)},
 }
 
-# Edge kinds an outcome may create. CARES_ABOUT and EMPLOYS describe who people are, which a
-# single month's events do not change.
+# Edge kinds that describe who people are: what a group cares about and where it works. A
+# single month's events do not change them, so outcomes may neither create nor reweight them
+# (EB-10). INFLUENCES edges into a group are protected for the same reason.
+IDENTITY_KINDS = {EdgeKind.CARES_ABOUT, EdgeKind.EMPLOYS}
+
+# Edge kinds an outcome may create.
 NEW_EDGE_KINDS = {
     EdgeKind.TRADES_WITH,
     EdgeKind.ALLIED_WITH,
@@ -83,6 +87,8 @@ def check_graph_change(state: WorldState, change: GraphChange) -> list[str]:
     if change.kind == "edge_weight":
         if existing is None:
             return [f"no edge {label}; use add_edge to create one"]
+        if change.edge_kind in IDENTITY_KINDS or change.target.startswith("group:"):
+            return [f"{label}: edges that define a population group cannot change"]
         weight = state.edges[existing].weight
         if abs(change.delta) > max_weight_step(weight):
             return [f"{label}: weight may move by at most {max_weight_step(weight):.2f}"]

@@ -458,7 +458,9 @@ against the current world:
 - **Node changes**: only a country's relationship or stability, an institution's support or
   independence, or a sector's sentiment, by at most 0.2, kept within bounds.
 - **Edge weight changes**: an existing edge may move by at most 0.1, or a quarter of its weight
-  if that is larger, and stays within -1 to 1.
+  if that is larger, and stays within -1 to 1. Edges that define a population group (what it
+  cares about, where it works, and institutions' influence on it) never change, so a run of
+  outcomes cannot rewrite who a group is.
 - **New edges**: weight non-zero and at most ±0.3, lag at most 6, never into a population group,
   and never `CARES_ABOUT` or `EMPLOYS` (who people are does not change in a month).
 - No change may make the same-turn feedback loops unstable (loop gain 0.9 or more).
