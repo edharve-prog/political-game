@@ -279,11 +279,15 @@ from tuning one model:
 - **CA-8d Care economy and the feminist lens.** Adds the care node, the carers group and the
   cut-shifting rule.
 - **CA-8e Austrian lens.** Adds the credit cycle.
-- **CA-8f Lenses in play.** The lens is chosen at the start, alongside the goal. Scenario and
-  outcome prompts are told the lens so the story fits it, and the explanation says which lens
-  links drove a result. Optional extras: advisers from different schools give competing
-  briefings, and a "contested world" difficulty in which the forecast mixes lenses and the
-  player doesn't know which one is true.
+- **CA-8f Advisers (picked by Ed, 2026-10-10).** The world itself runs on the mainstream lens.
+  Each turn a panel of advisers gives briefings, one per lens. Each forecasts the player's
+  plan by running the engine under its own lens and argues from that school's ideas. Advisers
+  carry neutral names and no school labels. The player is never told which perspective is
+  whose and has to work it out from what each one says and how their forecasts compare with
+  what happens. The adviser order is shuffled each game, so names don't give it away. The
+  briefing wording comes from the scenario prompt (Claude) with the lens's ideas as hidden
+  context. Offline play uses canned lines per lens. The explanation shows each adviser's
+  forecast against the result, never the school.
 - **CA-8g Discriminating episodes.** The new backtests above.
 
 All of this is offline (no Claude calls) except the prompt wording in CA-8f.
