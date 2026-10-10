@@ -147,6 +147,6 @@ def test_an_offline_game_sacks_a_minister_and_replays() -> None:
     assert "Ruth Calder is sacked" in record.outcome.narrative
     assert not game.state.characters["person:chancellor"].active
     board = cli._dashboard(game.start, game.state)
-    assert "People (loyalty)" in board and "Ruth Calder" not in board
+    assert "PEOPLE" in board and "Ruth Calder" not in board
     game.play_turn("Fund a pay rise for nurses and teachers")
     assert replay(game.start, game.config, game.history) == game.state

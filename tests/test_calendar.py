@@ -57,9 +57,7 @@ def test_offline_calendar_turns_lead_with_the_event_and_replay() -> None:
 def test_the_dashboard_and_briefing_show_what_is_coming() -> None:
     state = toy_world()
     state.turn = 1
-    assert "Coming up: The Budget (turn 3), International summit (turn 6)" in cli._dashboard(
-        state, state
-    )
+    assert "Turn 3: The Budget\n  Turn 6: International summit" in cli._dashboard(state, state)
     assert "- Turn 3: The Budget (in 2 turns)" in summarise_state(state).to_prompt()
 
 

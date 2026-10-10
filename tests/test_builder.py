@@ -70,4 +70,4 @@ def test_cli_review_flow(tmp_path, monkeypatch, capsys) -> None:
     cli.main(["--offline", "--save", str(tmp_path / "g.db")])
     out = capsys.readouterr().out
     assert "there is no option 9" in out
-    assert "Your advisers read that as:" in out and "  1. " in out
+    assert "Your advisers read that as" in out and "  1. " in out

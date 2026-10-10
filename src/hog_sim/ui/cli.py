@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import textwrap
 from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
@@ -35,37 +37,109 @@ from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed
 
 
-def _dashboard(start: WorldState, state: WorldState, previous: WorldState | None = None) -> str:
+def _width() -> int:
+    """Line width for wrapped text: the terminal's, kept between 60 and 100 columns."""
+    return max(60, min(shutil.get_terminal_size((80, 24)).columns, 100) - 1)
+
+
+def _banner(title: str) -> str:
+    """A heading that starts a new part of the turn, framed in plain ASCII rules."""
+    rule = "=" * _width()
+    return f"\n{rule}\n  {title}\n{rule}"
+
+
+def _section(title: str) -> str:
+    """A smaller heading inside a part of the turn."""
+    return f"\n{title}\n{'-' * len(title)}"
+
+
+def _wrap(text: str, indent: str = "", hanging: str | None = None) -> str:
+    """Wrap ``text`` to the screen; ``hanging`` indents the lines after the first."""
+    return textwrap.fill(
+        text,
+        width=_width(),
+        initial_indent=indent,
+        subsequent_indent=indent if hanging is None else hanging,
+        break_on_hyphens=False,
+    )
+
+
+def _paragraphs(text: str, indent: str = "") -> str:
+    """Wrap each paragraph of ``text`` on its own, with a blank line between them."""
+    parts = [p for p in text.replace("\r", "").split("\n") if p.strip()]
+    return "\n\n".join(_wrap(p.strip(), indent) for p in parts)
+
+
+def _numbered(i: int, text: str, indent: str = "  ") -> str:
+    """``  1. text`` with continuation lines lined up under the text."""
+    label = f"{indent}{i}. "
+    return _wrap(text, label, " " * len(label))
+
+
+def _dashboard(
+    start: WorldState,
+    state: WorldState,
+    previous: WorldState | None = None,
+    election_turn: int | None = None,
+) -> str:
     """Current scores, with the change since the last turn and since the game began."""
     previous = previous or start
-    lines = [f"Turn {state.turn}" + ("" if state.turn == 0 else "    (last turn, since start)")]
+    first = state.turn == 0
+    columns = "" if first else f"{'last turn':>11}{'since start':>13}"
+    title = f"TURN {state.turn}"
+    if election_turn is not None and state.turn < election_turn:
+        title += f"      (election at turn {election_turn})"
+    lines = [_banner(title), ""]
+
+    def row(label: str, now: str, last: str, total: str) -> str:
+        changes = "" if first else f"{last:>11}{total:>13}"
+        return f"  {label:<27}{now:<15}{changes}".rstrip()
+
+    lines.append(f"{'ECONOMY':<29}{'now':<15}{columns}".rstrip())
     for ind in state.indicators.values():
         last = ind.value - previous.indicators[ind.id].value
         total = ind.value - start.indicators[ind.id].value
-        lines.append(f"  {ind.name:<26}{ind.value:>8.2f} {ind.unit:<6} ({last:+.2f}, {total:+.2f})")
-    lines.append("  Approval")
-    for g in state.groups.values():
-        last = (g.approval - previous.groups[g.id].approval) * 100
-        total = (g.approval - start.groups[g.id].approval) * 100
-        lines.append(f"    {g.name:<24}{g.approval * 100:>6.1f}%  ({last:+.1f}, {total:+.1f})")
-    national, vote = national_approval(state), vote_intention(state)
-    lines.append(
-        f"  National {national * 100:.1f}% ({(national - national_approval(previous)) * 100:+.1f})"
-        f"  ·  Vote intention {vote * 100:.1f}% ({(vote - vote_intention(previous)) * 100:+.1f})"
-    )
+        now = f"{ind.value:.2f} {ind.unit}"
+        lines.append(row(ind.name, now, f"{last:+.2f}", f"{total:+.2f}"))
+    lines += ["", f"{'APPROVAL':<29}{'now':<15}{columns}".rstrip()]
+    scores = [
+        (g.name, g.approval, previous.groups[g.id].approval, start.groups[g.id].approval)
+        for g in state.groups.values()
+    ]
+    scores += [
+        (label, score(state), score(previous), score(start))
+        for label, score in (("National", national_approval), ("Vote intention", vote_intention))
+    ]
+    for label, now, before, begin in scores:
+        lines.append(
+            row(
+                label,
+                f"{now * 100:.1f}%",
+                f"{(now - before) * 100:+.1f}",
+                f"{(now - begin) * 100:+.1f}",
+            )
+        )
     cast = active_cast(state)
     if cast:
-        lines.append("  People (loyalty)")
+        lines += ["", f"{'PEOPLE':<24}{'loyalty':<12}role"]
         for c in cast:
             before = previous.characters.get(c.id)
-            last = f" ({(c.loyalty - before.loyalty) * 100:+.0f})" if before else " (new)"
-            lines.append(f"    {c.name}, {c.role}: {c.loyalty * 100:.0f}%{last}")
+            change = (
+                ""
+                if first
+                else f"({(c.loyalty - before.loyalty) * 100:+.0f})"
+                if before
+                else "(new)"
+            )
+            loyalty = f"{c.loyalty * 100:>3.0f}% {change}"
+            lines.append(_wrap(c.role, f"  {c.name:<22}{loyalty:<12}", " " * 36))
     coming = upcoming(state.turn)
     if coming:
-        lines.append("  Coming up: " + ", ".join(f"{e.title} (turn {t})" for t, e in coming))
+        lines += ["", "COMING UP"]
+        lines += [f"  Turn {t}: {e.title}" for t, e in coming]
     if state.pledges:
-        lines.append("  Pledges")
-        lines += [f"    {pledge_line(p)}" for p in state.pledges]
+        lines += ["", "PLEDGES"]
+        lines += [_wrap(pledge_line(p), "  ", "    ") for p in state.pledges]
     return "\n".join(lines)
 
 
@@ -75,42 +149,53 @@ def _previous(game: Game) -> WorldState:
 
 
 def _report(record: TurnRecord) -> str:
-    lines = [f"Note: {n}" for n in record.notes] + [record.outcome.narrative]
-    lines += [f"  (action: {a.kind} {a.target} {a.magnitude:+.2f})" for a in record.actions]
+    lines = [_section("What happened"), ""]
+    lines += [_wrap(f"Note: {n}", "", "      ") for n in record.notes]
+    if record.notes:
+        lines.append("")
+    lines.append(_paragraphs(record.outcome.narrative))
+    if record.actions:
+        lines += ["", "Actions taken:"]
+        lines += [f"  - {a.kind} {a.target} {a.magnitude:+.2f}" for a in record.actions]
     if record.election:
         e = record.election
         verdict = "You win a majority." if e.majority else "You lose your majority."
-        lines.append(
+        lines += [
+            "",
             f"ELECTION: {e.vote_share * 100:.1f}% of the vote, "
-            f"{e.seats}/{e.total_seats} seats. {verdict}"
-        )
+            f"{e.seats}/{e.total_seats} seats. {verdict}",
+        ]
     return "\n".join(lines)
 
 
 REVIEW_PROMPT = (
-    "\nEnter to confirm, or edit (drop 2 · 2 size 0.3 · 2 turns 4 · save <name> · redo)> "
+    "\nPress Enter to confirm, or edit:\n"
+    "  drop 2  |  2 size 0.3  |  2 turns 4  |  save <name>  |  redo\n"
+    "> "
 )
 
 
 def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
-    lines = ["\nYour advisers read that as:"]
+    lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
         lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
     else:
         lines.append("  (no actions: this turn the government does nothing)")
-    lines += [f"  (not possible: {line})" for line in dropped]
-    lines += [f"  Note: {n}" for n in proposal.notes]
-    lines.append(f"  Delivery: {proposal.delivery.describe()}")
-    lines += [f'  New pledge: "{p.text}"' for p in proposal.pledges]
+    notes = [f"Not possible: {line}" for line in dropped]
+    notes += [f"Note: {n}" for n in proposal.notes]
+    notes.append(f"Delivery: {proposal.delivery.describe()}")
+    notes += [f'New pledge: "{p.text}"' for p in proposal.pledges]
     if state is not None:
-        lines += [
-            f"  Sacking: {state.characters[c].name}, {state.characters[c].role}"
+        notes += [
+            f"Sacking: {state.characters[c].name}, {state.characters[c].role}"
             for c in proposal.sacked
         ]
-        lines += [
-            f'  Warning: this breaks your pledge "{p.text}" (made turn {p.made_turn})'
+        notes += [
+            f'Warning: this breaks your pledge "{p.text}" (made turn {p.made_turn})'
             for p in broken_by(state, proposal.actions)
         ]
+    lines.append("")
+    lines += [_wrap(n, "  ", "    ") for n in notes]
     return "\n".join(lines)
 
 
@@ -149,7 +234,7 @@ def _ask_for_turn(
         except ValueError as err:
             print(f"  {err}")
         except NeedsClarification as ask:
-            print(f"\nYour advisers ask: {ask.question}")
+            print("\n" + _wrap(f"Your advisers ask: {ask.question}", "", "  "))
     dropped = getattr(game.interpreter, "dropped", lambda: [])()
     while True:
         print(_proposal_text(proposal, dropped, game.state))
@@ -173,11 +258,12 @@ def _ask_for_turn(
             print(f"  {err}")
 
 
-EXPLAIN_HINT = "(Type why or alternatives at the next prompt to see how that came about.)"
+EXPLAIN_HINT = "\n(Type why or alternatives at the next prompt to see how that came about.)"
 
 RESPONSE_PROMPT = (
-    "\nYour response (option numbers, words, or both: 1 3 + freeze fares; "
-    "or advise <question>, use <package>, packages)> "
+    "\nYour response: option numbers, your own words, or both (e.g. 1 3 + freeze fares).\n"
+    "Other commands: advise <question>  |  use <package>  |  packages  |  why  |  alternatives\n"
+    "> "
 )
 
 
@@ -208,9 +294,9 @@ def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
         return f"  The advisers couldn't answer: {err}"
     start = len(game.scenario.suggested_options) + 1
     game.add_options([a.option for a in advice])
-    lines = ["  Your advisers suggest:"]
+    lines = [_section("Your advisers suggest")]
     for i, a in enumerate(advice, start):
-        lines += [f"  {i}. {a.option}", f"       Trade-off: {a.trade_off}"]
+        lines += ["", _numbered(i, a.option), _wrap(f"Trade-off: {a.trade_off}", "     ")]
     return "\n".join(lines)
 
 
@@ -548,15 +634,19 @@ def _pretty_json(text: str) -> str:
 def _briefing(game: Game) -> str:
     """The turn's in-tray: the lead scenario with its options, then the other items."""
     s, state = game.scenario, game.state
-    lines = [f"\n== {s.title} =="]
+    lines = [_banner(s.title), ""]
     story = state.storylines.get(s.storyline or "")
     if story is not None:
-        lines.append(f"(Continues: {story.title}, now at stage {story.stage + 1})")
-    lines.append(s.briefing)
-    lines += [f"  {i}. {option}" for i, option in enumerate(s.suggested_options, 1)]
+        lines += [_wrap(f"(Continues: {story.title}, now at stage {story.stage + 1})"), ""]
+    lines.append(_paragraphs(s.briefing))
+    lines.append(_section("Options"))
+    for i, option in enumerate(s.suggested_options, 1):
+        lines += ["", _numbered(i, option)]
     if s.secondary:
-        lines.append("\nAlso in your in-tray (act on any of them in your answer, or leave them):")
-        lines += [f"  - {item.title}: {item.briefing}" for item in s.secondary]
+        lines.append(_section("Also in your in-tray"))
+        lines.append("(act on any of them in your answer, or leave them)")
+        for item in s.secondary:
+            lines += ["", _wrap(f"- {item.title}: {item.briefing}", "  ", "    ")]
     shown = {s.storyline, *(item.storyline for item in s.secondary)}
     ignored = [
         t
@@ -565,7 +655,7 @@ def _briefing(game: Game) -> str:
     ]
     if ignored:
         listed = "; ".join(f"{t.title} (stage {t.stage})" for t in ignored)
-        lines.append(f"Still unresolved: {listed}")
+        lines += ["", _wrap(f"Still unresolved: {listed}", "", "  ")]
     return "\n".join(lines)
 
 
@@ -580,7 +670,7 @@ def _left_alone(record: TurnRecord) -> str:
         return "faded away" if story is not None and not story.open else "carries over"
 
     parts = [f"{i.title} ({fate(i)})" for i in items]
-    return "Left in your in-tray: " + "; ".join(parts)
+    return "\n" + _wrap("Left in your in-tray: " + "; ".join(parts), "", "  ")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -729,7 +819,7 @@ def _main(argv: list[str] | None) -> None:
     library = PolicyLibrary(store.conn, game_id)
     try:
         while not game.over:
-            print("\n" + _dashboard(game.start, game.state, _previous(game)))
+            print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
             print(_briefing(game))
             calls_before = len(client.usage.records) if client else 0
             state_before = game.state
@@ -742,14 +832,14 @@ def _main(argv: list[str] | None) -> None:
                 knowledge.harvest_turn(
                     game_id, record, state_before, _provenance(client, calls_before)
                 )
-            print("\n" + _report(record))
+            print(_report(record))
             left = _left_alone(record)
             if left:
                 print(left)
             print(EXPLAIN_HINT)
             if client:
                 print(_usage_line(client, calls_before))
-        print("\n" + _dashboard(game.start, game.state, _previous(game)))
+        print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
     except (EOFError, KeyboardInterrupt):
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")
     finally:
