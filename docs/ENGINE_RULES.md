@@ -87,15 +87,17 @@ A game is 24 turns of one month each, with a general election after the last one
 **Resolve** (pure Python, no Claude, so a saved game replays exactly from its log):
 
 1. All the turn's shocks are gathered: the actions, the scenario's own shocks, any extra shocks
-   in the chosen outcome, the shocks implied by the outcome's event tags (section 7), and any
-   rise in the interest bill on the debt (section 3).
+   in the chosen outcome, the shocks implied by the outcome's event tags (section 7), each
+   sector's business mood, any crisis in an unstable foreign country (section 7), and any rise
+   in the interest bill on the debt (section 3).
 2. They are run through the world once, with the edge weights at their central values, and the
    resulting changes are booked turn by turn into a **pending** list. This turn's slice is
    applied now; later slices land on later turns, so a policy's lagged effects keep arriving.
 3. Indicators are clamped to their floors and ceilings.
 4. Approval events from the actions and the outcome are added (section 6).
-5. Foreign-policy actions change the target country's relationship and stability, and any
-   lasting graph changes in the outcome are checked and applied (section 7).
+5. Business moods settle a fifth of the way back to neutral. Foreign-policy actions change the
+   target country's relationship and stability, and any lasting graph changes in the outcome are
+   checked and applied (section 7).
 6. The debt grows by the month's deficit and its average rate reprices toward Bank Rate
    (section 3). Every group's approval moves one step (section 6).
 7. Storylines advance (section 9), and the turn counter goes up.
@@ -226,6 +228,8 @@ deficit. A lower bill saves money the same way. The briefing shows the debt, rat
 - **Military** escalation (positive magnitude) worsens the relationship by 0.15 per unit, cuts
   the country's stability by 0.05 per unit and knocks 1 step per unit off its growth, which
   reaches the UK through trade. De-escalation (negative magnitude) only mends the relationship.
+- A relationship change also scales the trade between the two countries (section 7), so
+  diplomacy deepens trade for good and a row thins it.
 - **Communicate** aimed at a foreign country follows the general rule above and nudges that
   country's growth by 0.4 steps per unit. This is a side effect of the general rule rather
   than a deliberate design choice.
@@ -348,10 +352,10 @@ then uses one run with the central weights.
 Every turn, each group has a **target approval**:
 
 - start from its **lean**;
-- for each indicator it cares about: + 0.05 × weight × the indicator's change since the game
-  began, in steps;
-- for each sector that employs it: + 0.05 × weight × that sector's output change since the game
-  began, in steps;
+- for each indicator it cares about: + 0.05 × weight × the indicator's change from what voters
+  are used to (below), in steps;
+- for each sector that employs it: + 0.05 × weight × that sector's output change from what
+  voters are used to, in steps;
 - for each institution that influences it: + 0.05 × weight × how far the institution's support
   is above or below 0.5, in steps (measured from 0.5, not from the start, so an institution
   that already backs the government lifts the group from turn one);
@@ -360,6 +364,14 @@ Every turn, each group has a **target approval**:
   point above 5. Borrowing is tolerated up to a point, then costs credibility with everyone.
 
 The target is kept within 0 to 1.
+
+### What voters are used to
+
+Voters adapt. Each indicator and sector a group feels starts with a **baseline** at its value
+when the game began. After each turn the baseline closes part of the gap to the current value,
+so voters take half of a lasting change as normal after **12 turns**. A price rise hurts most
+when it is new; a year later it is partly forgotten, and a lasting improvement likewise stops
+earning credit. Approval each turn is judged against the baselines voters held coming into it.
 
 ### Moving towards it
 
@@ -428,7 +440,7 @@ defend the leader.
 
 ## 7. What outcomes can change
 
-*Source: `world/events.py`, `world/changes.py`, `forecasting/candidates.py`*
+*Source: `world/events.py`, `world/changes.py`, `world/standing.py`, `forecasting/candidates.py`*
 
 Beyond its narrative, a chosen outcome can carry four kinds of effect, all capped.
 
@@ -469,13 +481,30 @@ against the current world:
 - **Node changes**: only a country's relationship or stability, an institution's support or
   independence, or a sector's sentiment, by at most 0.2, kept within bounds.
 - **Edge weight changes**: an existing edge may move by at most 0.1, or a quarter of its weight
-  if that is larger, and stays within -1 to 1.
+  if that is larger, and stays within -1 to 1. Edges that define a population group (what it
+  cares about, where it works, and institutions' influence on it) never change, so a run of
+  outcomes cannot rewrite who a group is.
 - **New edges**: weight non-zero and at most ±0.3, lag at most 6, never into a population group,
   and never `CARES_ABOUT` or `EMPLOYS` (who people are does not change in a month).
 - No change may make the same-turn feedback loops unstable (loop gain 0.9 or more).
 
 Anything that fails is rejected. The player's own diplomatic and military actions make their
 relationship and stability changes through the same mechanism (section 3).
+
+### What those node fields do
+
+- **Relationship** scales trade. Each unit a country's relationship with the UK moves changes
+  both trade edges between them by half their weight in the same direction (+0.1 is 5% more
+  trade), unless that would make same-turn feedback unstable.
+- **Stability** sets the odds of a crisis abroad. Below 0.5, each turn has a chance of a 1-step
+  (1 point) hit to the country's growth, rising in a straight line to 30% a turn at stability 0.
+  The draw comes from the game seed and the turn, so a replay sees the same crises.
+- **Sentiment** is a sector's business mood. Each turn it pushes the sector's output by 0.2
+  steps per unit, then settles a fifth of the way back to neutral, so a knock to confidence
+  costs output for a while and then passes.
+
+The starting world (sentiment 0, stability 0.5) has none of these effects until something
+changes it.
 
 ---
 
@@ -589,6 +618,7 @@ what is coming in the next six turns.
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |
+| Voters get used to a lasting change | half-life 12 turns | `population/popularity.py` (`HABIT_HALF_LIFE`) |
 | Approval event cap per group | ±0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
 | Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
@@ -597,6 +627,9 @@ what is coming in the next six turns.
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
 | Outcome extra shock cap | ±1 step | `forecasting/candidates.py` |
 | Graph changes per outcome | 3 | `world/changes.py` |
+| Trade per unit of relationship | 50% of the trade weight | `world/changes.py` (`TRADE_PER_RELATIONSHIP`) |
+| Crisis abroad | below stability 0.5, up to 30% a turn, -1 step growth | `world/standing.py` |
+| Sentiment push, settling | 0.2 steps per unit a turn, 20% back a turn | `world/standing.py` |
 | Storyline escalation | after 3 idle turns, +0.15 pressure | `world/storylines.py` |
 | Broken pledge hit | 0.05 per caring group, or 0.02 for all | `policy/pledges.py` |
 | Loyalty: backed, crossed, consulted, ignored | +0.08, -0.08, +0.04, -0.03 | `world/cast.py` |

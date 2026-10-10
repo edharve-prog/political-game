@@ -56,6 +56,7 @@ from hog_sim.world.propagation import (
     scale,
     simulate,
 )
+from hog_sim.world.standing import crisis_shocks, sentiment_shocks, settle_sentiment
 from hog_sim.world.storylines import advance_storylines
 
 INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each turn
@@ -104,6 +105,8 @@ def resolve(
         + scenario.shocks
         + outcome.shocks
         + event_shocks(outcome.events, state)
+        + sentiment_shocks(state)
+        + crisis_shocks(state, config.seed)
         + interest_shocks(state, start)
     )
     cover = job_protection(state, actions)
@@ -127,6 +130,7 @@ def resolve(
     new.events = [*new.events, *policy_events(actions, state), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
     new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
+    new = settle_sentiment(new)  # before this turn's changes, so a new mood is felt in full
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)

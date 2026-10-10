@@ -2,6 +2,7 @@ import pytest
 
 from hog_sim.core.models import ApprovalEvent, PolicyAction
 from hog_sim.population.popularity import (
+    HABIT_HALF_LIFE,
     _event_weight,
     national_approval,
     policy_events,
@@ -28,7 +29,7 @@ def play(world, actions, turns):
     for t in range(turns):
         # dist.at(t) is the cumulative change since the start, so apply it to the start state
         state = apply_deltas(world, dist.at(t)).model_copy(
-            update={"groups": state.groups, "events": state.events}
+            update={"groups": state.groups, "events": state.events, "baselines": state.baselines}
         )
         state = step_approval(state, reference=world)
         history.append(state)
@@ -129,3 +130,28 @@ def test_a_policy_is_felt_in_full_for_exactly_its_duration(turns) -> None:
     ]
     assert weights[:turns] == [1.0] * turns
     assert weights[turns] < 1.0
+
+
+def test_voters_get_used_to_a_lasting_change(world) -> None:
+    """EB-11: a lasting price rise hurts most when new and fades towards the new normal."""
+    world.indicators["indicator:inflation"].value += 2
+    state, gaps = world, []
+    for _ in range(4 * HABIT_HALF_LIFE):
+        state = step_approval(state, reference=toy_world())
+        gaps.append(
+            state.groups["group:pensioners"].approval - world.groups["group:pensioners"].lean
+        )
+    worst = min(gaps)
+    assert worst < -0.02
+    # After one half-life most of the hit is still felt; after four it has nearly gone.
+    assert gaps[HABIT_HALF_LIFE] < worst / 3
+    assert abs(gaps[-1]) < abs(worst) / 8
+    base = state.baselines["indicator:inflation"]
+    assert world.indicators["indicator:inflation"].value - base < 0.2
+
+
+def test_baselines_only_track_what_groups_feel(world) -> None:
+    new = step_approval(world, reference=world)
+    assert "indicator:inflation" in new.baselines
+    assert all(n.startswith(("indicator:", "sector:")) for n in new.baselines)
+    assert new.baselines["indicator:inflation"] == world.indicators["indicator:inflation"].value

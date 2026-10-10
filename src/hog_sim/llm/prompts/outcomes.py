@@ -34,9 +34,10 @@ tariff hits manufacturing), in standard steps -1..1. Leave empty when nothing ne
 candidates have none; use at most 3. Kinds: "node_attr" moves a country's relationship \
 (-1..1) or stability, an institution's support or independence, or a sector's sentiment, by at \
 most 0.2 (set node, attr, delta); "edge_weight" strengthens or weakens an existing link in the \
-briefing's world by at most 0.1 (set source, target, edge_kind, delta); "add_edge" creates a \
-new link such as a new trade tie or rivalry, weight within 0.3 and lag 0-6 turns (set source, \
-target, edge_kind, delta, lag). Leave unused fields null and lag 0. Give a one-line reason.
+briefing's world by at most 0.1, never a link to or from a population group (set source, \
+target, edge_kind, delta); "add_edge" creates a new link such as a new trade tie or rivalry, \
+weight within 0.3 and lag 0-6 turns (set source, target, edge_kind, delta, lag). \
+Leave unused fields null and lag 0. Give a one-line reason.
 - event_tags: from the allowed list; use "none" for a quiet outcome. Tags have consequences: \
 the engine turns strike, protest, backbench_rebellion, market_selloff, market_rally, \
 capital_flight, business_investment and foreign_retaliation into shocks of their own, so tag \
