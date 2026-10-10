@@ -557,6 +557,11 @@ engine's forecast: as expected (60%), a backlash from the groups the forecast hu
 if stakeholders were consulted), and a welcome from the groups it helps (20%). Each reaction is
 ±0.03 to those groups.
 
+When a knowledge store from earlier Claude games is available, offline play reuses the stored
+outcomes for the same scenario and the same actions instead. Actions match on kind, target,
+direction and rough size: small (magnitude up to 0.3), medium (up to 0.7) or large. So a small
+spend never reuses outcomes written for a huge one. The engine's numbers replace the stored ones.
+
 ### Picking one
 
 The default (`sample`) draws an outcome at random by probability, so the game can't be solved.

@@ -254,7 +254,10 @@ def test_claude_game_fills_store_and_graph_changes_replay(world, engine, tmp_pat
     assert replay(world, game.config, game.history) == game.state
 
     stats = store.stats()
-    assert stats["scenario"] == 1 and stats["interpretation"] == 1 and stats["outcome"] == 1
+    assert stats["scenario"] == 1 and stats["interpretation"] == 1
+    # Diminishing returns halve the repeated tax (0.5, then 0.25 and 0.125), so the outcomes are
+    # stored under two sizes (EB-13).
+    assert stats["outcome"] == 2
     assert stats["graph_change"] == 6  # 3 turns x 2 candidates
     assert sum(e.status == "applied" for e in store.graph_changes()) == 3
 
@@ -339,10 +342,18 @@ def test_offline_game_reuses_claude_work(world, engine, tmp_path) -> None:
     assert interpreter.last_source == "fallback" and forecaster.last_source == "fallback"
 
 
-def test_action_signature_ignores_size() -> None:
+def test_action_signature_buckets_size() -> None:
+    """EB-13: outcomes are reused only for actions of roughly the same size."""
+    similar = TAX.model_copy(update={"magnitude": 0.6})
     bigger = TAX.model_copy(update={"magnitude": 0.9})
+    small = TAX.model_copy(update={"magnitude": 0.2})
     cut = TAX.model_copy(update={"magnitude": -0.5})
-    assert action_signature([TAX]) == action_signature([bigger]) != action_signature([cut])
+    assert action_signature([TAX]) == action_signature([similar])
+    assert action_signature([TAX]) != action_signature([bigger])
+    assert action_signature([TAX]) != action_signature([small])
+    assert action_signature([TAX]) != action_signature([cut])
+    # Two medium taxes on the same target add up to a large one.
+    assert action_signature([TAX, TAX]) == action_signature([bigger])
     assert action_signature([]) == "none"
 
 
