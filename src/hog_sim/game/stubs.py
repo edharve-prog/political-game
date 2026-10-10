@@ -91,6 +91,7 @@ class CannedScenarios:
 
 # Keyword -> node id. Checked in order; first match wins.
 _TARGETS = [
+    (r"\bwhip|backbench|\bmps\b|\bcommons\b|parliament", "institution:legislature"),
     (r"furlough|job retention|wage subsid", "indicator:unemployment"),
     (r"\bbills?\b|price cap|\bcap\b", "indicator:energy_prices"),
     (r"energy|gas|electric", "sector:energy"),

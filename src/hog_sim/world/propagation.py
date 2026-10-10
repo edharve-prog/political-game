@@ -132,8 +132,17 @@ _ACTION_SIGN = {
 ACTION_STEPS = 2.0  # magnitude 1.0 means a two-step push
 
 
+# Whipping (EB-14): communicating with the legislature (whips, a meeting with backbenchers,
+# concessions on the floor) shores up its support by this many steps per unit, far more than a
+# speech moves anyone else.
+WHIP_TARGET = "institution:legislature"
+WHIP_STEPS = 1.0
+
+
 def action_factor(action: PolicyAction) -> float:
     """Signed standard steps per unit of magnitude that the action pushes its target."""
+    if action.kind == "communicate" and action.target == WHIP_TARGET:
+        return WHIP_STEPS
     sign = _ACTION_SIGN[action.kind]
     if action.target.startswith("indicator:"):
         sign = abs(sign)

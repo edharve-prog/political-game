@@ -43,7 +43,7 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
-from hog_sim.policy.feasibility import LEGISLATURE_ID
+from hog_sim.policy.feasibility import LEGISLATURE_ID, forcing_shocks
 from hog_sim.policy.limits import constrain
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import (
@@ -120,6 +120,7 @@ def resolve(
         + sentiment_shocks(state)
         + crisis_shocks(state, config.seed)
         + interest_shocks(state, start)
+        + forcing_shocks(actions, state, config.role)
     )
     cover = job_protection(state, actions)
     trajectory = simulate(state, shocks, config.horizon, protection=cover)

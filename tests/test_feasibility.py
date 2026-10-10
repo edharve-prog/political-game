@@ -28,7 +28,7 @@ def test_tax_with_a_majority_is_feasible(world: WorldState) -> None:
 
 
 def test_no_majority_blocks_legislation(world: WorldState) -> None:
-    world.institutions["institution:legislature"].support = 0.4
+    world.institutions["institution:legislature"].support = 0.35
     report = check_feasibility(
         [act("tax", "sector:energy"), act("diplomatic", "country:eu")], world
     )

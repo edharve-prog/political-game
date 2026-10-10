@@ -245,14 +245,18 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
 
 1. **Feasibility.** An action is blocked if:
    - its target doesn't exist, or the kind doesn't fit the target (table above);
-   - it is tax, spend or legislation and the legislature's support is below 0.5 (no majority);
+   - it is tax, spend or legislation and the legislature's support is below **0.4**, too far
+     short of a majority to force through;
    - it loosens the budget (more spending, or a tax cut) while the deficit is already above
      **10% of GDP**;
    - it tries to direct an independent institution (independence 0.7 or more, like the Bank of
      England) or an indicator that only such an institution sets (Bank Rate). Communicating with
      them is always allowed.
 
-   A deficit above 5% gives a warning but does not block. The checks also compute a
+   With support from 0.4 up to 0.5 there is no majority, but the measure can be **forced
+   through**: it costs **twice** its political capital, meets full resistance (1.0), and each
+   measure forced through costs the legislature **0.05 support** that turn. A deficit above 5%
+   gives a warning but does not block. The checks also compute a
    **resistance** score from 0 to 1: how thin the majority is ((1 - support) × the legislature's
    power) or how far the deficit is past 5%, whichever is larger. With Claude, it makes a
    backbench rebellion likelier (section 8).
@@ -261,11 +265,18 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    turn, so a rebellion costs the majority for a few turns rather than the whole game. The
    Commons settles toward its starting support **plus half the change in national approval**
    since the start: when the polls fall 10 points, backbenchers drift 0.05 less supportive.
+
+   **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
+   support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
+   speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
+   with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
+   Parliament is read as a whip.
 2. **Diminishing returns.** Repeating the same kind of action on the same target within 4 turns
    halves its magnitude for each earlier use (one repeat: 50%, two: 25%). A policy meant to keep
-   running should say so with its duration instead.
+   running should say so with its duration instead. Whipping the legislature is exempt.
 3. **Political capital.** A turn's package costs the sum of its magnitudes, with speeches
-   (communicate) at a quarter and do nothing free. The budget is **1.5 a turn**. Above it, every
+   (communicate) at a quarter, whips at full price, measures forced through at double and do
+   nothing free. The budget is **1.5 a turn**. Above it, every
    measure is scaled down by the same share to fit.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
@@ -625,7 +636,8 @@ what is coming in the next six turns.
 | Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
-| Legislature majority | support 0.5 | `policy/feasibility.py` |
+| Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
+| Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
 | Institutions settle back, Commons follows polls | 20% of the gap a turn; 0.5 support per point of approval | `game/loop.py` |
 | Rebellion odds per unit of resistance | +200% | `forecasting/scoring.py` (`RESISTANCE_FACTOR`) |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
