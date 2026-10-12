@@ -40,7 +40,7 @@ from hog_sim.game.interfaces import Forecaster, Interpreter
 from hog_sim.knowledge.entries import action_signature, normalise_text, scenario_id
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.policy.feasibility import Role, check_feasibility
-from hog_sim.world.changes import check_graph_change
+from hog_sim.world.changes import action_changes, apply_graph_changes, validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
 
 MATCH_THRESHOLD = 0.6
@@ -193,10 +193,13 @@ class StoredForecaster:
             if action_signature(e.actions) == signature
         ]
         known = set(state.node_ids())
+        # Graph changes are checked against the world as resolve() meets it, after the
+        # player's own moves.
+        staged = apply_graph_changes(state, action_changes(state, actions), trusted=True)
         turn = min(CLAIM_TURN, engine.horizon - 1)
         resistance = check_feasibility(list(actions), state, self.role).resistance
         for entry in reversed(matches):  # newest first
-            candidates = [_adapt(c, state, known) for c in entry.candidates]
+            candidates = [_adapt(c, staged, known) for c in entry.candidates]
             scores = [
                 CandidateScores(
                     consistency=consistency(c.indicator_deltas, engine, turn),
@@ -241,6 +244,9 @@ def _adapt(outcome: Outcome, state: WorldState, known: set[str]) -> Outcome:
             "indicator_deltas": {n: v for n, v in outcome.indicator_deltas.items() if n in known},
             "approval_events": events,
             "shocks": [s for s in outcome.shocks if s.node in known],
-            "graph_changes": [g for g in outcome.graph_changes if not check_graph_change(state, g)],
+            # All or nothing, as in resolve(): a stored set that no longer fits is dropped.
+            "graph_changes": []
+            if validate_graph_changes(state, outcome.graph_changes)
+            else list(outcome.graph_changes),
         },
     )

@@ -503,8 +503,10 @@ tax, spending and legislation are blocked (section 4).
 ### Lasting changes to the world graph
 
 An outcome may say the world itself has shifted: a trade row leaves relations worse, a bailout
-ties two sectors together. Up to **3** such changes per outcome are allowed, and each is checked
-against the current world:
+ties two sectors together. Up to **3** such changes per outcome are allowed. They are checked
+in order, each against the world as the earlier ones left it (after the player's own diplomatic
+and military moves that turn), so a trade row that shrinks a trade edge also shrinks how far
+that edge may then move:
 
 - **Node changes**: only a country's relationship or stability, an institution's support or
   independence, or a sector's sentiment, by at most 0.2, kept within bounds.
@@ -516,7 +518,8 @@ against the current world:
   and never `CARES_ABOUT` or `EMPLOYS` (who people are does not change in a month).
 - No change may make the same-turn feedback loops unstable (loop gain 0.9 or more).
 
-Anything that fails is rejected. The player's own diplomatic and military actions make their
+An outcome's changes are all or nothing: if any one fails, none of them is applied, so the world
+never ends up half way to what the outcome described. The player's own diplomatic and military actions make their
 relationship and stability changes through the same mechanism (section 3).
 
 ### What those node fields do
