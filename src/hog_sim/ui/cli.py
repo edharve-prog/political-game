@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import textwrap
+from functools import partial
 from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
@@ -805,14 +806,22 @@ def _main(argv: list[str] | None) -> None:
         config, start, records = store.load(game_id)
         recaller.game_id = game_id
         _log_turns(client, game_id, lambda: (records[-1].state_after if records else start).turn)
-        game = Game.resume(config, start, records, *plugins)
+        turn = (records[-1].state_after if records else start).turn
+        game = Game.resume(
+            config,
+            start,
+            records,
+            *plugins,
+            scenario=store.pending_scenario(game_id, turn),
+            on_scenario=partial(store.save_scenario, game_id),
+        )
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
         config, start = GameConfig(seed=args.seed), toy_world()
         game_id = store.new_game(config, start)
         recaller.game_id = game_id
         _log_turns(client, game_id, lambda: start.turn)
-        game = Game(config, start, *plugins)
+        game = Game(config, start, *plugins, on_scenario=partial(store.save_scenario, game_id))
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
     _log_turns(client, game_id, lambda: game.state.turn)

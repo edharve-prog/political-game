@@ -33,7 +33,7 @@ node -> native change), so a policy's lagged tail keeps arriving after the turn 
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from pydantic import Field
 
@@ -167,6 +167,15 @@ class Proposal(Model):
 
 
 class Game:
+    """One game in play.
+
+    The next scenario is fetched only when something asks for it (``game.scenario``), never
+    inside ``commit``: a finished turn can be saved before the scenario source is called, so a
+    failed or interrupted scenario request cannot lose it. ``on_scenario(turn, scenario)`` is
+    called whenever this turn's scenario is fetched or changed, so it can be saved and a
+    resumed game shows the same scenario (pass it back to ``resume`` as ``scenario``).
+    """
+
     def __init__(
         self,
         config: GameConfig,
@@ -174,6 +183,7 @@ class Game:
         scenarios: ScenarioSource,
         interpreter: Interpreter,
         forecaster: Forecaster,
+        on_scenario: Callable[[int, Scenario], None] | None = None,
     ) -> None:
         self.config = config
         self.start = start
@@ -181,8 +191,9 @@ class Game:
         self.scenarios = scenarios
         self.interpreter = interpreter
         self.forecaster = forecaster
+        self.on_scenario = on_scenario
         self.history: list[TurnRecord] = []
-        self.scenario = scenarios.next_scenario(start, [])
+        self._scenario: Scenario | None = None
 
     @classmethod
     def resume(
@@ -193,14 +204,33 @@ class Game:
         scenarios: ScenarioSource,
         interpreter: Interpreter,
         forecaster: Forecaster,
+        scenario: Scenario | None = None,
+        on_scenario: Callable[[int, Scenario], None] | None = None,
     ) -> Game:
-        game = cls(config, start, scenarios, interpreter, forecaster)
+        """Continue a saved game. ``scenario`` is the scenario saved for the turn being
+        resumed, if any; without it the source is asked for a new one."""
+        game = cls(config, start, scenarios, interpreter, forecaster, on_scenario)
+        game.history = list(records)
         if records:
-            game.history = list(records)
             game.state = records[-1].state_after
-            if not game.over:
-                game.scenario = scenarios.next_scenario(game.state, game.history)
+        game._scenario = scenario
         return game
+
+    @property
+    def scenario(self) -> Scenario:
+        """This turn's scenario, fetched from the source the first time it is needed."""
+        if self._scenario is None:
+            if self.over:
+                raise RuntimeError("the game is over")
+            self.scenario = self.scenarios.next_scenario(self.state, self.history)
+        assert self._scenario is not None
+        return self._scenario
+
+    @scenario.setter
+    def scenario(self, scenario: Scenario) -> None:
+        self._scenario = scenario
+        if self.on_scenario is not None:
+            self.on_scenario(self.state.turn, scenario)
 
     @property
     def over(self) -> bool:
@@ -329,8 +359,7 @@ class Game:
         )
         self.state = new
         self.history.append(record)
-        if not self.over:
-            self.scenario = self.scenarios.next_scenario(new, self.history)
+        self._scenario = None  # fetched when next needed, after the caller has saved the record
         return record
 
 
