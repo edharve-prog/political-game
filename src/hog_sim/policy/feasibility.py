@@ -31,7 +31,7 @@ from pydantic import Field
 
 from hog_sim.core.models import EdgeKind, Institution, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import WorldState
-from hog_sim.world.propagation import fiscal_size
+from hog_sim.world.propagation import fiscal_cost, fiscal_size
 
 Role = Literal["prime_minister", "president"]
 
@@ -139,9 +139,19 @@ def check_feasibility(
     deficit_warn: float = DEFICIT_WARN,
     deficit_limit: float = DEFICIT_LIMIT,
 ) -> FeasibilityReport:
+    # Past the deficit limit, borrowing is judged on the whole package: tax rises and cuts in
+    # it can pay for spending (``policy.limits.fit_deficit`` scales it to what they cover).
+    funded = any(fiscal_cost(a, state) < 0 for a in actions)
     return FeasibilityReport(
         checks=[
-            _check(a, state, role, deficit_warn=deficit_warn, deficit_limit=deficit_limit)
+            _check(
+                a,
+                state,
+                role,
+                deficit_warn=deficit_warn,
+                deficit_limit=deficit_limit,
+                funded=funded,
+            )
             for a in actions
         ]
     )
@@ -154,6 +164,7 @@ def _check(
     *,
     deficit_warn: float,
     deficit_limit: float,
+    funded: bool = False,
 ) -> ActionCheck:
     reqs = requirements_for(action, role)
     blockers: list[str] = []
@@ -188,7 +199,13 @@ def _check(
                 resistance = max(resistance, (1 - legislature.support) * legislature.power)
         elif req == BUDGET_HEADROOM:
             deficit = state.indicators.get(DEFICIT_ID)
-            if deficit is not None and deficit.value > deficit_limit:
+            if deficit is not None and deficit.value > deficit_limit and funded:
+                warnings.append(
+                    f"deficit is {deficit.value:g}% of GDP, above the {deficit_limit:g}% limit: "
+                    "only as much as the package's tax rises and cuts pay for"
+                )
+                resistance = max(resistance, min(1.0, (deficit.value - deficit_warn) / 10))
+            elif deficit is not None and deficit.value > deficit_limit:
                 blockers.append(
                     f"deficit is {deficit.value:g}% of GDP, above the {deficit_limit:g}% limit"
                 )

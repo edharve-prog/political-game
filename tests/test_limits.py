@@ -7,6 +7,7 @@ from hog_sim.core.models import PolicyAction
 from hog_sim.game.loop import Game, replay
 from hog_sim.game.stubs import CannedScenarios, EngineForecaster
 from hog_sim.policy.limits import REPEAT_DECAY, constrain
+from hog_sim.world.propagation import fiscal_cost
 from hog_sim.world.seed.toy import toy_world
 
 
@@ -108,3 +109,32 @@ def test_room_below_the_limit_is_untouched() -> None:
     limited = constrain([act("spend", "sector:public", 1.0)], toy_world(), [])
     assert limited.actions[0].magnitude == pytest.approx(1.0)
     assert limited.notes == []
+
+
+def test_a_funded_package_goes_ahead_above_the_deficit_limit() -> None:
+    """Spending paid for by a tax rise in the same package is not blocked just because the
+    deficit is already past the limit; it is scaled to what the tax rise covers."""
+    world = toy_world()
+    world.indicators["indicator:deficit"].value = 12
+    package = [act("spend", "sector:public", 0.3), act("tax", "sector:finance", 0.8)]
+    limited = constrain(package, world, [])
+    assert [(a.kind, a.target) for a in limited.actions] == [
+        ("spend", "sector:public"),
+        ("tax", "sector:finance"),
+    ]
+    assert not any(n.startswith("Blocked") for n in limited.notes)
+    # The tax rise covers this spending in full, so nothing is scaled and borrowing does
+    # not rise.
+    assert limited.actions[0].magnitude == pytest.approx(0.3)
+    assert sum(fiscal_cost(a, world) for a in limited.actions) <= 1e-9
+
+
+def test_part_funded_spending_above_the_limit_is_scaled_to_its_funding() -> None:
+    world = toy_world()
+    world.indicators["indicator:deficit"].value = 12
+    package = [act("spend", "sector:public", 0.6), act("tax", "sector:finance", 0.3)]
+    limited = constrain(package, world, [])
+    spend = limited.actions[0]
+    assert 0 < spend.magnitude < 0.6
+    assert sum(fiscal_cost(a, world) for a in limited.actions) == pytest.approx(0.0, abs=1e-9)
+    assert "already 12.0% of GDP" in limited.notes[-1]
