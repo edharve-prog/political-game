@@ -91,6 +91,7 @@ def test_rng_is_deterministic() -> None:
         {"k_draws": 0},
         {"election_turn": 0},
         {"turn_length_months": 0},
+        {"turn_length_months": 3},  # not read anywhere: a turn is always one month
         {"capital_per_turn": -1.0},
         {"capital_per_turn": float("nan")},
     ],
