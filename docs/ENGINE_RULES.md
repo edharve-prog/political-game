@@ -248,7 +248,7 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    - it is tax, spend or legislation and the legislature's support is below **0.4**, too far
      short of a majority to force through;
    - it loosens the budget (more spending, or a tax cut) while the deficit is already above
-     **10% of GDP**;
+     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it;
    - it tries to direct an independent institution (independence 0.7 or more, like the Bank of
      England) or an indicator that only such an institution sets (Bank Rate). Communicating with
      them is always allowed.
@@ -281,7 +281,10 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
    borrowing measures are scaled down to fit, and tax rises or spending cuts in the same package
-   make room for them.
+   make room for them. Once the deficit is past 10%, a package may still spend or cut taxes as
+   long as its own tax rises and spending cuts pay for it: the borrowing is scaled to what they
+   cover, so the package adds nothing to the deficit. Only borrowing that nothing in the package
+   pays for is blocked outright.
 
 The turn log keeps both the requested and the applied actions.
 

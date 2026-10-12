@@ -12,8 +12,10 @@ Four limits, in order (Project 16, EB-2 and EB-3; Project 17, EC-5):
    measure is scaled down to fit.
 4. **Deficit ceiling**: the deficit this package would leave (today's, plus what is
    already landing this turn, plus every tax and spending move in the package) may not pass
-   ``DEFICIT_LIMIT``. Borrowing measures are scaled down to fit; tax rises and cuts in the
-   same package make room for them.
+   ``DEFICIT_LIMIT``, and once past it the package may not add to it. Borrowing measures
+   are scaled down to fit; tax rises and cuts in the same package make room for them, so
+   a funded package goes ahead even above the limit (feasibility only blocks borrowing
+   there when nothing in the package pays for it).
 
 The game is the only place these run: interpreters report what the player asked for.
 
@@ -129,7 +131,8 @@ def constrain(
 def fit_deficit(
     actions: list[PolicyAction], state: WorldState, limit: float = DEFICIT_LIMIT
 ) -> tuple[list[PolicyAction], str | None]:
-    """Scale the package's borrowing so the projected deficit stays within ``limit``."""
+    """Scale the package's borrowing so the projected deficit stays within ``limit``, or,
+    when it is already past the limit, so the package adds nothing to it."""
     deficit = state.indicators.get(FISCAL_NODE)
     if deficit is None:
         return actions, None
@@ -138,14 +141,21 @@ def fit_deficit(
     loosening = sum(c for c in costs if c > 0)
     landing = state.pending.get(state.turn, {}).get(FISCAL_NODE, 0.0)
     projected = deficit.value + landing + sum(costs)
-    if loosening <= 0 or projected <= limit + 1e-9:
+    ceiling = max(limit, deficit.value + landing)
+    if loosening <= 0 or projected <= ceiling + 1e-9:
         return actions, None
-    share = max(0.0, loosening - (projected - limit)) / loosening
+    share = max(0.0, loosening - (projected - ceiling)) / loosening
     fitted = [
         a.model_copy(update={"magnitude": a.magnitude * share}) if c > 0 else a
         for a, c in zip(actions, costs, strict=True)
     ]
     fitted = [a for a, c in zip(fitted, costs, strict=True) if c <= 0 or share > 0]
+    if ceiling > limit:
+        return fitted, (
+            f"Deficit limit: the deficit is already {deficit.value + landing:.1f}% of GDP, past "
+            f"the {limit:g}% limit, so the package's borrowing was scaled to {share:.0%}, as "
+            "far as its tax rises and cuts pay for"
+        )
     return fitted, (
         f"Deficit limit: the package would take the deficit to {projected:.1f}% of GDP, past "
         f"the {limit:g}% limit, so its borrowing was scaled to {share:.0%}"
