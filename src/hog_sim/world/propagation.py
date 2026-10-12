@@ -31,6 +31,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from statistics import fmean, quantiles
 
 from pydantic import Field
@@ -117,8 +118,13 @@ class DeltaDistribution(Model):
     nodes: dict[str, NodeForecast]
     baseline: dict[str, list[float]] = Field(
         default_factory=dict,
-        description="Cumulative native change per node per turn from what happens whatever "
-        "the player decides (effects in flight, background pushes); empty when not run",
+        description="Mean cumulative native change per node per turn with none of this "
+        "turn's decisions: the same crisis (scenario, effects in flight, background pushes) "
+        "on the same draws; empty when not run",
+    )
+    unprojected: list[str] = Field(
+        default_factory=list,
+        description="What resolve does that the forecast does not project, in plain words",
     )
 
     def at(self, turn: int) -> dict[str, float]:
@@ -126,8 +132,8 @@ class DeltaDistribution(Model):
         return {n: f.mean[turn] for n, f in self.nodes.items()}
 
     def response_at(self, turn: int) -> dict[str, float]:
-        """The part of ``at(turn)`` that this turn's decisions and events make: the expected
-        change less the baseline."""
+        """What this turn's decisions do by ``turn``: the policy against no new policy under
+        the same crisis, each draw against its own no-policy run on the same edge weights."""
         return {
             n: f.mean[turn] - self.baseline.get(n, [0.0] * (turn + 1))[turn]
             for n, f in self.nodes.items()
@@ -425,6 +431,24 @@ def pushes_for(shocks: list[Shock], state: WorldState, turn: int | None = None) 
 # Makes, for one projected path, a function called once per turn after the first with the
 # projected values (native units by node id) that returns the background pushes due that turn.
 Outlook = Callable[[], Callable[[dict[str, float]], list[Shock]]]
+# Called after each projected turn's step with the absolute turn and the projected values
+# (updated in place): the rules resolve applies to the world after the engine moves it.
+Settle = Callable[[int, dict[str, float]], None]
+
+
+@dataclass
+class Projection:
+    """One course of the world to project: this turn's ``shocks``, the job ``protection`` in
+    force by absolute turn, the background pushes of later turns (``outlook``), the rules
+    applied after each turn's step (``settle``) and the world whose edges carry the effects
+    from the next turn on (``graph``: the world after this turn's lasting changes; None
+    keeps the state's own)."""
+
+    shocks: list[Shock]
+    protection: dict[int, float] = field(default_factory=dict)
+    outlook: Outlook | None = None
+    settle: Settle | None = None
+    graph: WorldState | None = None
 
 
 class _Engine:
@@ -627,38 +651,46 @@ def simulate(
 
 def propagate(
     state: WorldState,
-    shocks: list[Shock],
+    shocks: list[Shock] | Projection,
     horizon: int = 12,
     k_draws: int = 200,
     seed: int = 0,
     protection: dict[int, float] | None = None,
-    baseline: list[Shock] | None = None,
+    baseline: list[Shock] | Projection | None = None,
     outlook: Outlook | None = None,
+    unprojected: list[str] | None = None,
 ) -> DeltaDistribution:
     """Monte Carlo forecast: the change in every node over the next ``horizon`` turns, mean
     and 10th/90th percentiles in native units.
 
     It runs the same turn as ``resolve`` (``step``): from what the state already has in
     flight, plus ``shocks`` made this turn, within every node's bounds. Each draw perturbs the
-    edge weights for the turns ahead. With ``baseline`` (the shocks among ``shocks`` that
-    come whatever the player decides), one more run at the central weights, with only those
-    and what is in flight, fills ``DeltaDistribution.baseline``. ``outlook`` makes the pushes
-    that later turns' background mechanisms add, from the projected values (see ``Outlook``).
-    """
+    edge weights for the turns ahead. ``shocks`` may be a whole ``Projection``; given as a
+    list, ``protection`` (None: the state's own) and ``outlook`` complete it.
+
+    With ``baseline`` (the course with none of this turn's decisions: a list of shocks uses
+    the state's own job protection), every draw also runs it on the same edge weights, and
+    its mean fills ``DeltaDistribution.baseline``, so ``response_at`` compares each draw with
+    its own no-policy twin and nothing else differs."""
     if protection is None:
         protection = state.job_protection
+    course = (
+        shocks
+        if isinstance(shocks, Projection)
+        else Projection(shocks, protection, outlook=outlook)
+    )
+    if baseline is not None and not isinstance(baseline, Projection):
+        baseline = Projection(baseline, state.job_protection, outlook=outlook)
     edges = _propagating_edges(state)
     draws: list[dict[str, list[float]]] = []
+    twins: list[dict[str, list[float]]] = []
     for k in range(k_draws):
         rng = make_rng(seed, state.turn, f"mc:{k}")
-        weights = {i: rng.gauss(e.weight, e.uncertainty) for i, e in enumerate(edges)}
-        draws.append(_path(state, shocks, horizon, _Engine(state, weights), protection, outlook))
+        noise = {i: rng.gauss(e.weight, e.uncertainty) - e.weight for i, e in enumerate(edges)}
+        draws.append(_path(state, course, horizon, noise))
+        if baseline is not None:
+            twins.append(_path(state, baseline, horizon, noise))
     start = list(draws[0]) if draws else list(state.node_ids())
-    carried = (
-        _path(state, baseline, horizon, _Engine(state), protection, outlook)
-        if baseline is not None
-        else {}
-    )
 
     nodes = {}
     for node_id in start:
@@ -674,33 +706,57 @@ def propagate(
                 p10.append(values[0])
                 p90.append(values[0])
         nodes[node_id] = NodeForecast(mean=mean, p10=p10, p90=p90)
-    return DeltaDistribution(horizon=horizon, k_draws=k_draws, nodes=nodes, baseline=carried)
+    carried = (
+        {n: [fmean(d[n][t] for d in twins) for t in range(horizon)] for n in start} if twins else {}
+    )
+    return DeltaDistribution(
+        horizon=horizon,
+        k_draws=k_draws,
+        nodes=nodes,
+        baseline=carried,
+        unprojected=list(unprojected or []),
+    )
+
+
+def _drawn(world: WorldState, noise: dict[int, float]) -> _Engine:
+    """The engine for ``world``'s edges, each weight moved by its draw's ``noise``."""
+    edges = _propagating_edges(world)
+    return _Engine(world, {i: e.weight + noise.get(i, 0.0) for i, e in enumerate(edges)})
 
 
 def _path(
     state: WorldState,
-    shocks: list[Shock],
+    course: Projection,
     horizon: int,
-    model: _Engine,
-    protection: dict[int, float],
-    outlook: Outlook | None = None,
+    noise: dict[int, float] | None = None,
 ) -> dict[str, list[float]]:
     """Cumulative native change per node per turn, from what ``state`` has in flight plus
-    ``shocks`` made this turn, within bounds."""
-    engine = _Carry(state.engine, pushes_for(shocks, state))
+    ``course``, within bounds. ``noise`` moves each edge weight for this draw."""
+    noise = noise or {}
+    first = _drawn(state, noise)
+    # Lasting changes made this turn reshape the graph from the next turn on, as in resolve.
+    later_model = first
+    if course.graph is not None:
+        if len(_propagating_edges(course.graph)) != len(_propagating_edges(state)):
+            raise ValueError("a projected graph may reweight edges but not add or remove them")
+        later_model = _drawn(course.graph, noise)
+    engine = _Carry(state.engine, pushes_for(course.shocks, state))
     start = {n: _value(state, n) for n in state.node_ids()}
     values = dict(start)
     path: dict[str, list[float]] = {n: [] for n in start}
-    later = outlook() if outlook is not None else None
+    later = course.outlook() if course.outlook is not None else None
     for t in range(state.turn, state.turn + horizon):
+        model = first if t == state.turn else later_model
         if later is not None and t > state.turn:
             engine.pushes += pushes_for(later(values), state, t)
-        model.step(engine, t, protection.get(t, 0.0), values)
+        model.step(engine, t, course.protection.get(t, 0.0), values)
         for n, queued in state.pending.get(t, {}).items():
             low, high = model.bounds[n]
             v = values[n] + queued
             v = min(high, v) if high is not None else v
             values[n] = max(low, v) if low is not None else v
+        if course.settle is not None:
+            course.settle(t, values)
         for n in start:
             path[n].append(values[n] - start[n])
     return path

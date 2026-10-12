@@ -8,7 +8,7 @@ from hog_sim.core.models import Outcome, PolicyAction, Scenario, Shock
 from hog_sim.core.state import WorldState
 from hog_sim.game.loop import forecast, resolve
 from hog_sim.world.changes import apply_graph_changes
-from hog_sim.world.propagation import JOB_NODE, propagate, step
+from hog_sim.world.propagation import JOB_NODE, METRICS, propagate, step
 from hog_sim.world.seed.toy import toy_world
 
 NOTHING = Outcome(narrative="Nothing else happens", probability=1)
@@ -189,3 +189,93 @@ def test_the_engine_state_survives_a_save() -> None:
     state = play(start, 2, scenario(Shock(node="sector:energy", delta=-1, duration_turns=5)))[-1]
     assert state.engine.pushes and state.engine.own
     assert WorldState.from_json(state.to_json()) == state
+
+
+# Review of 361a0ff, findings 2 and 5: the no-action baseline already held the new subsidy's
+# job protection, and the forecast left out what resolve does after the engine step.
+
+LEGISLATURE = "institution:legislature"
+
+
+def test_the_baseline_leaves_out_a_new_subsidy() -> None:
+    """After a slump, a wage subsidy's forecast effect on unemployment was reported as 0.000,
+    though running with and without it differed by about half a point."""
+    start = certain(toy_world())
+    config = CONFIG.model_copy(update={"horizon": 6, "k_draws": 1})
+    slump = scenario(Shock(node="sector:manufacturing", delta=-2))
+    state = resolve(start, start, slump, [], NOTHING, config)
+    subsidy = PolicyAction(kind="spend", target=UNEMPLOYMENT, magnitude=1, duration_turns=6)
+    with_it = forecast(start, state, QUIET, [subsidy], config)
+    without = forecast(start, state, QUIET, [], config)
+    separate = with_it.at(2)[UNEMPLOYMENT] - without.at(2)[UNEMPLOYMENT]
+    assert separate < -0.3
+    assert with_it.response_at(2)[UNEMPLOYMENT] == pytest.approx(separate, abs=1e-9)
+
+
+def test_with_no_decisions_the_response_is_nothing_on_every_draw() -> None:
+    """The baseline runs on each draw's own edge weights, so uncertainty alone cannot make a
+    response out of nothing, even where bounds make the engine nonlinear."""
+    start = toy_world()
+    start.indicators[UNEMPLOYMENT].value = 24  # near its cap, so the bound bites
+    crisis = scenario(Shock(node=UNEMPLOYMENT, delta=3), Shock(node="sector:energy", delta=-2))
+    engine = forecast(start, start, crisis, [], CONFIG.model_copy(update={"k_draws": 20}))
+    for t in range(engine.horizon):
+        assert all(abs(v) < 1e-9 for v in engine.response_at(t).values()), t
+
+
+def test_the_scenario_is_part_of_the_baseline_not_the_response() -> None:
+    start = certain(toy_world())
+    crisis = scenario(Shock(node=INFLATION, delta=2))
+    engine = forecast(start, start, crisis, [], CONFIG.model_copy(update={"k_draws": 1}))
+    assert engine.at(0)[INFLATION] == pytest.approx(2.0, rel=0.05)
+    assert engine.response_at(0)[INFLATION] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_whip_is_forecast_as_resolve_settles_it() -> None:
+    """A full whip was forecast at +0.10 Commons support; resolve settled it to +0.08."""
+    start = certain(toy_world())
+    whip = PolicyAction(kind="communicate", target=LEGISLATURE, magnitude=1)
+    config = CONFIG.model_copy(update={"k_draws": 1})
+    engine = forecast(start, start, QUIET, [whip], config)
+    after = resolve(start, start, QUIET, [whip], NOTHING, config)
+    moved = after.institutions[LEGISLATURE].support - start.institutions[LEGISLATURE].support
+    assert engine.at(0)[LEGISLATURE] == pytest.approx(moved, abs=1e-12)
+
+
+def test_the_forecast_matches_resolve_over_several_turns(monkeypatch) -> None:
+    """Whipping, a trade deal (which rescales trade from the next turn), a sacking and the debt,
+    with no outcome and the central weights. The Commons' drift with the polls is held off:
+    the forecast does not project approval, and says so."""
+    import hog_sim.game.loop as loop
+
+    monkeypatch.setattr(loop, "COMMONS_POLLS", 0.0)
+    start = certain(toy_world())
+    state = play(start, 2, scenario(Shock(node="indicator:interest_rate", delta=1)))[-1]
+    actions = [
+        PolicyAction(kind="communicate", target=LEGISLATURE, magnitude=0.5),
+        PolicyAction(kind="diplomatic", target="country:eu", magnitude=1),
+        PolicyAction(kind="spend", target="sector:public", magnitude=0.4, duration_turns=3),
+    ]
+    sacked = ["person:chancellor"]
+    turns = 6
+    config = CONFIG.model_copy(update={"horizon": turns, "k_draws": 1})
+    engine = forecast(start, state, QUIET, actions, config, sacked=sacked)
+    assert any("approval" in note for note in engine.unprojected)
+    kept = forecast(start, state, QUIET, actions, config)
+    assert engine.at(0)[LEGISLATURE] < kept.at(0)[LEGISLATURE] - 0.03  # the sacking costs
+    now = state
+    for t in range(turns):
+        first = t == 0
+        now = resolve(
+            start,
+            now,
+            QUIET,
+            actions if first else [],
+            NOTHING,
+            config,
+            sacked=sacked if first else (),
+        )
+        for node in [*state.indicators, *state.sectors, *state.countries, *state.institutions]:
+            before = getattr(state.node(node), METRICS[state.node(node).kind])
+            after = getattr(now.node(node), METRICS[now.node(node).kind])
+            assert after == pytest.approx(before + engine.at(t)[node], abs=1e-9), (node, t)
