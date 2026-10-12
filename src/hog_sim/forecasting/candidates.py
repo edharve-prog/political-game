@@ -47,6 +47,7 @@ from hog_sim.llm.summary import StateSummary, relevant_links, resolve_id, summar
 from hog_sim.policy.feasibility import Role, check_feasibility
 from hog_sim.policy.pledges import broken_by
 from hog_sim.world.changes import validate_graph_changes
+from hog_sim.world.events import cap_shocks
 from hog_sim.world.propagation import DeltaDistribution
 from hog_sim.world.storylines import final_storylines
 
@@ -326,9 +327,9 @@ def to_outcome(draft: CandidateDraft, scores: CandidateScores) -> Outcome:
     return Outcome(
         narrative=f"{draft.title}. {draft.narrative}",
         indicator_deltas={s.node: s.change for s in draft.indicator_shifts},
-        events=[t for t in draft.event_tags if t != "none"],
+        events=[t for t in dict.fromkeys(draft.event_tags) if t != "none"],
         approval_events=[ApprovalEvent(name=draft.title, group_effects=effects)] if effects else [],
-        shocks=[Shock(node=s.node, delta=s.steps) for s in draft.new_shocks if s.steps],
+        shocks=cap_shocks([Shock(node=s.node, delta=s.steps) for s in draft.new_shocks if s.steps]),
         graph_changes=[g.to_change() for g in draft.graph_changes],
         resolves_storyline=draft.resolves_storyline,
         probability=scores.probability,

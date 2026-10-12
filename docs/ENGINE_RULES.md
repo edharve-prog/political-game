@@ -487,7 +487,12 @@ amounts (in steps):
 | foreign retaliation | manufacturing output -0.4 |
 
 Media backlash or praise, foreign praise and legal challenges have no economic effect; they
-work through the outcome's group reactions. Note that legislature support matters: below 0.5,
+work through the outcome's group reactions. A tag listed twice counts once.
+
+However an outcome's shocks are written, it moves any one node by at most **1 step** a turn:
+its own knock-on shocks and its tags' shocks on the same node are added up, and if the total
+is past 1 step every one of them is scaled down by the same share (`world/events.py`,
+`MAX_OUTCOME_STEPS`). Five copies of a one-step shock are one step, not five. Note that legislature support matters: below 0.5,
 tax, spending and legislation are blocked (section 4).
 
 ### Lasting changes to the world graph
@@ -655,7 +660,7 @@ what is coming in the next six turns.
 | Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
-| Outcome extra shock cap | ±1 step | `forecasting/candidates.py` |
+| Outcome extra shock cap | ±1 step each, and ±1 step a node in total with event tags | `forecasting/candidates.py`, `world/events.py` |
 | Graph changes per outcome | 3 | `world/changes.py` |
 | Trade per unit of relationship | 50% of the trade weight | `world/changes.py` (`TRADE_PER_RELATIONSHIP`) |
 | Crisis abroad | below stability 0.5, up to 30% a turn, -1 step growth | `world/standing.py` |
