@@ -68,7 +68,7 @@ from hog_sim.population.popularity import (
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.debt import DebtOutlook, interest_shocks, step_debt
-from hog_sim.world.events import event_shocks
+from hog_sim.world.events import outcome_shocks
 from hog_sim.world.propagation import (
     DeltaDistribution,
     actions_to_shocks,
@@ -194,7 +194,7 @@ def resolve(
     ``pledges`` are the promises made this turn (SD-5); ``delivery`` and ``sacked`` (cast
     ids) move the cast's loyalty (SD-4)."""
     shocks = turn_shocks(start, state, scenario, actions, config)
-    shocks += outcome.shocks + event_shocks(outcome.events, state)
+    shocks += outcome_shocks(outcome, state)
     cover = job_protection(state, actions)
     engine, moves = step(state, shocks, protection=cover)
 
