@@ -326,6 +326,17 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Backlog:** CI-1 to CI-8 in [backlog/ci-and-quality.md](backlog/ci-and-quality.md).
 - **Done when:** all four Python versions and the installed-wheel smoke job are green, the `semantics` set runs on its own, balance runs in its own job with a nightly run, and coverage shows on every PR.
 
+### Project 19 — Turn Consistency
+- **Goal:** for the same decision, the forecast, the simulation that actually runs and the narrative describe the same consequences, and no finished turn is lost.
+- **Why:** Ed's code review of commit 7be7c65 (2026-10-12) found 15 problems. Examples: caps make indicators reverse (9 → 10 → 5 → 2.5), forecasts miss queued effects, finished turns can go unsaved, and "Do not increase public spending" can be reused as "Increase public spending".
+- **Phase 1, fixes CR-1 to CR-15, in three parallel threads:**
+  - "Turn engine consistency": caps and clipping, one shared engine for forecasts and actual turns, repeated-shock caps, truncated policy effects, frozen future consequences and partial graph changes (CR-1, CR-2, CR-8 to CR-11).
+  - "Save and resume safety": saving before the next scenario, stale cached outcomes, the scenario changing on resume, turn-length settings and election edge cases (CR-3, CR-12 to CR-15).
+  - "Interpretation and fiscal rules": negation in reuse, offline metadata, fiscal feasibility on the whole package and tax direction (CR-4 to CR-7).
+- **Phase 2, enhancements CE-1 to CE-8 in Ed's order:** active-policy register, decision previews that compare, explanations tied to the real calculation, delivery limits, parliamentary bargaining, more believable elections, storylines with consequences, and advisers with different aims.
+- **Backlog:** [backlog/consistency-review.md](backlog/consistency-review.md).
+- **Done when:** each CR item has a test that fails on main and passes after the fix, and the full suite, balance, backtests and stability still pass.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -350,6 +361,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 16 | Engine Balance & Realism | 3, 4, 5, 8 | Indicator bounds/equilibrium/persistence; lever costs; direction-aware `actions_to_shocks`; feasibility in `Game.play_turn`; balance test |
 | 17 | Engine Correctness | 3, 4, 5, 6, 8, 16 | `PropagationError` and `lag0_gain()`; action–target compatibility table and `Indicator.interventions`; `constrain` as the only limit owner; validators on `GameConfig`, nodes and `WorldState` |
 | 18 | CI & Test Quality | 17 (P2 items), 16 (balance job) | CI matrix and installed-wheel smoke job; `semantics` and `balance` pytest markers; nightly workflow; Hypothesis profiles; coverage report |
+| 19 | Turn Consistency | 3, 5, 6, 8, 14, 15, 16 | One transition engine shared by forecasts and resolution; save before the next scenario; reuse that respects negation and size; package-level fiscal checks |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -392,6 +404,7 @@ Smallest thing that is fun and proves the architecture:
 | 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-8 to EB-11 done, PRs #66 to #70; EB-13 done, PRs #38 and #72; EB-12 done in Project 17; EB-14 done, PRs #39 and #74; EB-5 to EB-7 open) | Built by the back-end review thread; see backlog/engine-balance.md |
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
+| 19 | Turn Consistency | In progress (Phase 1 started 2026-10-12) | Threads "Turn engine consistency", "Save and resume safety" and "Interpretation and fiscal rules"; see backlog/consistency-review.md |
 
 ---
 
@@ -422,6 +435,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-02 | Ed's CI list becomes Project 18; P1 is CI-7, CI-6 and CI-3, and the P2 items wait for Project 17 | Cheap protection first; Project 17's fixes will move balance results and add the errors the property tests assert |
 | 2026-10-03 | After the 30-turn Claude review, the next P1 work is EB-13 (consistency tempering), SD-9 (storyline lifespan), EB-14 (Commons lockout) and RB-8 (blocked measures reach the outcome), then a re-run of the review | Variety and narrative met their targets; outcome selection, storyline turnover and the Commons lock-out did not |
 | 2026-10-10 | Heterodox schools of thought: their added mechanisms join the shared world; only links the schools contradict on become lenses, with the world at a middle value; players meet the lenses as unlabelled advisers whose schools they must work out (CA-8) | Ed asked that calibration allow for heterodox views, then pointed out that the mainstream world can take Marxian and other mechanisms directly; lenses are needed only where one world can't hold two answers |
+| 2026-10-12 | Ed's code review of 7be7c65 becomes Project 19: 15 fixes (CR-1 to CR-15) in three parallel threads, then 8 enhancements (CE-1 to CE-8) in Ed's order | The forecast, the simulation and the narrative can disagree about the same decision; consistency comes before new features |
 | 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---
