@@ -67,8 +67,10 @@ def test_reused_outcomes_keep_their_claims_and_are_rescored(tmp_path) -> None:
     forecaster = StoredForecaster(store, EngineForecaster())
     out = forecaster.forecast(world, SCENARIO, [TAX], engine)
     assert forecaster.last_source == "stored"
-    assert [c.indicator_deltas for c in out] == [wrong, fits]  # narratives still match
-    assert out[1].probability > out[0].probability
+    # The candidate today's engine contradicts is dropped rather than carried by the one that
+    # fits (finding 9 of the 2026-10-12 review); the one kept keeps its claims, so its
+    # narrative still matches.
+    assert [c.indicator_deltas for c in out] == [fits]
     assert sum(c.probability for c in out) == pytest.approx(1.0)
     assert all(c.scores["reused"] == 1.0 for c in out)
 

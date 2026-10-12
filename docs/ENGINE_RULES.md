@@ -600,13 +600,21 @@ if stakeholders were consulted), and a welcome from the groups it helps (20%). E
 
 When a knowledge store from earlier Claude games is available, offline play reuses the stored
 outcomes for the same scenario and the same actions instead. Actions match on kind, target,
-direction and rough size: small (magnitude up to 0.3), medium (up to 0.7) or large. So a small
-spend never reuses outcomes written for a huge one. The engine's numbers replace the stored ones.
+direction, whether the tax or spending itself went up or down, how long it runs (one turn, up to
+6, up to 12, or longer) and rough size: small (magnitude up to 0.3), medium (up to 0.7) or large.
+So a small spend never reuses outcomes written for a huge one, a one-off payment never reuses
+outcomes written for a policy that runs all parliament, and cutting a bill subsidy never reuses
+outcomes written for raising it. Outcomes from a turn that sacked someone are reused only on a
+turn that sacks the same people, since their stories may mention it. Each stored outcome keeps
+the numbers it claimed, so its story still matches them, and is re-scored against today's
+forecast; only those that fit it (consistency at least 0.2) are offered.
 
 The stored reading of a response is reused only for the same words, or for a close rewording
-that agrees on every negation, direction (raise or cut), number and duration. So "do not
-increase public spending" never reuses the reading of "increase public spending"; it goes to
-keyword matching instead. Delivery, pledges and sackings are always read from what the player
+that agrees on every negation, direction (raise or cut), number and duration, clause by clause.
+So "do not increase public spending" never reuses the reading of "increase public spending",
+and "raise taxes on business and cut taxes on pensioners" never reuses the reading of the same
+package with the groups swapped, though it does match the same two clauses in the other order.
+Anything else goes to keyword matching instead. Delivery, pledges and sackings are always read from what the player
 wrote that turn, whichever reading is used.
 
 ### Picking one

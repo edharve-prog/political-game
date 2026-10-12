@@ -6,18 +6,21 @@ them from the store), these reuse Claude's work on it:
 * ``StoredInterpreter``: the stored interpretation of the same or a closely matching
   response, kept to the nodes today's world has; otherwise the fallback (keyword
   matching). A close match must also say the same thing: the same negations, directions,
-  numbers and durations, so "do not increase public spending" never reuses "increase
-  public spending". Like every interpreter it reports what was asked for: the game decides
-  what is feasible, so a stored request that is now blocked shows up as blocked rather
-  than being swapped for a different policy. Delivery, pledges and sackings are read from
-  the player's own words each turn, never from storage.
+  numbers and durations, each bound to the clause it is in, so "do not increase public
+  spending" never reuses "increase public spending" and "raise taxes on business and cut
+  taxes on pensioners" never reuses the same package with the groups swapped. Like every
+  interpreter it reports what was asked for: the game decides what is feasible, so a
+  stored request that is now blocked shows up as blocked rather than being swapped for a
+  different policy. Delivery, pledges and sackings are read from the player's own words
+  each turn, never from storage.
 * ``StoredForecaster``: the stored candidate outcomes for the same kind of response
-  (same action kinds, targets, directions and size), re-scored against today's engine
-  forecast, delivery and resistance, with every graph change re-validated. Each candidate
-  keeps the indicator changes it claimed, so its narrative and numbers still agree. A stored
-  set none of whose candidates fits today's engine (best consistency below
-  ``REUSE_MIN_FIT``) was written for a different world and is not reused; an older set that
-  fits is tried, otherwise the fallback.
+  (same action kinds, targets, directions, tax or spending direction, duration and size)
+  on a turn that sacked the same people, re-scored against today's engine forecast,
+  delivery and resistance, with every graph change re-validated. Each candidate keeps the
+  indicator changes it claimed, so its narrative and numbers still agree. Only candidates
+  that fit today's engine (consistency at least ``REUSE_MIN_FIT``) are reused; a stored set
+  with none was written for a different world, so an older set is tried, otherwise the
+  fallback.
 
 Both satisfy the game loop's protocols and make no LLM calls.
 """
@@ -96,12 +99,62 @@ def intent_key(text: str) -> tuple:
     )
 
 
+# Where a response moves from one instruction to the next.
+_CLAUSE_BREAK = re.compile(r"[.;:!?,\n]|\b(?:and|but|while|whereas|then|also|plus)\b")
+# Words that say nothing about what is done or to whom.
+_FILLER = frozenset(
+    "a an the of on in at to for by with from into onto this that these those it its we our "
+    "us i my me you your they their them is are be will shall would should must let s".split()
+)
+
+
+def _stem(word: str) -> str:
+    """Plural to singular, roughly: taxes, businesses, subsidies, hospitals."""
+    if len(word) <= 3 or not word.endswith("s") or word.endswith("ss"):
+        return word
+    if word.endswith("ies"):
+        return word[:-3] + "y"
+    if word.endswith(("sses", "xes", "ches", "shes", "zes")):
+        return word[:-2]
+    return word[:-1]
+
+
+def intent_clauses(text: str) -> list[tuple]:
+    """Each instruction in ``text`` as (negations, directions, what it acts on), sorted.
+
+    Binding each direction to its own clause's words is what tells "raise taxes on business
+    and cut taxes on pensioners" from the same package with the groups swapped, which share
+    every word and every direction."""
+    found = []
+    for clause in _CLAUSE_BREAK.split(text.lower()):
+        key = intent_key(clause)
+        directed = {m.group(0) for pattern, _ in _DIRECTION for m in pattern.finditer(clause)}
+        negating = {m.group(0) for m in _NEGATION.finditer(clause)}
+        words = frozenset(
+            _stem(w)
+            for w in normalise_text(clause).split()
+            if w not in _FILLER and w not in directed and w not in negating
+        )
+        if words or key[1]:
+            found.append((key[0], key[1], tuple(sorted(words))))
+    return sorted(found)
+
+
+def _unordered(key: tuple) -> tuple:
+    # Clause order is checked clause by clause instead, so a reordered package still matches.
+    negations, directions, numbers, units = key
+    return negations, sorted(directions), sorted(numbers), units
+
+
 def same_request(stored: str, text: str) -> float:
     """How closely ``text`` matches a stored response: 1.0 when identical, the word overlap
-    when the two agree on ``intent_key``, and 0.0 when they don't."""
+    when every clause agrees on its negations, directions and what it acts on (so clauses may
+    be reordered or reworded with filler words), and 0.0 otherwise."""
     if normalise_text(stored) == normalise_text(text):
         return 1.0
-    if intent_key(stored) != intent_key(text):
+    if _unordered(intent_key(stored)) != _unordered(intent_key(text)):
+        return 0.0
+    if intent_clauses(stored) != intent_clauses(text):
         return 0.0
     return _overlap(stored, text)
 
@@ -187,10 +240,11 @@ class StoredForecaster:
         sacked: list[str] | None = None,
     ) -> list[Outcome]:
         signature = action_signature(actions)
+        sacked_now = sorted(sacked or [])
         matches = [
             e
             for e in self.store.outcomes(scenario_id(scenario))
-            if action_signature(e.actions) == signature
+            if action_signature(e.actions) == signature and sorted(e.sacked) == sacked_now
         ]
         known = set(state.node_ids())
         # Graph changes are checked against the world as resolve() meets it, after the
@@ -209,8 +263,14 @@ class StoredForecaster:
                 )
                 for c in candidates
             ]
-            if max(s.consistency for s in scores) < REUSE_MIN_FIT:
-                continue  # written for a world whose engine moved differently
+            # Each candidate must fit today's engine on its own: one that fits does not carry
+            # the rest of its set, which may have been written for a world that moved
+            # differently.
+            fitting = [i for i, s in enumerate(scores) if s.consistency >= REUSE_MIN_FIT]
+            if not fitting:
+                continue
+            candidates = [candidates[i] for i in fitting]
+            scores = [scores[i] for i in fitting]
             self.last_source = "stored"
             rescored = combine(scores, ScoreWeights())
             return [

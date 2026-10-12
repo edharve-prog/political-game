@@ -186,6 +186,7 @@ class KnowledgeStore:
                 candidates=record.candidates,
                 chosen=record.chosen,
                 provenance=prov,
+                sacked=sorted(record.sacked),
             ),
             sid,
         )
