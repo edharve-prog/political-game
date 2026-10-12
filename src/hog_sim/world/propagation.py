@@ -87,12 +87,26 @@ def persistence(state: WorldState, node_id: str) -> float:
 INDICATOR_UNIT_SCALE = {"%": 1.0, "% GDP": 1.0, "index": 10.0}
 
 
+SECTOR_STEP = 0.05  # one step of a sector is 5% of its output
+
+
+def _base_output(output: float, level: float) -> float:
+    """A sector's output without the deviation it carries (``level`` steps)."""
+    carried = 1 + SECTOR_STEP * level
+    return output / carried if carried > 0 else output
+
+
 def scale(state: WorldState, node_id: str) -> float:
-    """Native units per standard step for a node's primary metric."""
+    """Native units per standard step for a node's primary metric.
+
+    A sector's step is 5% of the output it would have without the deviation the engine
+    carries, the same size the engine moves it by, so a policy's cost (``fiscal_steps``)
+    matches the output it adds however far the sector is already above or below normal."""
     node = state.node(node_id)
     match node.kind:
         case NodeKind.SECTOR:
-            return 0.05 * node.output_bn  # 5% of output
+            levels = state.engine.levels.get(node_id)
+            return SECTOR_STEP * _base_output(node.output_bn, levels[-1] if levels else 0.0)
         case NodeKind.COUNTRY:
             return 1.0  # 1pp of growth
         case NodeKind.GROUP:
@@ -453,8 +467,8 @@ class _Engine:
         """Native units per step. A sector's step is 5% of the output it would have without
         the deviation it carries (``level`` steps), which stays put while that deviation
         comes and goes, so a shock that fades leaves output where it found it."""
-        if node_id in self.sectors and 1 + 0.05 * level > 0:
-            return 0.05 * values[node_id] / (1 + 0.05 * level)
+        if node_id in self.sectors:
+            return SECTOR_STEP * _base_output(values[node_id], level)
         return self.scales[node_id]
 
     def step(
