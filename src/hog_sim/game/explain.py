@@ -1,28 +1,45 @@
 """Why did that happen? Explanations of a played turn (backlog story TT-2).
 
-``why`` traces the turn's biggest indicator moves back to what caused them: each of the
-player's actions (and the scenario's and outcome's shocks) is re-run through the engine on
-its own, the largest contributor is named, and the graph path it travelled is shown. It
-then gives the reasons behind the biggest approval moves: the approval events in force and
-the indicators each group cares about. ``alternatives`` lists the outcomes that were not
-chosen, with their scores.
+``why`` traces the turn's biggest indicator moves back to what caused them. It replays the
+turn exactly as it was resolved, then again without one cause at a time (each of the player's
+actions, the scenario's shocks, the chosen outcome's effects) and once without any of them.
+A cause's share is what the turn would have lost without it, so effects that only the whole
+package makes, such as the markets' verdict on tax cuts it leaves unpaid for, go to the
+measures that made or prevented them. What happens with none of them (the tail of earlier
+turns and background pressures) is its own share, and whatever is left over is how the causes
+combined (shared limits, interactions), reported rather than hidden. The largest share is
+named with the graph path it travelled. It then gives the reasons behind the biggest approval
+moves: the approval events in force and the indicators each group cares about.
+``alternatives`` lists the outcomes that were not chosen, with their scores.
 
 Everything here reads the turn record and the states either side of it; nothing changes.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+
 import networkx as nx
 
-from hog_sim.core.models import EdgeKind, Shock
+from hog_sim.core.config import GameConfig
+from hog_sim.core.models import EdgeKind, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
+from hog_sim.game.loop import resolve
 from hog_sim.game.records import TurnRecord
 from hog_sim.population.popularity import EVENT_FLOOR, _event_weight
 from hog_sim.world.events import outcome_shocks
-from hog_sim.world.propagation import PROPAGATING, actions_to_shocks, scale, simulate
+from hog_sim.world.propagation import (
+    CONFIDENCE_SHOCKS,
+    PROPAGATING,
+    actions_to_shocks,
+    scale,
+    unfunded_tax_cut,
+)
 
 TOP = 3
 MIN_MOVE = 1e-3
+BACKGROUND = "the tail of earlier turns' policies and shocks, and background pressures"
 
 
 def _name(state: WorldState, node_id: str) -> str:
@@ -32,24 +49,81 @@ def _name(state: WorldState, node_id: str) -> str:
         return node_id
 
 
-def _causes(record: TurnRecord, before: WorldState) -> list[tuple[str, list[Shock]]]:
-    causes = [
-        (f"your {a.kind} on {_name(before, a.target)} (size {a.magnitude:+.2f})", [a])
-        for a in record.actions
-        if a.kind != "do_nothing"
-    ]
-    shocks = [(label, actions_to_shocks(acts, before)) for label, acts in causes]
-    if record.scenario.shocks:
-        shocks.append(("the scenario itself", list(record.scenario.shocks)))
-    outcome = outcome_shocks(record.outcome, before)
-    if outcome:
-        shocks.append(("what happened next (the chosen outcome)", outcome))
-    return shocks
+@dataclass
+class _Cause:
+    label: str
+    nodes: list[str]  # where it pushes first, for the path
+    without: WorldState  # the turn resolved without it
+    markets: str = ""  # how removing it changes the markets' verdict on the package
 
 
-def _contribution(before: WorldState, shocks: list[Shock], node_id: str) -> float:
-    trajectory = simulate(before, shocks, 1)
-    return trajectory.get(node_id, [0.0])[0] * scale(before, node_id)
+def _quiet(outcome: Outcome) -> Outcome:
+    """The outcome with none of its effects on the world."""
+    return outcome.model_copy(update={"shocks": [], "events": [], "graph_changes": []})
+
+
+def _causes(
+    record: TurnRecord, before: WorldState, start: WorldState, config: GameConfig
+) -> tuple[list[_Cause], WorldState]:
+    """Each cause with the turn resolved without it, and the turn resolved with none."""
+
+    def rerun(actions: Sequence[PolicyAction], scenario: Scenario, outcome: Outcome) -> WorldState:
+        return resolve(
+            start,
+            before,
+            scenario,
+            list(actions),
+            outcome,
+            config,
+            record.pledges,
+            record.delivery,
+            record.sacked,
+        )
+
+    actions, scenario, outcome = record.actions, record.scenario, record.outcome
+    unfunded = unfunded_tax_cut(actions, before)
+    causes = []
+    for i, action in enumerate(actions):
+        if action.kind == "do_nothing":
+            continue
+        rest = [a for j, a in enumerate(actions) if j != i]
+        markets = ""
+        if unfunded_tax_cut(rest, before) > unfunded:
+            markets = "by paying for tax cuts the markets would otherwise have punished"
+        elif unfunded_tax_cut(rest, before) < unfunded:
+            markets = "through the markets' verdict on unfunded tax cuts"
+        causes.append(
+            _Cause(
+                f"your {action.kind} on {_name(before, action.target)} "
+                f"(size {action.magnitude:+.2f})",
+                [s.node for s in actions_to_shocks([action], before)] or [action.target],
+                rerun(rest, scenario, outcome),
+                markets,
+            )
+        )
+    calm = scenario.model_copy(update={"shocks": []})
+    if scenario.shocks:
+        causes.append(
+            _Cause(
+                "the scenario itself",
+                [s.node for s in scenario.shocks],
+                rerun(actions, calm, outcome),
+            )
+        )
+    shocks = outcome_shocks(outcome, before)
+    if shocks or outcome.graph_changes:
+        causes.append(
+            _Cause(
+                "what happened next (the chosen outcome)",
+                [s.node for s in shocks],
+                rerun(actions, scenario, _quiet(outcome)),
+            )
+        )
+    return causes, rerun([], calm, _quiet(outcome))
+
+
+def _value(state: WorldState, node_id: str) -> float:
+    return state.indicators[node_id].value
 
 
 def _path(graph: nx.DiGraph, sources: list[str], target: str, before: WorldState) -> str:
@@ -75,11 +149,38 @@ def _propagation_graph(state: WorldState) -> nx.DiGraph:
     return graph
 
 
-def why(record: TurnRecord, before: WorldState) -> list[str]:
-    """Lines explaining the turn's biggest indicator and approval moves."""
+COMBINED = "how this turn's causes combined"
+
+
+def contributions(
+    record: TurnRecord, before: WorldState, start: WorldState, config: GameConfig, node_id: str
+) -> dict[str, float]:
+    """Each cause's share of the turn's change in indicator ``node_id``, plus ``BACKGROUND``
+    and ``COMBINED``. The shares add up to the change exactly."""
+    causes, nothing = _causes(record, before, start, config)
+    return _shares(record, before, causes, nothing, node_id)
+
+
+def _shares(
+    record: TurnRecord,
+    before: WorldState,
+    causes: list[_Cause],
+    nothing: WorldState,
+    node_id: str,
+) -> dict[str, float]:
+    actual = _value(record.state_after, node_id)
+    shares = {c.label: actual - _value(c.without, node_id) for c in causes}
+    shares[BACKGROUND] = _value(nothing, node_id) - _value(before, node_id)
+    shares[COMBINED] = actual - _value(before, node_id) - sum(shares.values())
+    return shares
+
+
+def why(record: TurnRecord, before: WorldState, start: WorldState, config: GameConfig) -> list[str]:
+    """Lines explaining the turn's biggest indicator and approval moves. ``start`` and
+    ``config`` are the game's, so the turn can be resolved again without each cause."""
     after = record.state_after
     graph = _propagation_graph(before)
-    causes = _causes(record, before)
+    causes, nothing = _causes(record, before, start, config)
     lines = ["Biggest moves in the indicators this turn:"]
     moves = sorted(
         (
@@ -96,16 +197,28 @@ def why(record: TurnRecord, before: WorldState) -> list[str]:
         shown += 1
         unit = before.indicators[ind_id].unit
         line = f"  {_name(before, ind_id)} {change:+.2f} {unit}".rstrip()
-        parts = [(label, shocks, _contribution(before, shocks, ind_id)) for label, shocks in causes]
-        parts = [p for p in parts if abs(p[2]) >= MIN_MOVE]
-        if parts:
-            label, shocks, size = max(parts, key=lambda p: abs(p[2]))
-            nodes = [s.node for s in shocks]
-            path = _path(graph, nodes, ind_id, before)
-            via = " directly" if ind_id in nodes else f" via {path}" if path else ""
-            line += f": mostly {label}, {size:+.2f} of it{via}"
+        shares = _shares(record, before, causes, nothing, ind_id)
+        background, residual = shares[BACKGROUND], shares[COMBINED]
+        parts = [(c, shares[c.label]) for c in causes if abs(shares[c.label]) >= MIN_MOVE]
+        top = max(parts, key=lambda p: abs(p[1]), default=None)
+        if top is not None and abs(top[1]) >= abs(background):
+            cause, size = top
+            if cause.markets and ind_id in CONFIDENCE_SHOCKS:
+                via = f" {cause.markets}"
+            elif ind_id in cause.nodes:
+                via = " directly"
+            else:
+                path = _path(graph, cause.nodes, ind_id, before)
+                via = f" via {path}" if path else ""
+            line += f": mostly {cause.label}, {size:+.2f} of it{via}"
+            if abs(background) >= MIN_MOVE:
+                line += f"; {background:+.2f} from earlier turns and background pressures"
+        elif abs(background) >= MIN_MOVE:
+            line += f": mostly {BACKGROUND}, {background:+.2f} of it"
         else:
-            line += ": the tail of earlier turns' policies and shocks"
+            line += f": {BACKGROUND}"
+        if abs(residual) >= MIN_MOVE:
+            line += f"; {residual:+.2f} from {COMBINED}"
         lines.append(line)
     if shown == 0:
         lines.append("  none of note")

@@ -108,6 +108,20 @@ A game is 24 turns of one month each, with a general election after the last one
 Before anything changes, each indicator's value and each group's approval are added to their
 history, so the next scenario can see what is moving.
 
+### Why did that happen?
+
+*Source: `game/explain.py`*
+
+Typing `why` after a turn explains its three biggest indicator moves. The turn is resolved again
+exactly as it happened, then without one cause at a time (each action, the scenario's shocks,
+the chosen outcome's effects) and once without any of them. A cause's share is what the move
+would have lost without it, and the run without any of them is the share of earlier turns and
+background pressures. Package-level effects therefore land on the measures that made or
+prevented them: a tax rise that pays for a tax cut is credited with keeping the markets calm,
+not the cut blamed for a penalty that never came. Whatever is left after the shares (causes
+that only act together, limits they share) is reported as "how this turn's causes combined"
+rather than spread among them.
+
 ---
 
 ## 3. Actions: what the player can do
