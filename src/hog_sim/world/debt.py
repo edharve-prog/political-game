@@ -66,11 +66,51 @@ def interest_shocks(state: WorldState, start: WorldState) -> list[Shock]:
     deficit that much above where it would be (the same top-up a held policy uses)."""
     if FISCAL_NODE not in state.indicators or not start.countries[start.player_country].debt_pct:
         return []
-    extra = interest_bill(state, start) - interest_bill(start)
+    return _interest_push(state, interest_bill(state, start) - interest_bill(start))
+
+
+def _interest_push(state: WorldState, extra: float) -> list[Shock]:
     if not extra:
         return []
     push = extra / scale(state, FISCAL_NODE) * (1 - persistence(state, FISCAL_NODE))
     return [Shock(node=FISCAL_NODE, delta=push)]
+
+
+def _next_debt(
+    debt: float, rate: float, deficit: float, nominal: float, bank_rate: float
+) -> tuple[float, float]:
+    """The debt stock and its average rate a turn later."""
+    debt = max(0.0, debt + (deficit - debt * nominal / 100) / TURNS_PER_YEAR)
+    return debt, rate + REPRICE * (bank_rate - rate)
+
+
+class DebtOutlook:
+    """The debt and its interest bill projected turn by turn for the forecast, by the same
+    rules as ``step_debt`` and ``interest_shocks``, from the forecast's own projected values
+    (native units by node id). Call it once per turn ahead, after the turn before has moved."""
+
+    def __init__(self, state: WorldState, start: WorldState) -> None:
+        self.state = state
+        self.on = (
+            FISCAL_NODE in state.indicators
+            and bool(start.countries[start.player_country].debt_pct)
+            and bool(state.countries[state.player_country].debt_pct)
+        )
+        self.debt = state.countries[state.player_country].debt_pct
+        self.rate = debt_rate(state, start)
+        self.start_bill = interest_bill(start)
+
+    def __call__(self, values: dict[str, float]) -> list[Shock]:
+        if not self.on:
+            return []
+        self.debt, self.rate = _next_debt(
+            self.debt,
+            self.rate,
+            values.get(FISCAL_NODE, 0.0),
+            values[self.state.player_country] + values.get(INFLATION_NODE, 0.0),
+            values.get(RATE_NODE, 0.0),
+        )
+        return _interest_push(self.state, self.debt * self.rate / 100 - self.start_bill)
 
 
 def step_debt(state: WorldState, start: WorldState | None = None) -> WorldState:
@@ -82,11 +122,11 @@ def step_debt(state: WorldState, start: WorldState | None = None) -> WorldState:
         return state
     new = state.snapshot()
     home = new.countries[new.player_country]
-    nominal = home.growth_pct + _value(state, INFLATION_NODE)
-    deficit = _value(state, FISCAL_NODE)
-    home.debt_pct = max(
-        0.0, home.debt_pct + (deficit - home.debt_pct * nominal / 100) / TURNS_PER_YEAR
+    home.debt_pct, home.debt_rate_pct = _next_debt(
+        home.debt_pct,
+        debt_rate(state, start),
+        _value(state, FISCAL_NODE),
+        home.growth_pct + _value(state, INFLATION_NODE),
+        _value(state, RATE_NODE),
     )
-    rate = debt_rate(state, start)
-    home.debt_rate_pct = rate + REPRICE * (_value(state, RATE_NODE) - rate)
     return new

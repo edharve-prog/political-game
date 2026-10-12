@@ -79,8 +79,9 @@ A game is 24 turns of one month each, with a general election after the last one
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
    confirming.
-4. The engine runs its **forecast**: 100 random draws of how the actions and the scenario's
-   shocks spread through the world over the next 24 turns (section 5).
+4. The engine runs its **forecast**: 100 random draws of the next 24 turns, starting from
+   everything already in flight and adding this turn's actions, the scenario's shocks and the
+   background pushes resolve will apply (section 5).
 5. The **forecaster** proposes several possible outcomes, each is scored, and one is picked
    (section 8).
 
@@ -90,10 +91,12 @@ A game is 24 turns of one month each, with a general election after the last one
    in the chosen outcome, the shocks implied by the outcome's event tags (section 7), each
    sector's business mood, any crisis in an unstable foreign country (section 7), and any rise
    in the interest bill on the debt (section 3).
-2. They are run through the world once, with the edge weights at their central values, and the
-   resulting changes are booked turn by turn into a **pending** list. This turn's slice is
-   applied now; later slices land on later turns, so a policy's lagged effects keep arriving.
-3. Indicators are clamped to their floors and ceilings.
+2. The engine moves on one turn, with the edge weights at their central values. It carries its
+   own state from turn to turn (every node's fading push, its recent deviations and the shocks
+   still running), so a policy's lagged effects keep arriving, a policy keeps working for as
+   long as it runs however long that is, and later events (a graph change, job protection)
+   act on effects already in flight.
+3. Every node stays within its bounds as it moves (section 5).
 4. Approval events from the actions and the outcome are added (section 6).
 5. Business moods settle a fifth of the way back to neutral. Foreign-policy actions change the
    target country's relationship and stability, and any lasting graph changes in the outcome are
@@ -204,8 +207,8 @@ markets lent freely for the 2008 bailout and the 2020 lockdown.
 scheme: the state pays wages so firms keep their staff. It does not push unemployment down.
 Instead, while it runs, it holds back a share of any rise in unemployment: 80% for a full-size
 scheme (magnitude 1), 40% at half size. It costs the deficit like any other spending. It
-covers job losses from shocks that land while it runs, including later turns' shocks, but not
-losses already under way when it starts, and when it ends the jobs it was holding up are lost
+covers any rise in unemployment while it runs, including job losses from a slump already under
+way when it starts, and when it ends the jobs it was holding up are lost
 after all if the economy has not recovered. In good times it only costs money. In 2020 output
 fell by a fifth but unemployment rose only from 4% to about 5%.
 
@@ -347,17 +350,30 @@ loop gain to 0.9 or above (section 7).
 
 ### Bounds
 
-After each turn's changes land, indicators are held within their hard floor and ceiling,
-approval and support within 0 to 1, and sector output at zero or above. The balance test treats
-bounds as a backstop: indicators should sit at one in under 10% of turns.
+Indicators are held within their hard floor and ceiling, approval and support within 0 to 1,
+and sector output at zero or above. A bound stops a node as it moves, within the turn, so what
+it passes on is the bounded change, and the push that would have taken it past the bound is
+dropped. It then fades back from the bound, never from beyond it: unemployment pushed from 24%
+toward 30% sits at its 25% ceiling and eases back toward 24%, rather than reading 25%, then
+24.1%, then on down past where it started. A policy that keeps pushing holds the node at the
+bound for as long as it runs. The balance test treats bounds as a backstop: indicators should
+sit at one in under 10% of turns.
 
 ### The forecast
 
-Before outcomes are chosen, the engine runs the actions and the scenario's shocks 100 times over
-24 turns, each time drawing every edge weight at random around its value (using its
-uncertainty). It reports the average change and the 10th and 90th percentiles for every node.
-The draws are seeded from the game seed and turn, so they reproduce exactly. Resolving the turn
-then uses one run with the central weights.
+Before outcomes are chosen, the engine runs the next 24 turns 100 times, each time drawing every
+edge weight at random around its value (using its uncertainty). Each run uses the same turn step
+as resolve, from the same state: what is already in flight, plus this turn's actions, the
+scenario's shocks, bills forced through, business mood, any crisis abroad and the interest bill,
+with business mood settling and the debt repricing turn by turn as they will. So a rise already
+on its way shows in the forecast, and with the central weights and no outcome the forecast is
+exactly what resolve does. It reports the average change and the 10th and 90th percentiles for
+every node, within bounds. The draws are seeded from the game seed and turn, so they reproduce
+exactly. Resolving the turn then uses one run with the central weights.
+
+The forecast also keeps a **baseline**: the same 24 turns without this turn's actions and
+scenario. The difference is what this turn's decisions do, which the offline forecaster uses to
+decide who welcomes the response and who pushes back.
 
 ---
 
@@ -564,7 +580,8 @@ are only kept for display and logs.
 ### Offline
 
 The offline forecaster (`game/stubs.py`, `EngineForecaster`) offers three outcomes around the
-engine's forecast: as expected (60%), a backlash from the groups the forecast hurts (20%, or 12%
+engine's forecast, judging the response by what it changes (the forecast less its baseline), not
+by effects already in flight: as expected (60%), a backlash from the groups the forecast hurts (20%, or 12%
 if stakeholders were consulted), and a welcome from the groups it helps (20%). Each reaction is
 ±0.03 to those groups.
 

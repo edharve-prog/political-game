@@ -45,7 +45,7 @@ def test_full_game_runs_to_election() -> None:
 def test_lagged_effects_keep_arriving() -> None:
     game, _ = new_game()
     game.play_turn("Put a windfall tax on energy companies")
-    assert any(t > game.state.turn - 1 for t in game.state.pending)
+    assert game.state.engine.pushes  # the tax is still running
     before = game.state.indicators["indicator:house_prices"].value
     for _ in range(6):
         game.play_turn("Do nothing")

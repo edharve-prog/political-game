@@ -27,8 +27,13 @@ review the Commons fell below a majority at turn 13 and blocked every spend and 
 The legislature settles toward its starting support plus ``COMMONS_POLLS`` times the change in
 national approval since the start: backbenchers grow restless when the polls fall (EB-8).
 
-Effects that land in later turns are kept in ``WorldState.pending`` (absolute turn ->
-node -> native change), so a policy's lagged tail keeps arriving after the turn it was made.
+The engine carries its own state between turns (``WorldState.engine``: each node's fading
+push, its recent deviations and the shocks still running), and each turn ``resolve`` moves it
+on by one step (``world.propagation.step``). So a policy's lagged tail keeps arriving after the
+turn it was made, a policy keeps pushing for as long as it runs however long that is, later
+graph changes and job protection act on effects already in flight, and a node held at a bound
+fades back from the bound. The forecast (``forecast``) runs the same step from the same state,
+with the same shocks for this turn, so what it shows is what resolve would do with no outcome.
 """
 
 from __future__ import annotations
@@ -38,7 +43,15 @@ from collections.abc import Sequence
 from pydantic import Field
 
 from hog_sim.core.config import GameConfig, make_rng
-from hog_sim.core.models import Delivery, Model, Outcome, Pledge, PolicyAction, Scenario
+from hog_sim.core.models import (
+    Delivery,
+    Model,
+    Outcome,
+    Pledge,
+    PolicyAction,
+    Scenario,
+    Shock,
+)
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
@@ -54,17 +67,22 @@ from hog_sim.population.popularity import (
 )
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
-from hog_sim.world.debt import interest_shocks, step_debt
+from hog_sim.world.debt import DebtOutlook, interest_shocks, step_debt
 from hog_sim.world.events import event_shocks
 from hog_sim.world.propagation import (
+    DeltaDistribution,
     actions_to_shocks,
     apply_deltas,
     job_protection,
     propagate,
-    scale,
-    simulate,
+    step,
 )
-from hog_sim.world.standing import crisis_shocks, sentiment_shocks, settle_sentiment
+from hog_sim.world.standing import (
+    SENTIMENT_SETTLE,
+    crisis_shocks,
+    sentiment_shocks,
+    settle_sentiment,
+)
 from hog_sim.world.storylines import advance_storylines
 
 INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each turn
@@ -97,6 +115,69 @@ def _record_history(state: WorldState) -> WorldState:
     return new
 
 
+def turn_shocks(
+    start: WorldState,
+    state: WorldState,
+    scenario: Scenario,
+    actions: list[PolicyAction],
+    config: GameConfig,
+) -> list[Shock]:
+    """Everything that pushes the world this turn except the chosen outcome: the actions, the
+    scenario, and the background mechanisms (business confidence, crises abroad, the interest
+    bill, bills forced through). ``resolve`` applies them; the forecast starts from them."""
+    return (
+        actions_to_shocks(actions, state)
+        + scenario.shocks
+        + forcing_shocks(actions, state, config.role)
+        + background_shocks(start, state, config)
+    )
+
+
+def background_shocks(start: WorldState, state: WorldState, config: GameConfig) -> list[Shock]:
+    """This turn's pushes that come whatever the player decides: business confidence, crises
+    abroad and the interest bill."""
+    return (
+        sentiment_shocks(state) + crisis_shocks(state, config.seed) + interest_shocks(state, start)
+    )
+
+
+def outlook_shocks(state: WorldState, horizon: int) -> list[Shock]:
+    """Business confidence's pushes in the turns after this one, as it settles back, for the
+    forecast. The interest bill is projected turn by turn (``DebtOutlook``); crises abroad are
+    left out, since they are drawn turn by turn."""
+    return [
+        shock.model_copy(
+            update={"delta": shock.delta * (1 - SENTIMENT_SETTLE) ** k, "start_turn": k}
+        )
+        for shock in sentiment_shocks(state)
+        for k in range(1, horizon)
+    ]
+
+
+def forecast(
+    start: WorldState,
+    state: WorldState,
+    scenario: Scenario,
+    actions: list[PolicyAction],
+    config: GameConfig,
+) -> DeltaDistribution:
+    """The engine's forecast for ``actions``: the same turn ``resolve`` runs, before the
+    outcome is known, then ``config.horizon`` turns of what is already in flight. Its
+    ``baseline`` is the same without this turn's decisions and scenario, so the part they
+    make is ``response_at``."""
+    later = outlook_shocks(state, config.horizon)
+    return propagate(
+        state,
+        turn_shocks(start, state, scenario, actions, config) + later,
+        config.horizon,
+        config.k_draws,
+        config.seed,
+        protection=job_protection(state, actions),
+        baseline=background_shocks(start, state, config) + later,
+        outlook=lambda: DebtOutlook(state, start),
+    )
+
+
 def resolve(
     start: WorldState,
     state: WorldState,
@@ -112,32 +193,18 @@ def resolve(
 
     ``pledges`` are the promises made this turn (SD-5); ``delivery`` and ``sacked`` (cast
     ids) move the cast's loyalty (SD-4)."""
-    shocks = (
-        actions_to_shocks(actions, state)
-        + scenario.shocks
-        + outcome.shocks
-        + event_shocks(outcome.events, state)
-        + sentiment_shocks(state)
-        + crisis_shocks(state, config.seed)
-        + interest_shocks(state, start)
-        + forcing_shocks(actions, state, config.role)
-    )
+    shocks = turn_shocks(start, state, scenario, actions, config)
+    shocks += outcome.shocks + event_shocks(outcome.events, state)
     cover = job_protection(state, actions)
-    trajectory = simulate(state, shocks, config.horizon, protection=cover)
+    engine, moves = step(state, shocks, protection=cover)
 
-    pending = {t: dict(d) for t, d in state.pending.items()}
-    for node_id, series in trajectory.items():
-        s = scale(state, node_id)
-        previous = 0.0
-        for offset, level in enumerate(series):
-            step = (level - previous) * s
-            previous = level
-            if step:
-                slot = pending.setdefault(state.turn + offset, {})
-                slot[node_id] = slot.get(node_id, 0.0) + step
-
-    now = pending.pop(state.turn, {})
+    # Saves from before the engine carried its own state queued effects here; drain them.
+    pending = {t: dict(d) for t, d in state.pending.items() if t > state.turn}
+    now = dict(moves)
+    for node_id, change in state.pending.get(state.turn, {}).items():
+        now[node_id] = now.get(node_id, 0.0) + change
     new = apply_deltas(_record_history(state), now)
+    new.engine = engine
     new.pending = pending
     new.job_protection = {t: share for t, share in cover.items() if t > state.turn}
     new.events = [*new.events, *policy_events(actions, state), *outcome.approval_events]
@@ -280,15 +347,7 @@ class Game:
             raise RuntimeError("the game is over")
         state, scenario, cfg = self.state, self.scenario, self.config
         actions = proposal.actions
-        shocks = actions_to_shocks(actions, state) + scenario.shocks
-        engine = propagate(
-            state,
-            shocks,
-            cfg.horizon,
-            cfg.k_draws,
-            cfg.seed,
-            protection=job_protection(state, actions),
-        )
+        engine = forecast(self.start, state, scenario, actions, cfg)
         candidates = self.forecaster.forecast(
             state,
             scenario,

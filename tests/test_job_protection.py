@@ -65,7 +65,10 @@ def test_a_scheme_carries_into_later_turns() -> None:
     bare = resolve(start, unprotected, crash, [], NOTHING, GameConfig())
 
     def rise(s: WorldState) -> float:
-        return sum(s.pending[t].get(JOB_NODE, 0.0) for t in range(2, 6))
+        before = s.indicators[JOB_NODE].value
+        for _ in range(4):
+            s = resolve(start, s, quiet, [], NOTHING, GameConfig())
+        return s.indicators[JOB_NODE].value - before
 
     assert 0 < rise(protected) < rise(bare)
     assert WorldState.from_json(protected.to_json()).job_protection == protected.job_protection
