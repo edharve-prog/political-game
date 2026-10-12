@@ -85,7 +85,6 @@ Each story has a test that fails on main and passes after the change. The full s
 and the balance test all pass.
 
 ## Follow-ups noticed (not in scope)
-- A tax aimed at an indicator always raises revenue (`fiscal_size` uses |magnitude|). So
-  cutting stamp duty to push house prices up is booked as a tax rise. Fixing it needs the
-  interpreter to say whether a tax goes up or down separately from the direction of the
-  indicator.
+- Done: a tax aimed at an indicator always raised revenue (`fiscal_size` used |magnitude|),
+  so cutting stamp duty to push house prices up was booked as a tax rise. Actions now carry
+  `instrument` (raise or cut), which the interpreter must set for a tax on an indicator.

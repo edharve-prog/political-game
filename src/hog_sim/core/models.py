@@ -159,6 +159,23 @@ class PolicyAction(Model):
     duration_turns: int = Field(1, ge=1)
     requires: list[str] = Field(default_factory=list)
     rationale: str = ""
+    instrument: Literal["raise", "cut"] | None = Field(
+        None,
+        description="Tax or spending aimed at an indicator only: whether the tax or spending "
+        "itself goes up or down. The magnitude's sign there is the way the leader wants the "
+        "indicator to move, which says nothing about the budget (cutting stamp duty to lift "
+        "house prices is a tax cut). Unset, it reads as raise.",
+    )
+
+    @property
+    def instrument_sign(self) -> float:
+        """+1 when the tax or spending itself goes up, -1 when it comes down, 0 for none.
+
+        Aimed at a sector, group or institution that is the magnitude's sign; aimed at an
+        indicator it is ``instrument``, since there the magnitude is the indicator's way."""
+        if self.target.startswith("indicator:"):
+            return 0.0 if self.magnitude == 0 else -1.0 if self.instrument == "cut" else 1.0
+        return (self.magnitude > 0) - (self.magnitude < 0)
 
 
 class Shock(Model):
