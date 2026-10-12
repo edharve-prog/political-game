@@ -138,6 +138,7 @@ def actions_text(actions: list[PolicyAction]) -> str:
         return "- none"
     return "\n".join(
         f"- {a.kind} {a.target} magnitude {a.magnitude:+.2f} for {a.duration_turns} turn(s)"
+        + (f" ({a.kind} itself: {a.instrument})" if a.instrument else "")
         + (f": {a.rationale}" if a.rationale else "")
         for a in actions
     )

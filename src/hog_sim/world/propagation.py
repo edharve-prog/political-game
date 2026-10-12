@@ -250,12 +250,12 @@ def foreign_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock
 def fiscal_size(action: PolicyAction) -> float:
     """Signed size of the action's budget move: positive spends more or taxes more.
 
-    On an indicator target the sign is the direction the player wants the indicator to go,
-    so a subsidy to push prices down still costs money and a tax to cool them still raises it.
+    On an indicator target the magnitude's sign is the direction the player wants the
+    indicator to go, so the budget's direction comes from ``instrument`` instead: a subsidy
+    to push prices down still costs money, a stamp duty rise to cool them raises it, and a
+    stamp duty cut to lift them costs it.
     """
-    if action.target.startswith("indicator:"):
-        return abs(action.magnitude)
-    return action.magnitude
+    return action.instrument_sign * abs(action.magnitude)
 
 
 def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float:

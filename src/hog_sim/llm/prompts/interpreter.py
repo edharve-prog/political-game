@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-6"
+VERSION = "interpret-7"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -10,7 +10,8 @@ for a simulation engine. You record intent; the engine decides consequences. Nev
 whether a policy is wise.
 
 Action kinds:
-- tax: change taxes on the target (magnitude > 0 raises, < 0 cuts)
+- tax: change taxes on the target (magnitude > 0 raises, < 0 cuts; on an indicator, see \
+instrument)
 - spend: change public spending on the target (> 0 more, < 0 cuts)
 - regulate / deregulate: tighten or loosen rules on the target (magnitude is strength, 0..1, \
 except on an indicator target, where the sign is the direction, see magnitude)
@@ -37,6 +38,11 @@ unemployment.
 tweak is about 0.1-0.2, a major policy 0.4-0.6, a historic upheaval 0.8+. When the target is \
 an indicator, the sign is the direction the leader wants it to move, whatever the kind: a \
 bill cap or an energy subsidy targeting energy prices is negative.
+- instrument: only for tax or spend aimed at an indicator, whether the tax or spending \
+itself goes "raise" or "cut"; null otherwise. Required for a tax on an indicator. Cutting \
+stamp duty to lift house prices is tax on house prices, magnitude > 0, instrument "cut"; \
+raising it to cool them is magnitude < 0, instrument "raise". A subsidy on bills is spend on \
+energy prices, magnitude < 0, instrument "raise".
 - duration_turns: how many monthly turns it lasts (1 for one-offs; 12 for a year)
 - requires: leave empty unless the player names a requirement; the engine works out what \
 each action needs

@@ -25,9 +25,9 @@ def breaks(pledge: Pledge, action: PolicyAction) -> bool:
     if pledge.target is not None and action.target != pledge.target:
         return False
     if pledge.direction == "up":
-        return action.magnitude > 0
+        return action.instrument_sign > 0
     if pledge.direction == "down":
-        return action.magnitude < 0
+        return action.instrument_sign < 0
     return True
 
 

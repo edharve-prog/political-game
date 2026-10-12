@@ -187,9 +187,11 @@ adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while
 for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
 whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
-taxing aimed at an indicator always costs or raises money in the obvious way: a subsidy to lower
-bills still costs, and a tax to cool house prices still raises revenue. Actions aimed at the
-deficit itself have no separate cost.
+taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
+(`instrument`), since the size's sign there is the way the player wants the indicator to move:
+a subsidy to lower bills costs money, a stamp duty rise to cool house prices raises it, and a
+stamp duty cut to lift them costs it (and counts as a tax cut for markets and pledges). Unset, it
+reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
