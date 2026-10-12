@@ -578,6 +578,12 @@ outcomes for the same scenario and the same actions instead. Actions match on ki
 direction and rough size: small (magnitude up to 0.3), medium (up to 0.7) or large. So a small
 spend never reuses outcomes written for a huge one. The engine's numbers replace the stored ones.
 
+The stored reading of a response is reused only for the same words, or for a close rewording
+that agrees on every negation, direction (raise or cut), number and duration. So "do not
+increase public spending" never reuses the reading of "increase public spending"; it goes to
+keyword matching instead. Delivery, pledges and sackings are always read from what the player
+wrote that turn, whichever reading is used.
+
 ### Picking one
 
 The default (`sample`) draws an outcome at random by probability, so the game can't be solved.
