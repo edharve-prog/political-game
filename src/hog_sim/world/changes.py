@@ -3,9 +3,15 @@
 An outcome may say that the world itself has shifted: a trade row leaves relations with
 China worse, a bailout ties finance more tightly to the public sector. Those arrive as
 ``GraphChange`` records. Nothing here trusts them: ``validate_graph_changes`` checks every
-id, field and size against the current state, and ``apply_graph_changes`` (called from
-``resolve()``) applies only what passes, clamped to each field's bounds. Because the changes
-live in the logged outcome, replay reproduces them exactly.
+id, field and size, and ``apply_graph_changes`` (called from ``resolve()``) applies them,
+clamped to each field's bounds. Because the changes live in the logged outcome, replay
+reproduces them exactly.
+
+An outcome's changes are all or nothing. Both functions work through the changes in order on
+one staged copy of the world (``stage_graph_changes``), checking each against the world as the
+earlier ones left it: a relationship row scales trade, which shrinks how far that trade edge
+may then move. So a set that validates is a set that applies in full, and a set that does not
+applies none of it, rather than leaving the world half way to what the outcome described.
 """
 
 from __future__ import annotations
@@ -146,9 +152,20 @@ def _new_edge(change: GraphChange) -> Edge:
 
 def validate_graph_changes(state: WorldState, changes: list[GraphChange]) -> list[str]:
     """Problems with a set of changes, prefixed by index; empty when all may be applied."""
+    return stage_graph_changes(state, changes)[1]
+
+
+def stage_graph_changes(
+    state: WorldState, changes: list[GraphChange], *, trusted: bool = False
+) -> tuple[WorldState, list[str]]:
+    """Apply the changes in order to a copy of ``state``, checking each against the copy as
+    the earlier ones left it. Returns the copy with every change that passed, and the
+    problems with the rest (prefixed by index). ``trusted`` changes come from the engine
+    itself, so their number and repeats are not limited."""
     problems = []
-    if len(changes) > MAX_CHANGES:
+    if not trusted and len(changes) > MAX_CHANGES:
         problems.append(f"at most {MAX_CHANGES} graph changes per outcome")
+    new = state.snapshot()
     seen = set()
     for i, change in enumerate(changes):
         target = (
@@ -159,11 +176,16 @@ def validate_graph_changes(state: WorldState, changes: list[GraphChange]) -> lis
             change.target,
             change.edge_kind,
         )
-        if target in seen:
+        if not trusted and target in seen:
             problems.append(f"graph_changes[{i}]: duplicates an earlier change")
+            continue
         seen.add(target)
-        problems += [f"graph_changes[{i}]: {p}" for p in check_graph_change(state, change)]
-    return problems
+        found = check_graph_change(new, change)
+        if found:
+            problems += [f"graph_changes[{i}]: {p}" for p in found]
+            continue
+        _apply(new, change)
+    return new, problems
 
 
 # What the player's own foreign policy does to the target country's standing, per unit of
@@ -222,28 +244,32 @@ def _scale_trade(state: WorldState, country: str, moved: float) -> None:
 def apply_graph_changes(
     state: WorldState, changes: list[GraphChange], *, trusted: bool = False
 ) -> WorldState:
-    """Return a new state with every valid change applied; invalid ones are skipped.
+    """Return a new state with the changes applied.
 
-    Skipping (rather than raising) keeps an old save resolvable if the rules tighten later.
-    Outcome (LLM) changes are capped at ``MAX_CHANGES``. ``trusted`` changes come from the
-    engine itself (``action_changes``), so every one is applied, whatever their number.
+    An outcome's (LLM) changes are all or nothing: if any of them fails its check, none is
+    applied and ``state`` comes back unchanged. Not raising keeps an old save resolvable if the
+    rules tighten later. ``trusted`` changes come from the engine itself (``action_changes``):
+    each is applied if it passes, whatever their number.
     """
     if not changes:
         return state
-    new = state.snapshot()
-    for change in changes if trusted else changes[:MAX_CHANGES]:
-        if check_graph_change(new, change):
-            continue
-        if change.kind == "node_attr":
-            node = new.node(change.node)
-            low, high = ATTRS[node.kind][change.attr]
-            old = getattr(node, change.attr)
-            setattr(node, change.attr, min(high, max(low, old + change.delta)))
-            if change.attr == "relationship":
-                _scale_trade(new, change.node, getattr(node, change.attr) - old)
-        elif change.kind == "edge_weight":
-            edge = new.edges[_find_edge(new, change)]
-            edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
-        else:
-            new.edges.append(_new_edge(change))
+    new, problems = stage_graph_changes(state, changes, trusted=trusted)
+    if problems and not trusted:
+        return state
     return new
+
+
+def _apply(state: WorldState, change: GraphChange) -> None:
+    """Apply one checked change to ``state`` in place."""
+    if change.kind == "node_attr":
+        node = state.node(change.node)
+        low, high = ATTRS[node.kind][change.attr]
+        old = getattr(node, change.attr)
+        setattr(node, change.attr, min(high, max(low, old + change.delta)))
+        if change.attr == "relationship":
+            _scale_trade(state, change.node, getattr(node, change.attr) - old)
+    elif change.kind == "edge_weight":
+        edge = state.edges[_find_edge(state, change)]
+        edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
+    else:
+        state.edges.append(_new_edge(change))

@@ -46,7 +46,7 @@ from hog_sim.llm.scenario_gen import scenario_text
 from hog_sim.llm.summary import StateSummary, relevant_links, resolve_id, summarise_state
 from hog_sim.policy.feasibility import Role, check_feasibility
 from hog_sim.policy.pledges import broken_by
-from hog_sim.world.changes import validate_graph_changes
+from hog_sim.world.changes import action_changes, apply_graph_changes, validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
 from hog_sim.world.storylines import final_storylines
 
@@ -270,6 +270,9 @@ class LLMForecaster:
                 if c in state.characters
             ],
         )
+        # Graph changes are checked against the world as resolve() will meet them: after the
+        # player's own diplomatic and military moves have shifted it (world/changes.py).
+        staged = apply_graph_changes(state, action_changes(state, actions), trusted=True)
         drafts = structured_call(
             self.client,
             output_type=CandidateSet,
@@ -280,7 +283,7 @@ class LLMForecaster:
             effort=cfg.outcome_effort,
             max_tokens=cfg.max_tokens,
             max_attempts=cfg.max_attempts,
-            check=lambda r: check_candidates(r, summary, cfg.n_candidates, state),
+            check=lambda r: check_candidates(r, summary, cfg.n_candidates, staged),
             repair=lambda r: repair_candidates(r, summary),
         ).candidates
 
