@@ -9,8 +9,12 @@ them from the store), these reuse Claude's work on it:
   is feasible, so a stored request that is now blocked shows up as blocked rather than
   being swapped for a different policy.
 * ``StoredForecaster``: the stored candidate outcomes for the same kind of response
-  (same action kinds, targets and directions), with the engine's current numbers in place
-  of the stored ones and every graph change re-validated; otherwise the fallback.
+  (same action kinds, targets, directions and size), re-scored against today's engine
+  forecast, delivery and resistance, with every graph change re-validated. Each candidate
+  keeps the indicator changes it claimed, so its narrative and numbers still agree. A stored
+  set none of whose candidates fits today's engine (best consistency below
+  ``REUSE_MIN_FIT``) was written for a different world and is not reused; an older set that
+  fits is tried, otherwise the fallback.
 
 Both satisfy the game loop's protocols and make no LLM calls.
 """
@@ -19,14 +23,25 @@ from __future__ import annotations
 
 from hog_sim.core.models import Delivery, Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
+from hog_sim.forecasting.candidates import CLAIM_TURN
+from hog_sim.forecasting.scoring import (
+    CandidateScores,
+    ScoreWeights,
+    base_rate,
+    combine,
+    consistency,
+)
 from hog_sim.game.interfaces import Forecaster, Interpreter
 from hog_sim.knowledge.entries import action_signature, normalise_text, scenario_id
 from hog_sim.knowledge.store import KnowledgeStore
-from hog_sim.policy.feasibility import Role
+from hog_sim.policy.feasibility import Role, check_feasibility
 from hog_sim.world.changes import check_graph_change
 from hog_sim.world.propagation import DeltaDistribution
 
 MATCH_THRESHOLD = 0.6
+# A stored candidate set is reused only if at least one candidate's claims fit today's engine
+# about this well: a geometric-mean |z| of about 1.8 spreads (see forecasting/scoring.py).
+REUSE_MIN_FIT = 0.2
 
 
 def _overlap(a: str, b: str) -> float:
@@ -72,9 +87,12 @@ class StoredInterpreter:
 
 
 class StoredForecaster:
-    def __init__(self, store: KnowledgeStore, fallback: Forecaster) -> None:
+    def __init__(
+        self, store: KnowledgeStore, fallback: Forecaster, role: Role = "prime_minister"
+    ) -> None:
         self.store = store
         self.fallback = fallback
+        self.role = role
         self.last_source: str | None = None
 
     def forecast(
@@ -93,26 +111,44 @@ class StoredForecaster:
             for e in self.store.outcomes(scenario_id(scenario))
             if action_signature(e.actions) == signature
         ]
-        if not matches:
-            self.last_source = "fallback"
-            return self.fallback.forecast(
-                state, scenario, actions, engine, delivery=delivery, limits=limits, sacked=sacked
-            )
-        self.last_source = "stored"
-        entry = matches[-1]
-        expected = {
-            n: round(v, 3) for n, v in engine.at(0).items() if n.startswith("indicator:") and v
-        }
         known = set(state.node_ids())
-        candidates = [_adapt(c, state, known, expected) for c in entry.candidates]
-        total = sum(c.probability for c in candidates) or 1.0
-        for c in candidates:
-            c.probability = c.probability / total if total else 1 / len(candidates)
-        return candidates
+        turn = min(CLAIM_TURN, engine.horizon - 1)
+        resistance = check_feasibility(list(actions), state, self.role).resistance
+        for entry in reversed(matches):  # newest first
+            candidates = [_adapt(c, state, known) for c in entry.candidates]
+            scores = [
+                CandidateScores(
+                    consistency=consistency(c.indicator_deltas, engine, turn),
+                    judge=c.scores.get("judge", c.probability),
+                    base_rate=base_rate(c.events, delivery, resistance),
+                    self_reported=c.scores.get("self_reported", c.probability),
+                )
+                for c in candidates
+            ]
+            if max(s.consistency for s in scores) < REUSE_MIN_FIT:
+                continue  # written for a world whose engine moved differently
+            self.last_source = "stored"
+            rescored = combine(scores, ScoreWeights())
+            return [
+                c.model_copy(
+                    update={
+                        "probability": s.probability,
+                        "scores": {**s.model_dump(exclude={"probability"}), "reused": 1.0},
+                    }
+                )
+                for c, s in zip(candidates, rescored, strict=True)
+            ]
+        self.last_source = "fallback"
+        return self.fallback.forecast(
+            state, scenario, actions, engine, delivery=delivery, limits=limits, sacked=sacked
+        )
 
 
-def _adapt(outcome: Outcome, state: WorldState, known: set[str], expected: dict) -> Outcome:
-    """A stored outcome made safe for today's world: engine numbers, known nodes only."""
+def _adapt(outcome: Outcome, state: WorldState, known: set[str]) -> Outcome:
+    """A stored outcome made safe for today's world: known nodes and valid changes only.
+
+    Its claimed indicator changes are kept (not replaced by today's engine numbers), so they
+    still match its narrative; the caller re-scores how well they fit today's engine."""
     events = []
     for event in outcome.approval_events:
         effects = {g: v for g, v in event.group_effects.items() if g in state.groups}
@@ -121,10 +157,9 @@ def _adapt(outcome: Outcome, state: WorldState, known: set[str], expected: dict)
     return outcome.model_copy(
         deep=True,
         update={
-            "indicator_deltas": dict(expected),
+            "indicator_deltas": {n: v for n, v in outcome.indicator_deltas.items() if n in known},
             "approval_events": events,
             "shocks": [s for s in outcome.shocks if s.node in known],
             "graph_changes": [g for g in outcome.graph_changes if not check_graph_change(state, g)],
-            "scores": {**outcome.scores, "reused": 1.0},
         },
     )
