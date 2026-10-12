@@ -175,6 +175,12 @@ class Game:
         interpreter: Interpreter,
         forecaster: Forecaster,
     ) -> None:
+        if start.turn >= config.election_turn:
+            # The game would be over before it began, and the election never held.
+            raise ValueError(
+                f"the world starts at turn {start.turn}, at or past the election "
+                f"(turn {config.election_turn})"
+            )
         self.config = config
         self.start = start
         self.state = start

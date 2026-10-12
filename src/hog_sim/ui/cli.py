@@ -29,7 +29,7 @@ from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
 from hog_sim.policy.pledges import broken_by, pledge_line
-from hog_sim.population.popularity import national_approval, vote_intention
+from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.calendar import upcoming
 from hog_sim.world.cast import active_cast
@@ -159,12 +159,24 @@ def _report(record: TurnRecord) -> str:
         lines += [f"  - {a.kind} {a.target} {a.magnitude:+.2f}" for a in record.actions]
     if record.election:
         e = record.election
-        verdict = "You win a majority." if e.majority else "You lose your majority."
-        lines += [
-            "",
-            f"ELECTION: {e.vote_share * 100:.1f}% of the vote, "
-            f"{e.seats}/{e.total_seats} seats. {verdict}",
-        ]
+        lines += ["", _election_line(e)]
+    return "\n".join(lines)
+
+
+def _election_line(e: ElectionResult) -> str:
+    return (
+        f"ELECTION: {e.vote_share * 100:.1f}% of the vote, "
+        f"{e.seats}/{e.total_seats} seats. {e.verdict}"
+    )
+
+
+def _finished(game: Game, save: str) -> str:
+    """What to show when ``--resume`` opens a game whose election has already been held."""
+    election = game.history[-1].election if game.history else None
+    lines = ["This game is over."]
+    if election is not None:
+        lines.append(_election_line(election))
+    lines.append(f"Start a new game with: hog-sim --save {save}")
     return "\n".join(lines)
 
 
@@ -818,6 +830,9 @@ def _main(argv: list[str] | None) -> None:
     _log_turns(client, game_id, lambda: game.state.turn)
     library = PolicyLibrary(store.conn, game_id)
     try:
+        if game.over:  # resumed after the election
+            print(_finished(game, args.save))
+            return
         while not game.over:
             print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
             print(_briefing(game))
