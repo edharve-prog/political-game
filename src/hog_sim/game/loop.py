@@ -55,7 +55,7 @@ from hog_sim.population.popularity import (
 from hog_sim.world.cast import apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.debt import interest_shocks, step_debt
-from hog_sim.world.events import event_shocks
+from hog_sim.world.events import outcome_shocks
 from hog_sim.world.propagation import (
     actions_to_shocks,
     apply_deltas,
@@ -115,8 +115,7 @@ def resolve(
     shocks = (
         actions_to_shocks(actions, state)
         + scenario.shocks
-        + outcome.shocks
-        + event_shocks(outcome.events, state)
+        + outcome_shocks(outcome, state)
         + sentiment_shocks(state)
         + crisis_shocks(state, config.seed)
         + interest_shocks(state, start)

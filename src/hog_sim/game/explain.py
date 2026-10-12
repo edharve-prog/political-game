@@ -18,7 +18,7 @@ from hog_sim.core.models import EdgeKind, Shock
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.population.popularity import EVENT_FLOOR, _event_weight
-from hog_sim.world.events import event_shocks
+from hog_sim.world.events import outcome_shocks
 from hog_sim.world.propagation import PROPAGATING, actions_to_shocks, scale, simulate
 
 TOP = 3
@@ -41,7 +41,7 @@ def _causes(record: TurnRecord, before: WorldState) -> list[tuple[str, list[Shoc
     shocks = [(label, actions_to_shocks(acts, before)) for label, acts in causes]
     if record.scenario.shocks:
         shocks.append(("the scenario itself", list(record.scenario.shocks)))
-    outcome = list(record.outcome.shocks) + event_shocks(record.outcome.events, before)
+    outcome = outcome_shocks(record.outcome, before)
     if outcome:
         shocks.append(("what happened next (the chosen outcome)", outcome))
     return shocks
