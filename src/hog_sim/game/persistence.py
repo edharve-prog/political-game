@@ -1,4 +1,8 @@
-"""SQLite saves: one row per game, one row per turn."""
+"""SQLite saves: one row per game, one row per turn, and the scenario waiting to be played.
+
+The waiting scenario is saved as soon as it is fetched, so resuming shows the same scenario
+instead of asking the source (Claude, or a library that may have grown) for a new one.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from hog_sim.core.config import GameConfig
+from hog_sim.core.models import Model, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 
@@ -23,7 +28,17 @@ CREATE TABLE IF NOT EXISTS turns (
     record TEXT NOT NULL,
     PRIMARY KEY (game_id, turn)
 );
+CREATE TABLE IF NOT EXISTS pending_scenarios (
+    game_id TEXT PRIMARY KEY REFERENCES games(game_id),
+    turn INTEGER NOT NULL,
+    scenario TEXT NOT NULL
+);
 """
+
+
+class _Pending(Model):
+    # Stored as a plain Scenario, as TurnRecord stores it, whichever source wrote it.
+    scenario: Scenario
 
 
 class SaveStore:
@@ -49,6 +64,24 @@ class SaveStore:
                 "INSERT OR REPLACE INTO turns (game_id, turn, record) VALUES (?, ?, ?)",
                 (game_id, record.turn, record.model_dump_json()),
             )
+
+    def save_scenario(self, game_id: str, turn: int, scenario: Scenario) -> None:
+        """Keep the scenario shown for ``turn`` until that turn is played."""
+        with self.conn:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO pending_scenarios (game_id, turn, scenario) "
+                "VALUES (?, ?, ?)",
+                (game_id, turn, _Pending(scenario=scenario).model_dump_json()),
+            )
+
+    def pending_scenario(self, game_id: str, turn: int) -> Scenario | None:
+        """The scenario saved for ``turn``, or ``None`` if none was saved for that turn."""
+        row = self.conn.execute(
+            "SELECT turn, scenario FROM pending_scenarios WHERE game_id = ?", (game_id,)
+        ).fetchone()
+        if row is None or row[0] != turn:
+            return None
+        return _Pending.model_validate_json(row[1]).scenario
 
     def load(self, game_id: str) -> tuple[GameConfig, WorldState, list[TurnRecord]]:
         row = self.conn.execute(

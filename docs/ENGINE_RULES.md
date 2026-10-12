@@ -187,9 +187,11 @@ adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while
 for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
 whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
-taxing aimed at an indicator always costs or raises money in the obvious way: a subsidy to lower
-bills still costs, and a tax to cool house prices still raises revenue. Actions aimed at the
-deficit itself have no separate cost.
+taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
+(`instrument`), since the size's sign there is the way the player wants the indicator to move:
+a subsidy to lower bills costs money, a stamp duty rise to cool house prices raises it, and a
+stamp duty cut to lift them costs it (and counts as a tax cut for markets and pledges). Unset, it
+reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
@@ -248,7 +250,7 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    - it is tax, spend or legislation and the legislature's support is below **0.4**, too far
      short of a majority to force through;
    - it loosens the budget (more spending, or a tax cut) while the deficit is already above
-     **10% of GDP**;
+     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it;
    - it tries to direct an independent institution (independence 0.7 or more, like the Bank of
      England) or an indicator that only such an institution sets (Bank Rate). Communicating with
      them is always allowed.
@@ -281,7 +283,10 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
    borrowing measures are scaled down to fit, and tax rises or spending cuts in the same package
-   make room for them.
+   make room for them. Once the deficit is past 10%, a package may still spend or cut taxes as
+   long as its own tax rises and spending cuts pay for it: the borrowing is scaled to what they
+   cover, so the package adds nothing to the deficit. Only borrowing that nothing in the package
+   pays for is blocked outright.
 
 The turn log keeps both the requested and the applied actions.
 
@@ -580,6 +585,12 @@ When a knowledge store from earlier Claude games is available, offline play reus
 outcomes for the same scenario and the same actions instead. Actions match on kind, target,
 direction and rough size: small (magnitude up to 0.3), medium (up to 0.7) or large. So a small
 spend never reuses outcomes written for a huge one. The engine's numbers replace the stored ones.
+
+The stored reading of a response is reused only for the same words, or for a close rewording
+that agrees on every negation, direction (raise or cut), number and duration. So "do not
+increase public spending" never reuses the reading of "increase public spending"; it goes to
+keyword matching instead. Delivery, pledges and sackings are always read from what the player
+wrote that turn, whichever reading is used.
 
 ### Picking one
 

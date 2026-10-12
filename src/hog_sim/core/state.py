@@ -74,6 +74,8 @@ class WorldState(Model):
                 )
         if self.groups and sum(g.population_share for g in self.groups.values()) <= 0:
             raise ValueError("population groups must have a total population_share above 0")
+        if self.groups and sum(g.population_share * g.turnout for g in self.groups.values()) <= 0:
+            raise ValueError("someone must vote: no group has both population_share and turnout")
         return self
 
     def nodes(self) -> Iterator[AnyNode]:

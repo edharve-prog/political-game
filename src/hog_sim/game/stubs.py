@@ -126,6 +126,12 @@ class KeywordInterpreter:
     def delivery_for(self, text: str, state: WorldState) -> Delivery:
         return keyword_delivery(text, state)
 
+    def pledges_for(self, text: str) -> list[Pledge]:
+        return keyword_pledges(text)[0]
+
+    def sacked_for(self, text: str, state: WorldState) -> list[str]:
+        return keyword_sackings(text, state)[0]
+
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         self._delivery = keyword_delivery(text, state)
         self._pledges, text = keyword_pledges(text)
