@@ -13,7 +13,11 @@ from hog_sim.core.models import Model
 class GameConfig(Model):
     seed: int = 0
     role: Literal["prime_minister", "president"] = "prime_minister"
-    turn_length_months: int = Field(1, ge=1)
+    # A turn is one month everywhere: the calendar (Budget on turns 3 and 15), effect lags,
+    # half-lives and the calibrated backtests all count months. Nothing reads this field, so
+    # any other value would claim a turn length the game does not play. It stays so saved
+    # configs still load, and is fixed at 1 until the engine can scale time.
+    turn_length_months: int = Field(1, ge=1, le=1)
     selection_mode: Literal["argmax", "sample"] = "sample"
     election_turn: int = Field(24, ge=1)
     horizon: int = Field(24, ge=1)  # turns the engine looks ahead

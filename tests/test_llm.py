@@ -421,6 +421,7 @@ def test_scenario_prompt_lists_recent_scenarios_and_keeps_category(world: WorldS
         GameConfig(), world, LLMScenarioSource(client), LLMInterpreter(client), EngineForecaster()
     )
     game.play_turn("Windfall tax on energy firms")
+    assert game.scenario.title  # the next scenario is fetched when first needed
     assert game.history[0].scenario.category == "energy"
     prompts = [r.messages[0].content for r in client.requests if r.schema_name == "ScenarioDraft"]
     assert "Recent scenarios" not in prompts[0]

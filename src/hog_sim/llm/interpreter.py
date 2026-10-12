@@ -72,6 +72,10 @@ def check_interpretation(result: Interpretation, summary: StateSummary) -> list[
         indicator = action.target.startswith("indicator:")
         if action.kind in ("regulate", "deregulate") and action.magnitude < 0 and not indicator:
             problems.append(f"actions[{i}]: {action.kind} magnitude must be 0..1")
+        if indicator and action.kind == "tax" and action.instrument is None:
+            problems.append(
+                f"actions[{i}]: a tax aimed at an indicator needs instrument: raise or cut"
+            )
     if not result.actions and not result.clarifying_question and not result.sacked:
         problems.append("return at least one action, or a clarifying_question")
     unknown_consulted = sorted(set(result.delivery.consulted) - set(summary.catalogue))

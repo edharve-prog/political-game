@@ -213,8 +213,23 @@ class ElectionResult(Model):
     def majority(self) -> bool:
         return self.seats > self.total_seats // 2
 
+    @property
+    def hung(self) -> bool:
+        """Exactly half the seats: neither side has a majority (an even house, a tied vote)."""
+        return self.seats * 2 == self.total_seats
+
+    @property
+    def verdict(self) -> str:
+        if self.majority:
+            return "You win a majority."
+        if self.hung:
+            return "Hung parliament: you are level with the opposition and short of a majority."
+        return "You lose: the opposition wins a majority."
+
 
 def run_election(state: WorldState, total_seats: int = 650) -> ElectionResult:
+    if not state.groups:
+        raise ValueError("an election needs population groups to vote")
     vote = vote_intention(state)
     return ElectionResult(
         vote_share=vote, seats=round(seat_share(vote) * total_seats), total_seats=total_seats
