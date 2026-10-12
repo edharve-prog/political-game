@@ -16,6 +16,11 @@ The engine is a linear dynamic system on the graph:
   the node and everything it drives drift back.
 * Population groups are not propagated here: approval is Project 4's job, so ``EMPLOYS``,
   ``CARES_ABOUT`` and any edge into a group are skipped.
+* The engine carries its state between turns (``WorldState.engine``: fading pushes, recent
+  deviations, shocks still running) and ``step`` moves it on one turn. ``resolve`` and the
+  forecast (``propagate``) both use that one step, so the forecast starts from what is already
+  in flight. Nodes stay within their bounds as they move: a bound drops the push that would
+  have carried a node past it, so the node fades back from the bound, not from beyond it.
 
 Monte Carlo draws perturb each edge weight by its ``uncertainty`` (a normal std dev) once
 per draw, seeded from the game seed so results reproduce exactly.
@@ -25,15 +30,19 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from statistics import fmean, quantiles
+
+from pydantic import Field
 
 from hog_sim.core.config import make_rng
 from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction, Shock
-from hog_sim.core.state import WorldState
+from hog_sim.core.state import EngineState, Push, WorldState
 
 DAMPING = 0.9
 MAX_ITERATIONS = 200  # lag-0 fixed point; a stable graph settles well within this
 TOLERANCE = 1e-12
+NEGLIGIBLE = 1e-12  # pushes and deviations smaller than this (standard steps) are dropped
 # Highest loop gain allowed among lag-0 edges (see ``lag0_gain``). Below 1 the within-turn
 # fixed point exists and the iteration converges for any signs; the margin keeps Monte
 # Carlo draws stable too.
@@ -106,10 +115,23 @@ class DeltaDistribution(Model):
     horizon: int
     k_draws: int
     nodes: dict[str, NodeForecast]
+    baseline: dict[str, list[float]] = Field(
+        default_factory=dict,
+        description="Cumulative native change per node per turn from what happens whatever "
+        "the player decides (effects in flight, background pushes); empty when not run",
+    )
 
     def at(self, turn: int) -> dict[str, float]:
         """Expected cumulative native delta for every node at ``turn`` (0-based)."""
         return {n: f.mean[turn] for n, f in self.nodes.items()}
+
+    def response_at(self, turn: int) -> dict[str, float]:
+        """The part of ``at(turn)`` that this turn's decisions and events make: the expected
+        change less the baseline."""
+        return {
+            n: f.mean[turn] - self.baseline.get(n, [0.0] * (turn + 1))[turn]
+            for n, f in self.nodes.items()
+        }
 
 
 # Sign of the first-order effect of each action kind on its target's primary metric. When
@@ -180,9 +202,9 @@ def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = Non
 # Job protection (CA-4): spending aimed at unemployment is a wage subsidy, such as the 2020
 # furlough scheme. It does not push unemployment down. While it runs it holds back
 # JOB_PROTECTION of any rise in unemployment its drivers would cause, per unit of magnitude,
-# so firms keep their staff through a slump; in good times it only costs money. It covers job
-# losses from shocks that land while it runs, not ones already under way, and costs the same as
-# any other spending.
+# so firms keep their staff through a slump; in good times it only costs money. It covers any
+# rise while it runs, including one from a slump already under way, and costs the same as any
+# other spending.
 JOB_NODE = "indicator:unemployment"
 JOB_PROTECTION = 0.8
 
@@ -364,6 +386,218 @@ def lag0_gain(state: WorldState, edges: list[Edge] | None = None) -> float:
     return bound
 
 
+def _bounds(state: WorldState, node_id: str) -> tuple[float | None, float | None]:
+    """Hard limits on a node's primary metric, native units (``apply_deltas`` keeps them)."""
+    node = state.node(node_id)
+    if node.kind in (NodeKind.GROUP, NodeKind.INSTITUTION):
+        return 0.0, 1.0
+    if node.kind == NodeKind.SECTOR:
+        return 0.0, None
+    if node.kind == NodeKind.INDICATOR:
+        return node.low, node.high
+    return None, None
+
+
+def _value(state: WorldState, node_id: str) -> float:
+    node = state.node(node_id)
+    return getattr(node, METRICS[node.kind])
+
+
+def pushes_for(shocks: list[Shock], state: WorldState, turn: int | None = None) -> list[Push]:
+    """Shocks made on ``turn`` (default: the state's) as pushes in absolute turns."""
+    turn = state.turn if turn is None else turn
+    pushes = []
+    for shock in shocks:
+        state.node(shock.node)  # raises KeyError on an unknown node
+        start = turn + shock.start_turn
+        pushes.append(
+            Push(
+                node=shock.node,
+                delta=shock.delta,
+                start=start,
+                end=start + shock.duration_turns,
+                hold=shock.hold,
+            )
+        )
+    return pushes
+
+
+# Makes, for one projected path, a function called once per turn after the first with the
+# projected values (native units by node id) that returns the background pushes due that turn.
+Outlook = Callable[[], Callable[[dict[str, float]], list[Shock]]]
+
+
+class _Engine:
+    """The graph's dynamics for one set of edge weights. ``step`` moves an ``EngineState``
+    on by one turn: the one transition that real turns, forecasts and ``simulate`` share."""
+
+    def __init__(self, state: WorldState, weights: dict[int, float] | None = None) -> None:
+        edges = _propagating_edges(state)
+        self.lagged: dict[str, list[tuple[str, float, int]]] = defaultdict(list)
+        self.instant: dict[str, list[tuple[str, float]]] = defaultdict(list)
+        for i, e in enumerate(edges):
+            factor = (weights[i] if weights is not None else e.weight) * DAMPING
+            if e.lag:
+                self.lagged[e.target].append((e.source, factor, e.lag))
+            else:
+                self.instant[e.target].append((e.source, factor))
+        self.memory = max([1, *(e.lag for e in edges)])
+        self.instant_items = list(self.instant.items())
+        self.nodes = list(state.node_ids())
+        self.keep = {n: persistence(state, n) for n in self.nodes}
+        self.sectors = set(state.sectors)
+        self.scales = {n: scale(state, n) for n in self.nodes}
+        self.bounds = {n: _bounds(state, n) for n in self.nodes}
+
+    def scale(self, node_id: str, values: dict[str, float], level: float) -> float:
+        """Native units per step. A sector's step is 5% of the output it would have without
+        the deviation it carries (``level`` steps), which stays put while that deviation
+        comes and goes, so a shock that fades leaves output where it found it."""
+        if node_id in self.sectors and 1 + 0.05 * level > 0:
+            return 0.05 * values[node_id] / (1 + 0.05 * level)
+        return self.scales[node_id]
+
+    def step(
+        self,
+        engine: _Carry,
+        turn: int,
+        share: float = 0.0,
+        values: dict[str, float] | None = None,
+    ) -> tuple[dict[str, float], dict[str, float]]:
+        """Advance ``engine`` (in place) through absolute ``turn``. ``share`` is the job
+        protection in force. With ``values`` (native levels, updated in place), every node
+        stays within its bounds; without, the system is linear and unbounded.
+
+        Returns this turn's deviation per node (standard steps) and its change in native
+        units (empty without ``values``)."""
+        keep, nodes, past = self.keep, self.nodes, engine.levels
+        own = {n: v * keep[n] for n, v in engine.own.items()}
+        for push in engine.pushes:
+            if push.start <= turn < push.end:
+                # A held push tops itself back up to delta after each turn's fade.
+                held = push.hold and turn > push.start
+                delta = push.delta * (1 - keep[push.node]) if held else push.delta
+                own[push.node] = own.get(push.node, 0.0) + delta
+        engine.pushes = [p for p in engine.pushes if p.end > turn + 1]
+
+        prev = {n: series[-1] for n, series in past.items()}
+        limits: dict[str, tuple[float, float]] = {}
+        sizes: dict[str, float] = {}
+        if values is not None:
+            for n in nodes:
+                size = sizes[n] = self.scale(n, values, prev.get(n, 0.0))
+                low, high = self.bounds[n]
+                if size and (low is not None or high is not None):
+                    before = prev.get(n, 0.0)
+                    limits[n] = (
+                        -math.inf if low is None else before + (low - values[n]) / size,
+                        math.inf if high is None else before + (high - values[n]) / size,
+                    )
+
+        driven: dict[str, float] = {}
+        for n, inputs in self.lagged.items():
+            push = 0.0
+            for src, f, lag in inputs:
+                series = past.get(src)
+                if series is not None and len(series) >= lag:
+                    push += f * series[-lag]
+            if push:
+                driven[n] = push
+
+        def settle(n: str, push: float) -> tuple[float, float]:
+            """The node's held push and its level, within its bounds."""
+            if n == JOB_NODE and share and push > 0:
+                push *= 1 - share
+            level = own.get(n, 0.0) + push
+            limit = limits.get(n)
+            if limit is not None:
+                level = limit[0] if level < limit[0] else limit[1] if level > limit[1] else level
+            return push, level
+
+        held: dict[str, float] = {}
+        level: dict[str, float] = {}
+        for n in nodes:
+            held[n], level[n] = settle(n, driven.get(n, 0.0))
+        instant = self.instant_items
+        for _ in range(MAX_ITERATIONS):
+            change = 0.0
+            for n, inputs in instant:
+                push = driven.get(n, 0.0)
+                for src, f in inputs:
+                    push += f * level[src]
+                held[n], value = settle(n, push)
+                gap = abs(value - level[n]) / max(1.0, abs(value))
+                if gap > change:
+                    change = gap
+                level[n] = value
+            if change < TOLERANCE:
+                break
+        else:
+            raise PropagationError(
+                f"lag-0 feedback did not settle within {MAX_ITERATIONS} iterations on turn "
+                f"{turn} (last relative change {change:.2g}); the graph's lag-0 loops are unstable"
+            )
+
+        moves = {}
+        kept_own = {}
+        levels = {}
+        for n in nodes:
+            mine = own.get(n, 0.0)
+            if n in limits and level[n] != mine + held[n]:
+                # A bound stopped the node: what was cut off is gone, so the push left is the
+                # one that holds it at the bound, and it fades back from there, not from past it.
+                mine = level[n] - held[n]
+            if abs(mine) > NEGLIGIBLE:
+                kept_own[n] = mine
+            if values is not None:
+                move = (level[n] - prev.get(n, 0.0)) * sizes[n]
+                if move:
+                    moves[n] = move
+                    values[n] += move
+            series = past.get(n)
+            series = [*series[len(series) + 1 - self.memory :], level[n]] if series else [level[n]]
+            if any(abs(v) > NEGLIGIBLE for v in series):
+                levels[n] = series
+        engine.own = kept_own
+        engine.levels = levels
+        return level, moves
+
+
+class _Carry:
+    """``EngineState`` as plain containers, for the engine's inner loop."""
+
+    def __init__(self, state: EngineState, pushes: list[Push] = ()) -> None:
+        self.own = dict(state.own)
+        self.levels = {n: list(v) for n, v in state.levels.items()}
+        self.pushes = [*state.pushes, *pushes]
+
+    def freeze(self) -> EngineState:
+        return EngineState(own=self.own, levels=self.levels, pushes=self.pushes)
+
+
+def step(
+    state: WorldState, shocks: list[Shock], protection: dict[int, float] | None = None
+) -> tuple[EngineState, dict[str, float]]:
+    """One turn of the engine from what ``state`` carries, plus this turn's ``shocks``.
+
+    Returns the engine to carry into the next turn and this turn's change to each node's
+    primary metric, in native units, within its bounds. ``protection`` is the job protection
+    in force by absolute turn (see ``job_protection``); None uses the state's own."""
+    if protection is None:
+        protection = state.job_protection
+    engine = _Carry(state.engine, pushes_for(shocks, state))
+    values = {n: _value(state, n) for n in state.node_ids()}
+    _, moves = _Engine(state).step(engine, state.turn, protection.get(state.turn, 0.0), values)
+    return engine.freeze(), moves
+
+
+def in_flight(state: WorldState, node_id: str) -> float:
+    """What effects already in flight move ``node_id`` this turn, native units, before
+    anything new is decided."""
+    queued = state.pending.get(state.turn, {}).get(node_id, 0.0)
+    return queued + step(state, [])[1].get(node_id, 0.0)
+
+
 def simulate(
     state: WorldState,
     shocks: list[Shock],
@@ -371,64 +605,22 @@ def simulate(
     weights: dict[int, float] | None = None,
     protection: dict[int, float] | None = None,
 ) -> dict[str, list[float]]:
-    """One deterministic run. Returns standard-step deviations per node per turn.
+    """What ``shocks`` alone do: standard-step deviations per node per turn, starting from a
+    quiet world (nothing in flight) and ignoring bounds. ``explain`` uses it to split a turn
+    between its causes.
 
-    ``weights`` overrides edge weights by index into the propagating edge list (used by
-    Monte Carlo draws). ``protection`` is the job protection in force by absolute turn (see
+    ``weights`` overrides edge weights by index into the propagating edge list.
+    ``protection`` is the job protection in force by absolute turn (see
     ``job_protection``); None uses the state's own.
     """
     if protection is None:
         protection = state.job_protection
-    edges = _propagating_edges(state)
-    lagged: dict[str, list[tuple[str, float, int]]] = defaultdict(list)
-    instant: dict[str, list[tuple[str, float]]] = defaultdict(list)
-    for i, e in enumerate(edges):
-        factor = (weights[i] if weights is not None else e.weight) * DAMPING
-        if e.lag:
-            lagged[e.target].append((e.source, factor, e.lag))
-        else:
-            instant[e.target].append((e.source, factor))
-
-    node_ids = list(state.node_ids())
-    keep = {n: persistence(state, n) for n in node_ids}
-    arrivals: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    for shock in shocks:
-        state.node(shock.node)  # raises KeyError on an unknown node
-        for k, t in enumerate(range(shock.start_turn, shock.start_turn + shock.duration_turns)):
-            if t >= horizon:
-                break
-            # A held shock tops its push back up to delta after each turn's fade.
-            top_up = shock.delta * (1 - keep[shock.node]) if shock.hold and k else shock.delta
-            arrivals[t][shock.node] += top_up
-
-    own = {n: 0.0 for n in node_ids}
-    trajectory: dict[str, list[float]] = {n: [] for n in node_ids}
+    model = _Engine(state, weights)
+    engine = _Carry(EngineState(), pushes_for(shocks, state, 0))
+    trajectory: dict[str, list[float]] = {n: [] for n in model.nodes}
     for t in range(horizon):
-        now = arrivals.pop(t, {})
-        share = protection.get(state.turn + t, 0.0)
-        driven = {}
-        level = {}
-        for n in node_ids:
-            own[n] = own[n] * keep[n] + now.get(n, 0.0)
-            driven[n] = sum(
-                f * trajectory[src][t - lag] for src, f, lag in lagged[n] if t - lag >= 0
-            )
-            level[n] = own[n] + _held(n, driven[n], share)
-        for _ in range(MAX_ITERATIONS):
-            change = 0.0
-            for n, inputs in instant.items():
-                push = driven[n] + sum(f * level[src] for src, f in inputs)
-                value = own[n] + _held(n, push, share)
-                change = max(change, abs(value - level[n]) / max(1.0, abs(value)))
-                level[n] = value
-            if change < TOLERANCE:
-                break
-        else:
-            raise PropagationError(
-                f"lag-0 feedback did not settle within {MAX_ITERATIONS} iterations on turn "
-                f"{t} (last relative change {change:.2g}); the graph's lag-0 loops are unstable"
-            )
-        for n in node_ids:
+        level, _ = model.step(engine, t, protection.get(state.turn + t, 0.0))
+        for n in model.nodes:
             trajectory[n].append(level[n])
     return trajectory
 
@@ -440,21 +632,39 @@ def propagate(
     k_draws: int = 200,
     seed: int = 0,
     protection: dict[int, float] | None = None,
+    baseline: list[Shock] | None = None,
+    outlook: Outlook | None = None,
 ) -> DeltaDistribution:
-    """Monte Carlo propagation. Returns mean and 10th/90th percentiles in native units."""
+    """Monte Carlo forecast: the change in every node over the next ``horizon`` turns, mean
+    and 10th/90th percentiles in native units.
+
+    It runs the same turn as ``resolve`` (``step``): from what the state already has in
+    flight, plus ``shocks`` made this turn, within every node's bounds. Each draw perturbs the
+    edge weights for the turns ahead. With ``baseline`` (the shocks among ``shocks`` that
+    come whatever the player decides), one more run at the central weights, with only those
+    and what is in flight, fills ``DeltaDistribution.baseline``. ``outlook`` makes the pushes
+    that later turns' background mechanisms add, from the projected values (see ``Outlook``).
+    """
+    if protection is None:
+        protection = state.job_protection
     edges = _propagating_edges(state)
     draws: list[dict[str, list[float]]] = []
     for k in range(k_draws):
         rng = make_rng(seed, state.turn, f"mc:{k}")
         weights = {i: rng.gauss(e.weight, e.uncertainty) for i, e in enumerate(edges)}
-        draws.append(simulate(state, shocks, horizon, weights, protection))
+        draws.append(_path(state, shocks, horizon, _Engine(state, weights), protection, outlook))
+    start = list(draws[0]) if draws else list(state.node_ids())
+    carried = (
+        _path(state, baseline, horizon, _Engine(state), protection, outlook)
+        if baseline is not None
+        else {}
+    )
 
-    scales = {node_id: scale(state, node_id) for node_id in state.node_ids()}
     nodes = {}
-    for node_id, s in scales.items():
+    for node_id in start:
         mean, p10, p90 = [], [], []
         for t in range(horizon):
-            values = [d[node_id][t] * s for d in draws]
+            values = [d[node_id][t] for d in draws]
             mean.append(fmean(values))
             if len(values) > 1:
                 cuts = quantiles(values, n=10, method="inclusive")
@@ -464,7 +674,36 @@ def propagate(
                 p10.append(values[0])
                 p90.append(values[0])
         nodes[node_id] = NodeForecast(mean=mean, p10=p10, p90=p90)
-    return DeltaDistribution(horizon=horizon, k_draws=k_draws, nodes=nodes)
+    return DeltaDistribution(horizon=horizon, k_draws=k_draws, nodes=nodes, baseline=carried)
+
+
+def _path(
+    state: WorldState,
+    shocks: list[Shock],
+    horizon: int,
+    model: _Engine,
+    protection: dict[int, float],
+    outlook: Outlook | None = None,
+) -> dict[str, list[float]]:
+    """Cumulative native change per node per turn, from what ``state`` has in flight plus
+    ``shocks`` made this turn, within bounds."""
+    engine = _Carry(state.engine, pushes_for(shocks, state))
+    start = {n: _value(state, n) for n in state.node_ids()}
+    values = dict(start)
+    path: dict[str, list[float]] = {n: [] for n in start}
+    later = outlook() if outlook is not None else None
+    for t in range(state.turn, state.turn + horizon):
+        if later is not None and t > state.turn:
+            engine.pushes += pushes_for(later(values), state, t)
+        model.step(engine, t, protection.get(t, 0.0), values)
+        for n, queued in state.pending.get(t, {}).items():
+            low, high = model.bounds[n]
+            v = values[n] + queued
+            v = min(high, v) if high is not None else v
+            values[n] = max(low, v) if low is not None else v
+        for n in start:
+            path[n].append(values[n] - start[n])
+    return path
 
 
 def apply_deltas(state: WorldState, deltas: dict[str, float]) -> WorldState:

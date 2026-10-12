@@ -278,7 +278,8 @@ class EngineForecaster:
             n: round(v, 3) for n, v in engine.at(0).items() if n.startswith("indicator:") and v
         }
 
-        projected = apply_deltas(state, engine.at(min(self.TURN, engine.horizon - 1)))
+        # Judge the response by what it changes, not by effects already in flight.
+        projected = apply_deltas(state, engine.response_at(min(self.TURN, engine.horizon - 1)))
         projected.events = [*state.events, *policy_events(actions, state)]
         before, after = target_approval(state, state), target_approval(projected, state)
         change = {g: after[g] - before[g] for g in state.groups}

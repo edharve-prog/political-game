@@ -23,6 +23,32 @@ from hog_sim.core.models import (
 )
 
 
+class Push(Model):
+    """A shock still running in the engine, in absolute turns (see world/propagation.py)."""
+
+    node: str
+    delta: float = Field(description="Standard steps")
+    start: int = Field(description="First absolute turn it pushes")
+    end: int = Field(description="Absolute turn it stops pushing (exclusive)")
+    hold: bool = False
+
+
+class EngineState(Model):
+    """What the engine carries from one turn to the next (see world/propagation.py).
+
+    Deviations are in standard steps from where each node would be without any shock."""
+
+    own: dict[str, float] = Field(
+        default_factory=dict, description="Each node's own push, still fading"
+    )
+    levels: dict[str, list[float]] = Field(
+        default_factory=dict,
+        description="Each node's recent deviations, oldest first, as far back as the longest "
+        "lag; a missing node has none",
+    )
+    pushes: list[Push] = Field(default_factory=list, description="Shocks still running")
+
+
 class WorldState(Model):
     turn: int = 0
     player_country: str
@@ -33,9 +59,13 @@ class WorldState(Model):
     indicators: dict[str, Indicator] = Field(default_factory=dict)
     edges: list[Edge] = Field(default_factory=list)
     events: list[ApprovalEvent] = Field(default_factory=list)
+    engine: EngineState = Field(
+        default_factory=EngineState, description="Effects still in flight (the engine's state)"
+    )
     pending: dict[int, dict[str, float]] = Field(
         default_factory=dict,
-        description="Effects still in flight: absolute turn -> node id -> native-unit change",
+        description="Effects queued by saves made before the engine carried its own state: "
+        "absolute turn -> node id -> native-unit change. Still applied; nothing adds to it.",
     )
     job_protection: dict[int, float] = Field(
         default_factory=dict,

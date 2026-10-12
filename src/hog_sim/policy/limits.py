@@ -39,7 +39,7 @@ from hog_sim.policy.feasibility import (
     Role,
     check_feasibility,
 )
-from hog_sim.world.propagation import FISCAL_NODE, fiscal_cost, scale
+from hog_sim.world.propagation import FISCAL_NODE, fiscal_cost, in_flight, scale
 
 REPEAT_WINDOW = 4
 REPEAT_DECAY = 0.5
@@ -139,7 +139,7 @@ def fit_deficit(
     step = scale(state, FISCAL_NODE)
     costs = [fiscal_cost(a, state) * step for a in actions]
     loosening = sum(c for c in costs if c > 0)
-    landing = state.pending.get(state.turn, {}).get(FISCAL_NODE, 0.0)
+    landing = in_flight(state, FISCAL_NODE)
     projected = deficit.value + landing + sum(costs)
     ceiling = max(limit, deficit.value + landing)
     if loosening <= 0 or projected <= ceiling + 1e-9:

@@ -147,7 +147,10 @@ def actions_text(actions: list[PolicyAction]) -> str:
 
 def engine_text(state: WorldState, engine: DeltaDistribution, turn: int = CLAIM_TURN) -> str:
     turn = min(turn, engine.horizon - 1)
-    lines = [f"Expected change by {turn + 1} turns from now (10-90% range):"]
+    lines = [
+        f"Expected change by {turn + 1} turns from now, including effects of earlier turns "
+        "still in flight (10-90% range):"
+    ]
     for ind in state.indicators.values():
         f = engine.nodes[ind.id]
         if abs(f.mean[turn]) < 1e-3 and abs(f.p90[turn] - f.p10[turn]) < 1e-3:
