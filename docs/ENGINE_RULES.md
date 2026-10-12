@@ -293,6 +293,12 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
 
 The turn log keeps both the requested and the applied actions.
 
+A checked package belongs to the turn and the world it was checked against. Confirming it
+checks that it is still the same turn and that nothing in the world has changed since, and
+runs the limits again to make sure the actions are exactly what they allow. Otherwise it is
+refused and has to be checked afresh, so a package cannot be confirmed twice, after the
+Commons has turned, or with its actions edited after the check.
+
 ---
 
 ## 5. How a change spreads: propagation
