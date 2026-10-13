@@ -5,6 +5,7 @@ import pytest
 
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import PolicyAction, Scenario
+from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.knowledge.entries import InterpretationEntry, Provenance, scenario_id
@@ -72,9 +73,10 @@ def test_rewordings_with_the_same_meaning_still_match() -> None:
 def test_negated_response_falls_back_instead_of_reusing_the_opposite(tmp_path) -> None:
     store = store_with(tmp_path, "Increase public spending", [SPEND])
     interpreter = StoredInterpreter(store, KeywordInterpreter())
-    actions = interpreter.interpret("Do not increase public spending", toy_world(), SCENARIO)
+    # Keyword matching can't read a refusal either, so it asks rather than guessing.
+    with pytest.raises(NeedsClarification):
+        interpreter.interpret("Do not increase public spending", toy_world(), SCENARIO)
     assert interpreter.last_source == "fallback"
-    assert actions != [SPEND]
     # The same words still reuse the stored reading.
     assert interpreter.interpret("Increase public spending", toy_world(), SCENARIO) == [SPEND]
     assert interpreter.last_source == "stored"

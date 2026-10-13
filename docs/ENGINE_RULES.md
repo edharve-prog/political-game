@@ -75,7 +75,13 @@ A game is 24 turns of one month each, with a general election after the last one
 1. A **scenario** arrives: a lead issue plus one to three smaller in-tray items (section 9).
 2. The player types a response. The **interpreter** turns it into a list of policy actions,
    plus how it was delivered (who was consulted, phased or immediate). If the response is too
-   vague, it asks a clarifying question instead and nothing happens.
+   vague, it asks a clarifying question instead and nothing happens. Offline, the keyword
+   interpreter (`game/stubs.py`) also asks instead of guessing when a response says what *not*
+   to do ("do not increase public spending") or sets a condition ("if inflation rises, cut
+   spending"), since matching keywords would read the plain instruction inside it. Promises
+   ("we will not raise taxes", "no cuts to schools") are still pledges, a refused sacking
+   ("do not sack the Chancellor") sacks nobody, and cutting a programme ("cut spending on
+   furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
    confirming.

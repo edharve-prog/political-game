@@ -19,6 +19,7 @@ from hog_sim.core.models import (
     Shock,
 )
 from hog_sim.core.state import WorldState
+from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
@@ -136,6 +137,7 @@ class KeywordInterpreter:
         self._delivery = keyword_delivery(text, state)
         self._pledges, text = keyword_pledges(text)
         self._sacked, text = keyword_sackings(text, state)
+        unsupported(text)
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
             return self._one(text, state, scenario)
@@ -156,8 +158,24 @@ class KeywordInterpreter:
 
         if target.startswith("indicator:"):
             # Aimed at a price itself: the player wants it down unless they say otherwise.
-            kind = "regulate" if re.search(r"\bcap|freez|limit|regulat", t) else "spend"
-            size = size if re.search(r"\braise|\bincrease|\bhigher", t) else -size
+            if re.search(r"\bcap|freez|limit|regulat", t):
+                kind = "regulate"
+                size = size if re.search(r"\braise|\bincrease|\bhigher", t) else -size
+            else:
+                # Spending on it (a furlough scheme, help with bills). "Raise" or "cut" is the
+                # spending's own way, not the indicator's: cutting it lets the indicator rise.
+                kind = "spend"
+                if re.search(_CUT_SPENDING, t):
+                    return [
+                        PolicyAction(
+                            kind=kind,
+                            target=target,
+                            magnitude=size,
+                            instrument="cut",
+                            rationale=f"from: {text}",
+                        )
+                    ]
+                size = -size
         elif target.startswith("country:"):
             kind = "diplomatic"
             size = -size if re.search(r"retaliat|sanction|tariff", t) else size
@@ -201,12 +219,63 @@ def keyword_delivery(text: str, state: WorldState) -> Delivery:
 
 _NEGATION = r"\b(?:no|not|never|won't|will not|nor)\b"
 
+# Cutting a programme rather than spending on it: "cut spending on furlough", "end the
+# furlough scheme".
+_CUT_SPENDING = (
+    r"\b(?:cut|cuts|cutting|reduc\w*|scrap\w*|end|ends|ending|withdraw\w*|slash\w*|"
+    r"wind(?:s|ing)? down|phase out|axe|abolish\w*|stop)\b"
+)
+
+# Where one sentence holds two separate instructions: "raise taxes but do not cut pensions".
+_CLAUSE_BREAK = (
+    r"(?<=[.;!?])\s+|\n|,?\s+\b(?:but|while|whereas)\b\s+"
+    r"|,?\s+\band\b\s+(?=(?:do not|don't|dont|never|will not|won't|we will not|not)\b)"
+)
+
+# A negation that governs what follows it: "do not increase", "we won't sack", "never cut".
+# Bare "no" counts only before a verb ("no raising of taxes" is a pledge, handled above), so
+# "ban no-fault evictions" or "fund it and no more" are not read as refusals.
+_REFUSAL = re.compile(
+    r"\b(?:do not|does not|don't|dont|doesn't|did not|didn't|will not|won't|shall not|"
+    r"shan't|should not|shouldn't|must not|mustn't|cannot|can't|never|refuse to|"
+    r"not to|rather than|instead of)\b"
+)
+_CONDITION = re.compile(r"^\s*(?:(?:option|also):\s*)?(?:if|unless|only if|in case|should)\b")
+
+
+def clauses(text: str) -> list[str]:
+    """``text`` split into the separate instructions it gives."""
+    return [c for c in re.split(_CLAUSE_BREAK, text) if c and c.strip(" .;,!?")]
+
+
+def unsupported(text: str) -> None:
+    """Raise ``NeedsClarification`` for what keyword matching can't read safely.
+
+    A refusal ("do not increase public spending") or a condition ("if inflation rises, cut
+    spending") would otherwise be read as the plain instruction inside it, which can be the
+    opposite of what the player meant. Pledges and sackings are taken out before this, so
+    "we will not raise taxes" and "do not sack the Chancellor" still work."""
+    for clause in clauses(text):
+        words = re.sub(r"^\s*(?:Option|Also):\s*", "", clause).strip(" .;,!?")
+        t = words.lower()
+        if _REFUSAL.search(t):
+            raise NeedsClarification(
+                f'Offline play can\'t read "{words}": it says what not to do. Say what you '
+                "will do instead (for example hold it where it is, or do nothing), or make it a "
+                'promise ("we will not raise taxes", "no cuts to schools").'
+            )
+        if _CONDITION.search(t):
+            raise NeedsClarification(
+                f'Offline play can\'t act on a condition ("{words}"). Say what to do this '
+                "turn; you can respond again next turn if things change."
+            )
+
 
 def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
     """Promises in ``text`` ("we will not raise taxes", "no cuts to schools"), and the text
     with those sentences taken out so they don't also read as actions (story SD-5)."""
     pledges, kept = [], []
-    for sentence in re.split(r"(?<=[.;!])\s+|\n", text):
+    for sentence in clauses(text):
         t = sentence.lower()
         words = re.sub(r"^\s*(?:Option|Also):\s*", "", sentence).strip(" .;!")
         pledge = None
@@ -227,19 +296,28 @@ def keyword_sackings(text: str, state: WorldState) -> tuple[list[str], str]:
     """Ministers ``text`` sacks ("sack the Chancellor"), matched on a word of their role, and
     the text with those sentences taken out (story SD-4)."""
     sacked, kept = [], []
-    for sentence in re.split(r"(?<=[.;!])\s+|\n", text):
+    for sentence in clauses(text):
         t = sentence.lower()
         hits = []
-        if re.search(r"\b(?:sack|fire|dismiss|sacking|replace)\b", t):
+        refused = False
+        if re.search(_SACK, t):
+            # "Do not sack the Chancellor", "I won't fire anyone": a refusal sacks nobody.
+            refused = bool(re.search(_REFUSAL.pattern + r"(?:\W+\w+){0,2}?\W+" + _SACK, t))
             for character in active_cast(state):
                 words = [w for w in re.findall(r"[a-z]+", character.role.lower()) if len(w) > 4]
                 if character.minister and any(w in t for w in words[:1]):
                     hits.append(character.id)
+        if refused:
+            continue
         if hits:
             sacked += hits
         else:
             kept.append(sentence)
-    return sacked, "\n".join(kept) if sacked else text
+    changed = len(kept) < len(clauses(text))
+    return sacked, "\n".join(kept) if changed else text
+
+
+_SACK = r"\b(?:sack|fire|dismiss|sacking|replace)\b"
 
 
 class EngineForecaster:
