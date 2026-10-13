@@ -524,7 +524,14 @@ class Game:
             limits=proposal.notes,
             sacked=proposal.sacked,
         )
-        chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
+        chosen = select(
+            candidates,
+            cfg.selection_mode,
+            make_rng(cfg.seed, state.turn, "select"),
+            seed=cfg.seed,
+            turn=state.turn,
+            group_weights={gid: g.population_share * g.turnout for gid, g in state.groups.items()},
+        )
 
         new = resolve(
             self.start,
