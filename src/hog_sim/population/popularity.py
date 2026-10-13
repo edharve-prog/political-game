@@ -25,6 +25,7 @@ several turns rather than all at once, and approval drifts back to lean once it 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
@@ -127,6 +128,64 @@ def policy_events(
     return events
 
 
+@dataclass(slots=True)
+class Term:
+    """One part of a group's target approval (E20): ``kind`` is lean, cares, employs,
+    influences, debt or events, ``node`` the node it comes from (empty for lean and
+    events) and ``value`` its contribution in approval (0-1)."""
+
+    kind: str
+    value: float
+    node: str = ""
+    events: list[tuple[str, float]] = field(default_factory=list)  # kind "events": each one
+
+
+def approval_terms(
+    state: WorldState,
+    reference: WorldState,
+    baselines: Mapping[str, float] | None = None,
+) -> dict[str, list[Term]]:
+    """Each group's target approval split into its terms, before the 0-1 clamp. The terms
+    add up (in order) to what ``target_approval`` returns, so explanations name the real
+    causes: lean, each cared-about indicator, each employing sector, each institution, the
+    debt penalty and the capped events in force."""
+    terms = {gid: [Term(kind="lean", value=g.lean)] for gid, g in state.groups.items()}
+    for edge in state.edges:
+        if edge.kind == EdgeKind.CARES_ABOUT and edge.source in terms:
+            steps = _steps(state, reference, edge.target, baselines)
+            terms[edge.source].append(
+                Term(kind="cares", node=edge.target, value=K * edge.weight * steps)
+            )
+        elif edge.kind == EdgeKind.EMPLOYS and edge.target in terms:
+            steps = _steps(state, reference, edge.source, baselines)
+            terms[edge.target].append(
+                Term(kind="employs", node=edge.source, value=K * edge.weight * steps)
+            )
+        elif edge.kind == EdgeKind.INFLUENCES and edge.target in terms:
+            institution = state.institutions.get(edge.source)
+            if institution is not None:
+                value = K * edge.weight * (institution.support - 0.5) / 0.1
+                terms[edge.target].append(Term(kind="influences", node=edge.source, value=value))
+    deficit = state.indicators.get(DEFICIT_ID)
+    if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
+        penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
+        for group_terms in terms.values():
+            group_terms.append(Term(kind="debt", node=DEFICIT_ID, value=-penalty))
+    felt: dict[str, list[tuple[str, float]]] = {gid: [] for gid in terms}
+    for event in state.events:
+        w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
+        for gid, effect in event.group_effects.items():
+            if gid in felt:
+                felt[gid].append((event.name, effect * w))
+    for gid, events in felt.items():
+        total = 0.0
+        for _, effect in events:
+            total += effect
+        capped = max(-EVENT_CAP, min(EVENT_CAP, total))
+        terms[gid].append(Term(kind="events", value=capped, events=events))
+    return terms
+
+
 def target_approval(
     state: WorldState,
     reference: WorldState,
@@ -134,31 +193,13 @@ def target_approval(
 ) -> dict[str, float]:
     """Each group's target approval, with changes measured from ``baselines`` where given
     and from ``reference`` otherwise."""
-    targets = {gid: g.lean for gid, g in state.groups.items()}
-    for edge in state.edges:
-        if edge.kind == EdgeKind.CARES_ABOUT and edge.source in targets:
-            steps = _steps(state, reference, edge.target, baselines)
-            targets[edge.source] += K * edge.weight * steps
-        elif edge.kind == EdgeKind.EMPLOYS and edge.target in targets:
-            steps = _steps(state, reference, edge.source, baselines)
-            targets[edge.target] += K * edge.weight * steps
-        elif edge.kind == EdgeKind.INFLUENCES and edge.target in targets:
-            institution = state.institutions.get(edge.source)
-            if institution is not None:
-                targets[edge.target] += K * edge.weight * (institution.support - 0.5) / 0.1
-    deficit = state.indicators.get(DEFICIT_ID)
-    if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
-        penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
-        targets = {gid: t - penalty for gid, t in targets.items()}
-    felt = {gid: 0.0 for gid in targets}
-    for event in state.events:
-        w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
-        for gid, effect in event.group_effects.items():
-            if gid in felt:
-                felt[gid] += effect * w
-    for gid, total in felt.items():
-        targets[gid] += max(-EVENT_CAP, min(EVENT_CAP, total))
-    return {gid: min(1.0, max(0.0, t)) for gid, t in targets.items()}
+    targets = {}
+    for gid, group_terms in approval_terms(state, reference, baselines).items():
+        total = 0.0
+        for term in group_terms:
+            total += term.value
+        targets[gid] = min(1.0, max(0.0, total))
+    return targets
 
 
 def step_approval(state: WorldState, reference: WorldState) -> WorldState:

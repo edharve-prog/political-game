@@ -96,3 +96,34 @@ def test_an_unfunded_tax_cut_is_named_for_the_market_penalty() -> None:
     line = next(x for x in why(record, before, game.start, game.config) if "Sterling" in x)
     assert "mostly your tax on United Kingdom" in line
     assert "markets' verdict on unfunded tax cuts" in line
+
+
+def test_approval_reasons_are_the_terms_the_approval_rules_add_up() -> None:
+    """Review of 13 Oct 2026, E20: after a public-services spend "why" said public workers rose
+    because they care about the deficit, when the cause was employment in their sector, and
+    it never named the debt penalty."""
+    game = new_game()
+    before = game.state
+    record = game.play_turn("Fund a pay rise for nurses and teachers")
+    lines = why(record, before, game.start, game.config)
+    workers = next(line for line in lines if line.strip().startswith("Public sector workers"))
+    reasons = workers.split("; ")
+    assert "heading for" in reasons[0]
+    assert reasons[1].startswith("works in Public Sector +")
+    assert "cares about Budget deficit" not in workers
+    assert any("deficit above 5% of GDP -" in line for line in lines if "pts:" in line)
+
+
+def test_the_explained_target_reproduces_the_approval_move() -> None:
+    from hog_sim.game.explain import _judged
+    from hog_sim.population.popularity import ADJUST, target_approval
+
+    game = new_game()
+    for text in ("Fund a pay rise for nurses and teachers", "Put a windfall tax on energy"):
+        before = game.state
+        record = game.play_turn(text)
+        seen = _judged(before, record.state_after)
+        targets = target_approval(seen, game.start, seen.baselines)
+        for gid, group in before.groups.items():
+            moved = group.approval + ADJUST * (targets[gid] - group.approval)
+            assert moved == pytest.approx(record.state_after.groups[gid].approval, abs=1e-12)

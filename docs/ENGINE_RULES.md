@@ -128,6 +128,12 @@ not the cut blamed for a penalty that never came. Whatever is left after the sha
 that only act together, limits they share) is reported as "how this turn's causes combined"
 rather than spread among them.
 
+For the three biggest approval moves it shows where each group's approval is heading and why,
+using the same terms the approval rules add up (section on approval below): the group's lean,
+then the largest pushes away from it, in points. A push is an indicator the group cares about,
+the sector it works in, an institution's standing, the penalty for a deficit above 5% of GDP,
+or an approval event (or all events together, when they hit the cap).
+
 ---
 
 ## 3. Actions: what the player can do
