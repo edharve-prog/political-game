@@ -142,7 +142,7 @@ def test_an_offline_game_sacks_a_minister_and_replays() -> None:
     game = Game(config, toy_world(), CannedScenarios(0), KeywordInterpreter(), EngineForecaster())
     proposal = game.propose("Sack the Chancellor.")
     assert proposal.sacked == ["person:chancellor"]
-    assert "Sacking: Ruth Calder" in cli._proposal_text(proposal, [], game.state)
+    assert "Sacking: Ruth Calder" in cli._proposal_text(proposal, game.state)
     record = game.commit(proposal)
     assert "Ruth Calder is sacked" in record.outcome.narrative
     assert not game.state.characters["person:chancellor"].active

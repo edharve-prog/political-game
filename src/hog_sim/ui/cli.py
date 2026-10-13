@@ -188,13 +188,13 @@ REVIEW_PROMPT = (
 )
 
 
-def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
+def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
         lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
     else:
         lines.append("  (no actions: this turn the government does nothing)")
-    notes = [f"Not possible: {line}" for line in dropped]
+    notes = [f"Not possible: {line}" for line in proposal.unmapped]
     notes += [f"Note: {n}" for n in proposal.notes]
     notes.append(f"Delivery: {proposal.delivery.describe()}")
     notes += [f'New pledge: "{p.text}"' for p in proposal.pledges]
@@ -248,9 +248,8 @@ def _ask_for_turn(
             print(f"  {err}")
         except NeedsClarification as ask:
             print("\n" + _wrap(f"Your advisers ask: {ask.question}", "", "  "))
-    dropped = getattr(game.interpreter, "dropped", lambda: [])()
     while True:
-        print(_proposal_text(proposal, dropped, game.state))
+        print(_proposal_text(proposal, game.state))
         command = input(REVIEW_PROMPT).strip()
         if command.lower() in ("", "y", "yes", "ok"):
             return proposal
@@ -266,7 +265,6 @@ def _ask_for_turn(
             continue
         try:
             proposal = game.revise(proposal, edit_actions(proposal.actions, command))
-            dropped = []
         except ValueError as err:
             print(f"  {err}")
 

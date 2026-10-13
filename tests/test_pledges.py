@@ -96,7 +96,7 @@ def test_a_pledge_made_in_one_turn_is_broken_in_a_later_one_and_replays(tmp_path
 
     proposal = game.propose("Put a windfall tax on energy companies")
     assert [p.text for p in broken_by(game.state, proposal.actions)] == ["We will not raise taxes"]
-    assert "Warning: this breaks your pledge" in cli._proposal_text(proposal, [], game.state)
+    assert "Warning: this breaks your pledge" in cli._proposal_text(proposal, game.state)
     second = game.commit(proposal)
     assert "breaks the pledge" in second.outcome.narrative
     assert game.state.pledges[0].broken_turn == 1
