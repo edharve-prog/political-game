@@ -337,6 +337,17 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Backlog:** [backlog/consistency-review.md](backlog/consistency-review.md).
 - **Done when:** each CR item has a test that fails on main and passes after the fix, and the full suite, balance, backtests and stability still pass.
 
+### Project 20 — Policy Semantics and Counterfactuals
+- **Goal:** what the player means, what it costs, what the forecast compares against and what "why" explains all agree with what the engine actually does.
+- **Why:** Ed's engine, reasoning and gameplay review of 361a0ff (2026-10-12, after Project 19's fixes) found 11 defects and 6 design weaknesses. Examples: cutting a wage subsidy saves money and still protects jobs, "Do not sack the Chancellor" sacks the Chancellor, the no-action baseline already contains the policy, and "why" blames a funded tax cut for a market penalty that never happened.
+- **Defects SR-1 to SR-12, in three parallel threads:**
+  - "Subsidy and fiscal scale fixes": subsidy cuts, one scale for sector cost and effect, zero debt, trade after reversed relationship changes, and legislation's free output (SR-1, SR-6, SR-10, SR-11, SR-12).
+  - "Offline interpretation safety": negation, beneficiary swaps in stored interpretations, and duration and instrument in outcome reuse (SR-3, SR-4, SR-9).
+  - "Forecast and explanation consistency": a clean no-action baseline, one full-turn transition, proposal freshness, and explanations from an effect ledger (SR-2, SR-5, SR-7, SR-8).
+- **Held until those land:** design items SR-13 to SR-17 and enhancements SE-1 to SE-12 in Ed's order. Several sharpen Project 19's CE items.
+- **Backlog:** [backlog/semantics-review.md](backlog/semantics-review.md); full review in [review/2026-10-12-engine-review.md](review/2026-10-12-engine-review.md).
+- **Done when:** each defect has a test built from Ed's reproduction that fails on main and passes after the fix, and the full suite, balance, backtests and stability still pass.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -362,6 +373,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 17 | Engine Correctness | 3, 4, 5, 6, 8, 16 | `PropagationError` and `lag0_gain()`; action–target compatibility table and `Indicator.interventions`; `constrain` as the only limit owner; validators on `GameConfig`, nodes and `WorldState` |
 | 18 | CI & Test Quality | 17 (P2 items), 16 (balance job) | CI matrix and installed-wheel smoke job; `semantics` and `balance` pytest markers; nightly workflow; Hypothesis profiles; coverage report |
 | 19 | Turn Consistency | 3, 5, 6, 8, 14, 15, 16 | One transition engine shared by forecasts and resolution; save before the next scenario; reuse that respects negation and size; package-level fiscal checks |
+| 20 | Policy Semantics & Counterfactuals | 19 | Subsidy programmes with real cover; paired policy and baseline runs; full-turn transition in projection mode; proposals bound to a turn and state version; effect ledger |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -404,7 +416,8 @@ Smallest thing that is fun and proves the architecture:
 | 16 | Engine Balance & Realism | In progress (EB-1 to EB-4 done, PR #16; EB-8 to EB-11 done, PRs #66 to #70; EB-13 done, PRs #38 and #72; EB-12 done in Project 17; EB-14 done, PRs #39 and #74; EB-5 to EB-7 open) | Built by the back-end review thread; see backlog/engine-balance.md |
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
-| 19 | Turn Consistency | In progress (Phase 1 started 2026-10-12) | Threads "Turn engine consistency", "Save and resume safety" and "Interpretation and fiscal rules"; see backlog/consistency-review.md |
+| 19 | Turn Consistency | Phase 1 done (CR-1 to CR-15, PRs #76 to #85); Phase 2 (CE-1 to CE-8) waits alongside Project 20's enhancements, which refine it | Threads "Turn engine consistency", "Save and resume safety" and "Interpretation and fiscal rules"; see backlog/consistency-review.md |
+| 20 | Policy Semantics & Counterfactuals | In progress (defects started 2026-10-12) | Threads "Subsidy and fiscal scale fixes", "Offline interpretation safety" and "Forecast and explanation consistency"; see backlog/semantics-review.md |
 
 ---
 
@@ -436,6 +449,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-03 | After the 30-turn Claude review, the next P1 work is EB-13 (consistency tempering), SD-9 (storyline lifespan), EB-14 (Commons lockout) and RB-8 (blocked measures reach the outcome), then a re-run of the review | Variety and narrative met their targets; outcome selection, storyline turnover and the Commons lock-out did not |
 | 2026-10-10 | Heterodox schools of thought: their added mechanisms join the shared world; only links the schools contradict on become lenses, with the world at a middle value; players meet the lenses as unlabelled advisers whose schools they must work out (CA-8) | Ed asked that calibration allow for heterodox views, then pointed out that the mainstream world can take Marxian and other mechanisms directly; lenses are needed only where one world can't hold two answers |
 | 2026-10-12 | Ed's code review of 7be7c65 becomes Project 19: 15 fixes (CR-1 to CR-15) in three parallel threads, then 8 enhancements (CE-1 to CE-8) in Ed's order | The forecast, the simulation and the narrative can disagree about the same decision; consistency comes before new features |
+| 2026-10-12 | Ed's second review (361a0ff) becomes Project 20: 11 defects plus legislation's free output in three parallel threads; design items SR-13 to SR-17 and enhancements SE-1 to SE-12 wait until those land | Meaning, money, counterfactuals and explanations must agree before more scenarios are added; the enhancements refine Project 19's CE list |
 | 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---
