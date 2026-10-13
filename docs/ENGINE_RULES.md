@@ -482,7 +482,10 @@ group on its own.
 When the player promises something for the future ("we will not raise taxes", "no cuts to
 the NHS"), the game records it as a pledge. A pledge rules out one kind of action in one
 direction, either on one target or on anything of that kind. "No new taxes" rules out any
-tax rise; "no cuts to the NHS" rules out spending cuts to the public sector.
+tax rise; "no cuts to the NHS" rules out spending cuts to the public sector. The direction is
+always the tax's or the spending's own, not the way its target moves: "no stamp duty rise"
+is broken by a stamp duty rise, though that rise aims to push house prices down, and not by
+a cut.
 
 From the next turn on, an applied action that a kept pledge rules out breaks it. A blocked
 action doesn't count. The pledge is marked broken, and an approval event hits the groups who
