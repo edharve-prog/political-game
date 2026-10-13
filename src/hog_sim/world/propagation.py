@@ -139,6 +139,11 @@ class DeltaDistribution(Model):
 # it to go ("cap bills" is energy prices, negative), so only the size of the factor is used.
 # Diplomatic and military actions do not push their target's growth this way: they move its
 # standing (``world/changes.action_changes``) and, where it makes sense, trade (``FOREIGN``).
+# Legislation does not push its target either: passing a law creates no output by itself, and
+# a law that funds, taxes or regulates something is that tax, spend or regulation, with its
+# cost. Aimed at a population group (rights for renters) it wins that group over by
+# LEGISLATE_GROUP_FACTOR, half what the same size of spending buys; it still costs political
+# capital and needs the legislature.
 _ACTION_SIGN = {
     "tax": -1.0,
     "spend": 1.0,
@@ -147,11 +152,12 @@ _ACTION_SIGN = {
     "diplomatic": 0.0,
     "military": 0.0,
     "communicate": 0.2,
-    "legislate": 1.0,
+    "legislate": 0.0,
     "appoint": 0.5,
     "do_nothing": 0.0,
 }
 ACTION_STEPS = 2.0  # magnitude 1.0 means a two-step push
+LEGISLATE_GROUP_FACTOR = 0.5
 
 
 # Whipping (EB-14): communicating with the legislature (whips, a meeting with backbenchers,
@@ -166,6 +172,8 @@ def action_factor(action: PolicyAction) -> float:
     if action.kind == "communicate" and action.target == WHIP_TARGET:
         return WHIP_STEPS
     sign = _ACTION_SIGN[action.kind]
+    if action.kind == "legislate" and action.target.startswith("group:"):
+        sign = LEGISLATE_GROUP_FACTOR
     if action.target.startswith("indicator:"):
         sign = abs(sign)
     return sign * ACTION_STEPS

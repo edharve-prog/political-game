@@ -164,12 +164,13 @@ by the kind's factor:
 
 | Kind | Factor | So magnitude 1 is |
 |---|---|---|
-| spend, legislate | +1 | +2 steps |
+| spend | +1 | +2 steps |
 | appoint, deregulate | +0.5 | +1 step |
 | communicate | +0.2 | +0.4 steps |
 | regulate | -0.5 | -1 step |
 | tax | -1 | -2 steps |
 | diplomatic, military, do nothing | 0 | no direct push (see foreign policy below) |
+| legislate | 0 (+0.5 on a group) | no direct push: a law creates no output by itself, and a law that funds, taxes or regulates is that action, with its cost; aimed at a group it wins approval of +1 step |
 
 A **standard step** is a fixed size per kind of node (`scale()` in `world/propagation.py`):
 

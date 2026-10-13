@@ -44,6 +44,7 @@ LEVER_BOTS: dict[str, list[PolicyAction]] = {
     "deregulate energy": [act("deregulate", "sector:energy", 1.0)],
     "deregulate housing": [act("deregulate", "sector:housing", 1.0)],
     "spend on public services": [act("spend", "sector:public", 1.0)],
+    "legislate for public services": [act("legislate", "sector:public", 1.0)],
     "spend on housebuilding": [act("spend", "sector:housing", 1.0)],
     "cut taxes on industry": [act("tax", "sector:manufacturing", -1.0)],
     "tax the banks": [act("tax", "sector:finance", 1.0)],

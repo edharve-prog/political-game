@@ -9,6 +9,7 @@ import pytest
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import Outcome, PolicyAction, Scenario
 from hog_sim.game.loop import resolve
+from hog_sim.population.popularity import policy_events
 from hog_sim.world.seed.toy import toy_world
 
 QUIET = Scenario(title="Quiet month", briefing="", affected_nodes=[], urgency=0)
@@ -187,3 +188,27 @@ def test_every_player_action_change_is_applied() -> None:
     for country in ("country:china", "country:eu"):
         assert after.countries[country].stability < BASE.countries[country].stability
         assert after.countries[country].relationship < BASE.countries[country].relationship
+
+
+@pytest.mark.parametrize("target", ["sector:public", "institution:legislature", "country:uk"])
+def test_legislation_creates_nothing_for_free(target) -> None:
+    """Review finding 12: a law alone must not do what spending does without the cost."""
+    after = run([act("legislate", target, 1.0)], turns=3)[-1]
+    idle = run([], turns=3)[-1]
+    assert after.sectors["sector:public"].output_bn == pytest.approx(
+        idle.sectors["sector:public"].output_bn
+    )
+    assert after.countries["country:uk"].growth_pct == pytest.approx(
+        idle.countries["country:uk"].growth_pct
+    )
+    assert after.institutions["institution:legislature"].support == pytest.approx(
+        idle.institutions["institution:legislature"].support
+    )
+
+
+def test_legislation_for_a_group_wins_half_what_spending_does() -> None:
+    law = policy_events([act("legislate", "group:young_renters", 1.0)])
+    spend = policy_events([act("spend", "group:young_renters", 1.0)])
+    assert law[0].group_effects["group:young_renters"] == pytest.approx(
+        spend[0].group_effects["group:young_renters"] / 2
+    )
