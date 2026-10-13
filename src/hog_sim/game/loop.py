@@ -33,7 +33,9 @@ on by one step (``world.propagation.step``). So a policy's lagged tail keeps arr
 turn it was made, a policy keeps pushing for as long as it runs however long that is, later
 graph changes and job protection act on effects already in flight, and a node held at a bound
 fades back from the bound. The forecast (``forecast``) runs the same step from the same state,
-with the same shocks for this turn, so what it shows is what resolve would do with no outcome.
+with the same shocks for this turn and the same rules after it (ministers leaving, institutions
+settling, the debt, the actions' graph changes), so what it shows is what resolve would do with
+no outcome; what it cannot project is listed in ``UNPROJECTED``.
 """
 
 from __future__ import annotations
@@ -66,12 +68,13 @@ from hog_sim.population.popularity import (
     run_election,
     step_approval,
 )
-from hog_sim.world.cast import apply_cast, sackable
+from hog_sim.world.cast import DEPARTURE_COST, apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.debt import DebtOutlook, interest_shocks, step_debt
 from hog_sim.world.events import outcome_shocks
 from hog_sim.world.propagation import (
     DeltaDistribution,
+    Projection,
     actions_to_shocks,
     apply_deltas,
     job_protection,
@@ -90,15 +93,23 @@ INSTITUTION_SETTLE = 0.2  # share of the gap to the starting support closed each
 COMMONS_POLLS = 0.5  # legislature support gained or lost per point of national approval
 
 
-def _settle_institutions(state: WorldState, start: WorldState) -> WorldState:
-    new = state.snapshot()
+def _homes(state: WorldState, start: WorldState) -> dict[str, float]:
+    """Where each institution's support settles toward this turn."""
     polls = national_approval(state) - national_approval(start) if state.groups else 0.0
-    for inst_id, inst in new.institutions.items():
+    homes = {}
+    for inst_id in state.institutions:
         origin = start.institutions.get(inst_id)
         if origin is not None:
             home = origin.support + (COMMONS_POLLS * polls if inst_id == LEGISLATURE_ID else 0.0)
-            home = min(1.0, max(0.0, home))
-            inst.support += (home - inst.support) * INSTITUTION_SETTLE
+            homes[inst_id] = min(1.0, max(0.0, home))
+    return homes
+
+
+def _settle_institutions(state: WorldState, start: WorldState) -> WorldState:
+    new = state.snapshot()
+    for inst_id, home in _homes(state, start).items():
+        inst = new.institutions[inst_id]
+        inst.support += (home - inst.support) * INSTITUTION_SETTLE
     return new
 
 
@@ -155,27 +166,101 @@ def outlook_shocks(state: WorldState, horizon: int) -> list[Shock]:
     ]
 
 
+# What the forecast does not project, for anyone reading it (``DeltaDistribution.unprojected``).
+UNPROJECTED = [
+    "group approval: the forecast shows no change, and approval is judged from the indicators",
+    "crises abroad in later turns, which are drawn turn by turn",
+    "the Commons' drift with the polls after this turn: approval is held where it is",
+    "the chosen outcome, which is not known yet",
+]
+
+
+def _departures(
+    state: WorldState,
+    scenario: Scenario,
+    actions: list[PolicyAction],
+    delivery: Delivery | None,
+    sacked: Sequence[str],
+) -> int:
+    """Ministers who leave this turn (sacked, or resigning over it), as ``resolve`` finds."""
+    after = apply_cast(state, state.turn, actions, delivery, scenario.characters, sacked)
+    return sum(
+        1
+        for cid, character in state.characters.items()
+        if character.active and not after.characters[cid].active
+    )
+
+
+def _projection(
+    start: WorldState,
+    state: WorldState,
+    scenario: Scenario,
+    actions: list[PolicyAction],
+    config: GameConfig,
+    delivery: Delivery | None,
+    sacked: Sequence[str],
+    shocks: list[Shock],
+) -> Projection:
+    """``resolve``'s turn as a course for the forecast: the job protection the actions give,
+    ministers leaving, institutions settling, the debt repricing and the actions' lasting
+    graph changes, which carry the effects from the next turn on."""
+    left = _departures(state, scenario, actions, delivery, sacked)
+    homes = _homes(state, start)
+
+    def settle(turn: int, values: dict[str, float]) -> None:
+        if turn == state.turn and left and LEGISLATURE_ID in values:
+            values[LEGISLATURE_ID] = max(0.0, values[LEGISLATURE_ID] - left * DEPARTURE_COST)
+        for inst_id, home in homes.items():
+            values[inst_id] += (home - values[inst_id]) * INSTITUTION_SETTLE
+
+    changes = action_changes(state, actions)
+    return Projection(
+        shocks,
+        job_protection(state, actions),
+        outlook=lambda: DebtOutlook(state, start),
+        settle=settle,
+        graph=apply_graph_changes(state, changes, trusted=True) if changes else None,
+    )
+
+
 def forecast(
     start: WorldState,
     state: WorldState,
     scenario: Scenario,
     actions: list[PolicyAction],
     config: GameConfig,
+    delivery: Delivery | None = None,
+    sacked: Sequence[str] = (),
 ) -> DeltaDistribution:
     """The engine's forecast for ``actions``: the same turn ``resolve`` runs, before the
-    outcome is known, then ``config.horizon`` turns of what is already in flight. Its
-    ``baseline`` is the same without this turn's decisions and scenario, so the part they
-    make is ``response_at``."""
+    outcome is known, then ``config.horizon`` turns of what is already in flight, with the
+    same rules after each step (ministers leaving, institutions settling, the debt, the
+    actions' graph changes). What it leaves out is listed in ``unprojected``.
+
+    Its ``baseline`` is the same crisis with none of this turn's decisions (no actions, no
+    sackings, only the job protection already running), each draw run twice on the same
+    edge weights, so ``response_at`` is what the decisions alone do."""
     later = outlook_shocks(state, config.horizon)
+    background = background_shocks(start, state, config) + later
     return propagate(
         state,
-        turn_shocks(start, state, scenario, actions, config) + later,
+        _projection(
+            start,
+            state,
+            scenario,
+            actions,
+            config,
+            delivery,
+            sacked,
+            turn_shocks(start, state, scenario, actions, config) + later,
+        ),
         config.horizon,
         config.k_draws,
         config.seed,
-        protection=job_protection(state, actions),
-        baseline=background_shocks(start, state, config) + later,
-        outlook=lambda: DebtOutlook(state, start),
+        baseline=_projection(
+            start, state, scenario, [], config, None, (), scenario.shocks + background
+        ),
+        unprojected=UNPROJECTED,
     )
 
 
@@ -427,7 +512,9 @@ class Game:
         self.check(proposal)
         state, scenario, cfg = self.state, self.scenario, self.config
         actions = proposal.actions
-        engine = forecast(self.start, state, scenario, actions, cfg)
+        engine = forecast(
+            self.start, state, scenario, actions, cfg, proposal.delivery, proposal.sacked
+        )
         candidates = self.forecaster.forecast(
             state,
             scenario,

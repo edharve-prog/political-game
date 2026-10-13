@@ -399,18 +399,28 @@ sit at one in under 10% of turns.
 ### The forecast
 
 Before outcomes are chosen, the engine runs the next 24 turns 100 times, each time drawing every
-edge weight at random around its value (using its uncertainty). Each run uses the same turn step
-as resolve, from the same state: what is already in flight, plus this turn's actions, the
-scenario's shocks, bills forced through, business mood, any crisis abroad and the interest bill,
-with business mood settling and the debt repricing turn by turn as they will. So a rise already
-on its way shows in the forecast, and with the central weights and no outcome the forecast is
-exactly what resolve does. It reports the average change and the 10th and 90th percentiles for
-every node, within bounds. The draws are seeded from the game seed and turn, so they reproduce
-exactly. Resolving the turn then uses one run with the central weights.
+edge weight at random around its value (using its uncertainty). Each run plays the whole turn
+as resolve does, from the same state: what is already in flight, plus this turn's actions, the
+scenario's shocks, bills forced through, business mood, any crisis abroad and the interest bill.
+After each turn's step it applies the same rules as resolve: ministers sacked or resigning cost
+the Commons support, institutions settle back toward where they started, business mood settles
+and the debt reprices, and a foreign-policy action's change to trade carries the effects from
+the next turn on. So with the central weights and no outcome, the forecast is exactly what
+resolve does for every indicator, sector, country and institution. It reports the average change
+and the 10th and 90th percentiles for every node, within bounds. The draws are seeded from the
+game seed and turn, so they reproduce exactly. Resolving the turn then uses one run with the
+central weights.
 
-The forecast also keeps a **baseline**: the same 24 turns without this turn's actions and
-scenario. The difference is what this turn's decisions do, which the offline forecaster uses to
-decide who welcomes the response and who pushes back.
+The forecast lists what it does not project: group approval (shown as no change), crises abroad
+in later turns (drawn turn by turn), the Commons' drift with the polls after this turn (approval
+is held where it is), and the outcome, which is not chosen yet.
+
+The forecast also keeps a **baseline**: the same crisis with none of this turn's decisions (no
+actions, no sackings, only the job protection already running). Each draw runs it on that
+draw's own edge weights, so the difference is what the decisions alone do, and nothing else
+differs between the two. A new wage subsidy is therefore credited with the jobs it saves rather
+than counted on both sides. The offline forecaster uses that difference to decide who welcomes
+the response and who pushes back; the scenario's own harm is not blamed on the response.
 
 ---
 
