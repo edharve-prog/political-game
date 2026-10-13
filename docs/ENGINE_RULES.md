@@ -166,7 +166,7 @@ by the kind's factor:
 |---|---|---|
 | spend | +1 | +2 steps |
 | appoint, deregulate | +0.5 | +1 step |
-| communicate | +0.2 | +0.4 steps |
+| communicate | +0.2 | +0.4 steps (on a sector or country, once: see below) |
 | regulate | -0.5 | -1 step |
 | tax | -1 | -2 steps |
 | diplomatic, military, do nothing | 0 | no direct push (see foreign policy below) |
@@ -199,6 +199,29 @@ Special cases:
   push on the graph. It becomes an approval boost or hit for that group of 0.05 per step: a
   full-magnitude pension rise is +0.10 to pensioners' target approval, held for as long as it
   runs (section 6).
+- **A speech to a sector or a country** lifts it once, by 0.4 steps per unit, and the lift fades
+  like any one-off: it does not hold output up for as long as the speech "runs".
+
+### Every lever has a loser or a risk
+
+*Source: `world/levers.py`*
+
+Levers that cost no money have a downside of their own, so a majority cannot be bought with
+laws, speeches and red tape:
+
+- **A rule aimed at a group** (legislate, regulate or deregulate: renters' rights, a law for
+  pensioners) has a losing side, who lose as much as the group gains: a law for pensioners costs
+  young renters, one for renters or public workers costs business owners, one for business
+  costs public workers and young renters half each. Unless the same package puts money behind
+  the group (spending on it, or a tax cut for it), the law's appeal is felt in full for 3 turns
+  at most, then fades.
+- **Deregulating a sector** costs workers their protections: young renters and public workers
+  lose 0.3 steps of approval per unit each (public workers 0.6 when the public sector itself is
+  deregulated), for as long as it runs. Energy deregulation also pushes bills up 0.2 steps per
+  unit (riskier supply), finance deregulation pushes house prices up 0.5 steps per unit and
+  doubles the odds of a market sell-off or capital flight at full size, and housing
+  deregulation pushes house prices up 0.4 steps per unit.
+- **A speech** runs for 3 turns at most, and to a sector or a country it is a one-off lift.
 
 ### Policies that keep running
 
@@ -307,13 +330,19 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
    with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
    Parliament is read as a whip.
-2. **Diminishing returns.** Repeating the same kind of action on the same target within 4 turns
-   halves its magnitude for each earlier use (one repeat: 50%, two: 25%). A policy meant to keep
-   running should say so with its duration instead. Whipping the legislature is exempt.
+2. **Diminishing returns.** Repeating the same kind of action on the same target, in the same
+   direction, within 4 turns halves its magnitude for each earlier use (one repeat: 50%, two:
+   25%). A policy meant to keep running should say so with its duration instead. Whipping the
+   legislature is exempt. Going the other way on a measure that is still running (cutting a tax
+   you raised for 6 turns, two turns in) is a **U-turn**, not a repeat: it keeps its full size
+   but costs an extra 1.0 capital per unit for the credibility it spends.
 3. **Political capital.** A turn's package costs the sum of its magnitudes, with speeches
    (communicate) at a quarter, whips at full price, measures forced through at double and do
-   nothing free. The budget is **1.5 a turn**. Above it, every
-   measure is scaled down by the same share to fit.
+   nothing free, times each measure's **lifetime**: every turn a measure runs after its first
+   adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
+   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. The
+   budget is **1.5 a turn**. Above it, every measure is scaled down by the same share to fit.
+   The review screen shows each measure's capital and deficit cost over its life.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
    borrowing measures are scaled down to fit, and tax rises or spending cuts in the same package
@@ -731,7 +760,10 @@ what is coming in the next six turns.
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |
 | Max same-turn loop gain | 0.9 | `world/propagation.py` |
-| Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
+| Repeat window, repeat penalty | 4 turns, half per use in the same direction | `policy/limits.py` |
+| Upkeep, longest speech, U-turn | +0.1 of the first turn's capital per extra turn; 3 turns; +1.0 capital per unit | `policy/limits.py` (`UPKEEP`, `MAX_TURNS`, `UTURN_CAPITAL`) |
+| Law for a group: counterparty, hold without money | loses as much as the group gains; 3 turns | `world/levers.py` |
+| Deregulation: workers' loss | 0.3 steps per unit for young renters and public workers (0.6 public workers for the public sector) | `world/levers.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
@@ -814,7 +846,18 @@ pensions, spend on everything and so on), plus a "do nothing" bot. The test fail
 - indicators sit at a hard bound in more than 10% of turns;
 - acting does worse on average than doing nothing by more than half a point of vote share.
 
-Run `uv run python -m hog_sim.game.balance` to see the table.
+A schedule bot plays the strategy the review of 13 October found dominant: on turns 0 to 3,
+a 24-turn law and a 24-turn speech for one group each, then nothing. It is held to the same
+win limit as the lever bots.
+
+The **exploit search** plays seeded random and greedy packages (each kind on each target it
+fits, at sizes ±0.5 and ±1, for 1, 6 or 24 turns, up to 3 measures) once on turn 0 of a quiet
+game with no outcomes, and fails on any package that costs nothing in deficit yet beats doing
+nothing at the election by more than half a point of vote share.
+
+Run `uv run python -m hog_sim.game.balance` to see the table, and add `--search 400` to run the
+exploit search (it exits with an error when anything breaks a limit). A nightly workflow runs a
+larger search.
 
 ### Checking against history
 

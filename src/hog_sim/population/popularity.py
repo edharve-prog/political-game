@@ -28,6 +28,13 @@ from collections.abc import Mapping
 
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.world.levers import (
+    LAW_HOLD,
+    RULE_KINDS,
+    delivers_for,
+    deregulation_losers,
+    law_counterparties,
+)
 from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_tax_cut
 
 K = 0.05  # approval per weighted standard step
@@ -97,8 +104,11 @@ def policy_events(
     """Approval events for actions targeting population groups.
 
     The effect holds at full strength for the action's duration, then fades with the usual
-    half-life, so a lasting benefit keeps its voters for as long as it is paid for. Given the
-    state, an unfunded tax cut that spooks markets also costs every group approval.
+    half-life, so a lasting benefit keeps its voters for as long as it is paid for. A law for
+    a group also costs its counterparty, and holds only ``LAW_HOLD`` turns unless the package
+    puts money behind the group; deregulating a sector costs the workers whose protections it
+    loosens (``world.levers``). Given the state, an unfunded tax cut that spooks markets also
+    costs every group approval.
     """
     events = []
     loss = unfunded_tax_cut(actions, state)
@@ -111,19 +121,45 @@ def policy_events(
             )
         )
     for action in actions:
+        hold = action.duration_turns - 1
+        losers = deregulation_losers(action)
+        if losers:
+            events.append(
+                ApprovalEvent(
+                    name=f"{action.kind} {action.target}: protections loosened",
+                    group_effects={
+                        g: steps * action.magnitude * GROUP_STEP
+                        for g, steps in losers.items()
+                        if g in groups or state is None
+                    },
+                    hold_turns=hold,
+                )
+            )
         if not action.target.startswith("group:"):
             continue
         effect = action_factor(action) * action.magnitude * GROUP_STEP
-        if effect:
-            events.append(
-                ApprovalEvent(
-                    name=f"{action.kind} {action.target}",
-                    group_effects={action.target: effect},
-                    # Felt at full strength on the turn it starts and each turn after it
-                    # while it runs: duration_turns updates in all (EC-7).
-                    hold_turns=action.duration_turns - 1,
-                )
+        if not effect:
+            continue
+        effects = {action.target: effect}
+        if action.kind in RULE_KINDS:
+            # A law for one group has a losing side, and without money behind it its appeal
+            # wears thin (O2).
+            effects |= {
+                g: share * effect
+                for g, share in law_counterparties(action).items()
+                if g != action.target and (g in groups or state is None)
+            }
+            if not delivers_for(action.target, actions):
+                hold = min(hold, LAW_HOLD)
+        events.append(
+            ApprovalEvent(
+                name=f"{action.kind} {action.target}",
+                group_effects=effects,
+                # Felt at full strength on the turn it starts and each turn after it while it
+                # runs: duration_turns updates in all (EC-7).
+                hold_turns=hold,
             )
+        )
     return events
 
 
