@@ -17,7 +17,7 @@ from hog_sim.forecasting.candidates import (
     engine_text,
 )
 from hog_sim.forecasting.scoring import (
-    BASE_RATES,
+    FITTED_RATES,
     Z_CAP,
     CandidateScores,
     ScoreWeights,
@@ -106,7 +106,7 @@ def test_leaving_out_material_moves_is_not_free(engine) -> None:
 
 
 def test_base_rates() -> None:
-    assert base_rate([]) == BASE_RATES["none"]
+    assert base_rate([]) == FITTED_RATES["none"]
     assert base_rate(["capital_flight"]) < base_rate(["media_backlash"])
 
 

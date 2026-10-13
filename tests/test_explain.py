@@ -53,7 +53,9 @@ def test_alternatives_lists_every_candidate_and_marks_the_chosen_one() -> None:
     game = new_game()
     record = game.play_turn("Invest in housebuilding")
     lines = alternatives(record)
-    assert len([line for line in lines if "p=" in line]) == len(record.candidates)
+    assert len([line for line in lines if "likelihood 0" in line or "likelihood 1" in line]) == len(
+        record.candidates
+    )
     assert sum("[chosen]" in line for line in lines) == 1
 
 
