@@ -155,6 +155,12 @@ class Edge(Model):
     weight: float
     lag: int = Field(0, ge=0, description="Turns before the effect lands")
     uncertainty: float = Field(0.0, ge=0, description="Std dev used in Monte Carlo draws")
+    base_weight: float | None = Field(
+        None,
+        description="Trade edges with the player only: the weight at a neutral relationship "
+        "(0), which the relationship scales (see ``world/changes.trade_factor``). None until "
+        "the relationship first moves, and again after the weight itself is changed",
+    )
 
 
 # --- Turn loop -------------------------------------------------------------

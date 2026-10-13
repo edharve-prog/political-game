@@ -5,7 +5,7 @@ import pytest
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import EdgeKind, GraphChange, Outcome, PolicyAction, Scenario
 from hog_sim.game.loop import resolve
-from hog_sim.world.changes import TRADE_PER_RELATIONSHIP, apply_graph_changes
+from hog_sim.world.changes import apply_graph_changes, trade_factor
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.standing import (
     CRISIS_RATE,
@@ -43,8 +43,40 @@ def test_relationship_scales_trade(world) -> None:
     assert before
     souring = GraphChange(kind="node_attr", node="country:eu", attr="relationship", delta=-0.2)
     after = _trade(apply_graph_changes(world, [souring]), "country:eu")
+    ratio = trade_factor(0.1) / trade_factor(0.3)
     for key, weight in before.items():
-        assert after[key] == pytest.approx(weight * (1 - 0.2 * TRADE_PER_RELATIONSHIP))
+        assert after[key] == pytest.approx(weight * ratio)
+
+
+def test_reversed_relationship_restores_trade(world) -> None:
+    before = _trade(world, "country:eu")
+    state = world
+    for delta in (0.1, -0.1, 0.2, -0.2, -0.15, 0.15):
+        change = GraphChange(kind="node_attr", node="country:eu", attr="relationship", delta=delta)
+        state = apply_graph_changes(state, [change])
+    assert state.countries["country:eu"].relationship == pytest.approx(0.3)
+    for key, weight in _trade(state, "country:eu").items():
+        assert weight == pytest.approx(before[key])
+
+
+def test_reweighted_trade_follows_relationship_from_its_new_weight(world) -> None:
+    state = apply_graph_changes(
+        world,
+        [GraphChange(kind="node_attr", node="country:eu", attr="relationship", delta=0.1)],
+    )
+    edge = next(
+        e for e in state.edges if e.kind == EdgeKind.TRADES_WITH and e.source == "country:eu"
+    )
+    reweight = GraphChange(
+        kind="edge_weight", source=edge.source, target=edge.target, edge_kind=edge.kind, delta=-0.05
+    )
+    state = apply_graph_changes(state, [reweight])
+    reweighted = _trade(state, "country:eu")
+    for delta in (-0.1, 0.1):
+        change = GraphChange(kind="node_attr", node="country:eu", attr="relationship", delta=delta)
+        state = apply_graph_changes(state, [change])
+    for key, weight in _trade(state, "country:eu").items():
+        assert weight == pytest.approx(reweighted[key])
 
 
 def test_diplomacy_deepens_trade(world) -> None:

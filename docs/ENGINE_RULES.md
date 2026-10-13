@@ -554,9 +554,11 @@ relationship and stability changes through the same mechanism (section 3).
 
 ### What those node fields do
 
-- **Relationship** scales trade. Each unit a country's relationship with the UK moves changes
-  both trade edges between them by half their weight in the same direction (+0.1 is 5% more
-  trade), unless that would make same-turn feedback unstable.
+- **Relationship** scales trade. Both trade edges between a country and the UK weigh
+  `1 + 0.5 × relationship` times what they would at a neutral relationship (from 0 to +0.1 is
+  5% more trade), unless that would make same-turn feedback unstable. Trade follows the
+  relationship's level, not its path: a row and its repair leave trade where it started. An
+  outcome that reweights a trade edge sets its new level at today's relationship.
 - **Stability** sets the odds of a crisis abroad. Below 0.5, each turn has a chance of a 1-step
   (1 point) hit to the country's growth, rising in a straight line to 30% a turn at stability 0.
   The draw comes from the game seed and the turn, so a replay sees the same crises.

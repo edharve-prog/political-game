@@ -215,30 +215,38 @@ def _attr(node: str, attr: str, delta: float) -> GraphChange:
     return GraphChange(kind="node_attr", node=node, attr=attr, delta=delta, reason="player action")
 
 
-# A country's relationship with the player scales the trade between them (EB-8): each unit of
-# relationship gained or lost moves both trade edges by this share of their weight, so a trade
-# row makes the partner's slump hurt less and its boom help less, and a deal does the reverse.
+# A country's relationship with the player scales the trade between them (EB-8): trade
+# weighs ``1 + TRADE_PER_RELATIONSHIP * relationship`` times what it would at a neutral
+# relationship, so a trade row makes the partner's slump hurt less and its boom help less, and a
+# deal does the reverse. The weight follows the relationship's level, not the path it took:
+# a row and its repair leave trade where it started.
 TRADE_PER_RELATIONSHIP = 0.5
 
 
-def _scale_trade(state: WorldState, country: str, moved: float) -> None:
-    """Scale the player's trade edges with ``country`` for a relationship move, in place,
-    unless that would make the same-turn feedback unstable."""
-    factor = max(0.0, 1 + TRADE_PER_RELATIONSHIP * moved)
+def trade_factor(relationship: float) -> float:
+    """How much trade weighs at ``relationship`` against a neutral (0) relationship."""
+    return 1 + TRADE_PER_RELATIONSHIP * relationship
+
+
+def _scale_trade(state: WorldState, country: str, old: float, new: float) -> None:
+    """Set the player's trade edges with ``country`` for its relationship moving from ``old``
+    to ``new``, in place, unless that would make the same-turn feedback unstable."""
     pair = {state.player_country, country}
     trade = [
         e for e in state.edges if e.kind == EdgeKind.TRADES_WITH and {e.source, e.target} == pair
     ]
-    if not trade or factor == 1:
+    if not trade or old == new:
         return
     before = lag0_gain(state)
-    old = [e.weight for e in trade]
+    kept = [(e.weight, e.base_weight) for e in trade]
     for edge in trade:
-        edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight * factor))
+        if edge.base_weight is None:
+            edge.base_weight = edge.weight / trade_factor(old)
+        edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.base_weight * trade_factor(new)))
     after = lag0_gain(state)
     if after >= MAX_LAG0_GAIN and after > before:
-        for edge, weight in zip(trade, old, strict=True):
-            edge.weight = weight
+        for edge, (weight, base) in zip(trade, kept, strict=True):
+            edge.weight, edge.base_weight = weight, base
 
 
 def apply_graph_changes(
@@ -267,9 +275,10 @@ def _apply(state: WorldState, change: GraphChange) -> None:
         old = getattr(node, change.attr)
         setattr(node, change.attr, min(high, max(low, old + change.delta)))
         if change.attr == "relationship":
-            _scale_trade(state, change.node, getattr(node, change.attr) - old)
+            _scale_trade(state, change.node, old, getattr(node, change.attr))
     elif change.kind == "edge_weight":
         edge = state.edges[_find_edge(state, change)]
         edge.weight = min(MAX_WEIGHT, max(-MAX_WEIGHT, edge.weight + change.delta))
+        edge.base_weight = None  # the new weight holds at today's relationship
     else:
         state.edges.append(_new_edge(change))
