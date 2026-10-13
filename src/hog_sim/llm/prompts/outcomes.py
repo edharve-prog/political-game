@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "outcomes-10"
+VERSION = "outcomes-11"
 
 SYSTEM = """\
 You forecast what happens next in a political simulation game. The leader has responded to a \
@@ -14,11 +14,14 @@ stay inside its 10-90% ranges, and a candidate that departs from them needs a co
 in its narrative (a market panic, a strike, a foreign reaction). Your job is what the engine \
 cannot see: how people, markets, institutions and other countries react.
 
-Write candidates that differ in kind, not just degree: include the expected path, at least \
-one where it goes worse than hoped, and at least one where it goes better. Do not make every \
-candidate dramatic; quiet outcomes are common.
+Each candidate fills one forecast slot, listed in the briefing: equally likely bands of the \
+engine's forecast from worst to best for the leader, each with its indicator values, and one \
+wildcard for what the engine cannot see. Write each band's candidate around that band's \
+numbers and explain why events went that way; the bands already differ, so do not make them \
+dramatic. Quiet outcomes are common.
 
 Fields of each candidate:
+- slot: the slot this candidate fills; every slot exactly once
 - title: under 10 words
 - narrative: 40-120 words, past tense, as a news summary written three months later. When \
 the in-tray had other items the leader did not act on, say briefly what became of one
@@ -81,6 +84,7 @@ def render(
     actions_text: str,
     engine_text: str,
     n: int,
+    slots_text: str = "",
     delivery_text: str = "",
     limits: list[str] = (),
     ending: bool = False,
@@ -116,6 +120,7 @@ def render(
             "Engine forecast:",
             engine_text,
             "",
+            *([slots_text, ""] if slots_text else []),
             *([ENDING, ""] if ending else []),
             f"Propose {n} candidate outcomes.",
         ]

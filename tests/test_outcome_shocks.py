@@ -65,6 +65,7 @@ def test_cap_keeps_opposite_shocks_and_shape() -> None:
 
 def test_candidates_are_capped_and_tags_deduplicated() -> None:
     draft = CandidateDraft(
+        slot="wildcard",
         title="Selloff",
         narrative="Markets fall.",
         indicator_shifts=[],

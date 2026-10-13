@@ -611,13 +611,22 @@ changes it.
 ### With Claude
 
 1. Claude is shown the world, the scenario, the actions, the engine's forecast and any
-   precedents from the knowledge store, and proposes **4 candidate outcomes**.
+   precedents from the knowledge store, and proposes **4 candidate outcomes**, one per
+   **forecast slot**. Three slots are equally likely bands of the engine's forecast, ordered by
+   luck for the government (`p17`, `p50`, `p83`: the 17th, 50th and 83rd percentile of luck),
+   and each comes with the indicator values that define it. "Luck" reads each indicator on the
+   side the voters who care about it prefer: higher inflation is unlucky, because the groups
+   that care about it weigh it negatively. The fourth slot is a wildcard for what the engine
+   cannot see. Every slot must be filled exactly once, so the candidates cover the forecast and
+   differ by construction.
 2. A separate judge call estimates each candidate's probability.
 3. Each candidate gets three scores between 0 and 1:
    - **Consistency**: how well the indicator changes it claims (three turns out) fit the engine's
-     forecast. Each claim is scored by how many spreads it sits from the engine's average, and an
-     indicator the engine expects to move but the candidate leaves out counts as a claim of no
-     change.
+     forecast. Each claim is scored by how many spreads it sits from its slot's value (the
+     engine's average for the `p50` band and the wildcard), and an indicator the engine expects to
+     move but the candidate leaves out counts as a claim of no change. Since the bands are equally
+     likely, an unlucky or lucky candidate that stays on its band scores as well as the expected
+     one; the judge and base rates decide between them.
    - **Judge**: the judge's probability (or Claude's own estimate if the judge is off).
    - **Base rate**: how common its tagged events are in practice. Several tags all have to
      happen, so the rarest one sets the score.

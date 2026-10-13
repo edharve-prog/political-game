@@ -14,12 +14,19 @@ Each candidate gets three scores, each in (0, 1]:
 * **base_rate**: how common its tagged events are in practice (``BASE_RATES``). Several
   tags all have to happen, so the rarest one bounds the score.
 
+Candidates fill forecast slots (D3, ``slots``): one per equal-probability band of the
+engine's distribution, ordered by luck for the government, plus a wildcard. A slot candidate
+is scored for consistency against its own slot's target (``slot_target``) rather than the
+engine's mean, so the unlucky and lucky paths are not penalised for being what they were asked
+to be, and each band carries the same engine mass. The wildcard is scored against the mean.
+
 ``combine`` blends them log-linearly with ``ScoreWeights`` and normalises to probabilities.
 """
 
 from __future__ import annotations
 
 import math
+from statistics import NormalDist
 from typing import Literal
 
 from hog_sim.core.models import Delivery, Model
@@ -85,26 +92,72 @@ def _spread(mean: float, p10: float, p90: float) -> float:
     return max((p90 - p10) / _P10_P90_SPAN, 0.05 * abs(mean), 0.1)
 
 
-def consistency(claims: dict[str, float], engine: DeltaDistribution, turn: int) -> float:
-    """Fit of claimed native-unit changes at ``turn`` to the engine's distribution.
+WILDCARD = "wildcard"
+
+
+def slots(n: int) -> list[str]:
+    """Slot names for ``n`` candidates: ``n - 1`` luck bands of equal engine probability,
+    unluckiest first, named by the percentile at each band's middle (``p17``, ``p50``,
+    ``p83`` for four candidates), then the wildcard."""
+    bands = max(n - 1, 1)
+    names = [f"p{round(100 * (i + 0.5) / bands)}" for i in range(bands)]
+    return [*names, WILDCARD] if n > 1 else names
+
+
+def slot_luck(slot: str) -> float | None:
+    """The luck percentile (0..1) a slot sits at; None for the wildcard or an unknown slot."""
+    if slot.startswith("p") and slot[1:].isdigit():
+        return min(max(int(slot[1:]) / 100, 0.01), 0.99)
+    return None
+
+
+def slot_target(
+    forecast_mean: float, p10: float, p90: float, luck: float | None, favour: float
+) -> float:
+    """Where an indicator sits at ``luck`` for the government: the engine's normal at that
+    percentile, read on the side ``favour`` (+1 when a rise helps the government, -1 when it
+    hurts) says is lucky. ``luck`` None is the mean."""
+    if luck is None:
+        return forecast_mean
+    z = NormalDist().inv_cdf(luck)
+    return forecast_mean + (favour or 1.0) * z * (p90 - p10) / _P10_P90_SPAN
+
+
+def consistency(
+    claims: dict[str, float],
+    engine: DeltaDistribution,
+    turn: int,
+    luck: float | None = None,
+    favour: dict[str, float] | None = None,
+) -> float:
+    """Fit of claimed native-unit changes at ``turn`` to the engine's distribution, centred
+    on the slot target for ``luck`` (the mean when None; see ``slot_target``). ``favour``
+    gives each indicator's lucky direction for the government (default +1).
 
     Indicators the engine moves by more than their spread count as a claim of zero when the
     candidate leaves them out (EC-8). With no claims and no material moves the fit is 1.0.
     """
+    favour = favour or {}
+
+    def centre(node: str) -> float:
+        f = engine.nodes[node]
+        return slot_target(f.mean[turn], f.p10[turn], f.p90[turn], luck, favour.get(node, 1.0))
+
     implied = dict(claims)
     for node, forecast in engine.nodes.items():
         if node in implied or not node.startswith("indicator:"):
             continue
-        mean = forecast.mean[turn]
-        if abs(mean) > _spread(mean, forecast.p10[turn], forecast.p90[turn]):
+        target = centre(node)
+        if abs(target) > _spread(target, forecast.p10[turn], forecast.p90[turn]):
             implied[node] = 0.0
     logs = []
     for node, claimed in implied.items():
         forecast = engine.nodes.get(node)
         if forecast is None:
             continue
+        target = centre(node)
         mean = forecast.mean[turn]
-        z = (claimed - mean) / _spread(mean, forecast.p10[turn], forecast.p90[turn])
+        z = (claimed - target) / _spread(mean, forecast.p10[turn], forecast.p90[turn])
         logs.append(-(min(abs(z), Z_CAP) ** 2) / 2)
     return math.exp(sum(logs) / len(logs)) if logs else 1.0
 

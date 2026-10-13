@@ -38,6 +38,9 @@ from hog_sim.forecasting.scoring import (
     base_rate,
     combine,
     consistency,
+    slot_luck,
+    slot_target,
+    slots,
 )
 from hog_sim.llm.client import Effort, LLMClient, structured_call
 from hog_sim.llm.prompts import judge as judge_prompt
@@ -90,6 +93,7 @@ class GraphChangeDraft(Model):
 
 
 class CandidateDraft(Model):
+    slot: str  # the forecast slot it fills (scoring.slots): a luck band or the wildcard
     title: str
     narrative: str
     indicator_shifts: list[Shift]
@@ -163,6 +167,55 @@ def engine_text(state: WorldState, engine: DeltaDistribution, turn: int = CLAIM_
     return "\n".join(lines)
 
 
+def favour(state: WorldState) -> dict[str, float]:
+    """Each indicator's lucky direction for the government: +1 when a rise lifts the
+    turnout-weighted approval of the groups that care about it, -1 when it lowers it. Ties
+    and indicators no group cares about count +1."""
+    pull: dict[str, float] = {}
+    for edge in state.edges:
+        group = state.groups.get(edge.source)
+        if edge.kind == EdgeKind.CARES_ABOUT and group is not None:
+            weight = group.population_share * group.turnout
+            pull[edge.target] = pull.get(edge.target, 0.0) + weight * edge.weight
+    return {node: -1.0 if p < 0 else 1.0 for node, p in pull.items()}
+
+
+def slots_text(state: WorldState, engine: DeltaDistribution, n: int, turn: int = CLAIM_TURN) -> str:
+    """The forecast slots to fill, each with the indicator values that define it."""
+    turn = min(turn, engine.horizon - 1)
+    lucky = favour(state)
+    names = slots(n)
+    lines = [
+        f"Fill these {n} slots, one candidate each (set slot to the name). The bands split the "
+        "engine's forecast into equally likely paths, from worst to best for the government; "
+        "each lists where the engine puts the indicators on that path. Stay near your band's "
+        "numbers: a band's story explains why things went that way."
+    ]
+    for i, name in enumerate(names):
+        luck = slot_luck(name)
+        if luck is None:
+            lines.append(
+                f"- {name}: something the engine cannot see (a scandal, a foreign event, a "
+                "market panic, a surprise ally). Its numbers may leave the ranges, with the "
+                "reason in the narrative."
+            )
+            continue
+        label = "worst" if i == 0 else "best" if i == len(names) - 2 else "middle"
+        label = "expected" if abs(luck - 0.5) < 0.01 else label
+        shifts = []
+        for ind in state.indicators.values():
+            f = engine.nodes[ind.id]
+            if abs(f.mean[turn]) < 1e-3 and abs(f.p90[turn] - f.p10[turn]) < 1e-3:
+                continue
+            value = slot_target(
+                f.mean[turn], f.p10[turn], f.p90[turn], luck, lucky.get(ind.id, 1.0)
+            )
+            shifts.append(f"{ind.id} {value:+.2f}")
+        numbers = ", ".join(shifts) or "no material change"
+        lines.append(f"- {name} ({label} band): {numbers}")
+    return "\n".join(lines)
+
+
 def candidates_text(candidates: list[CandidateDraft]) -> str:
     blocks = []
     for i, c in enumerate(candidates):
@@ -213,6 +266,10 @@ def check_candidates(
         if state is not None and c.graph_changes:
             changes = [g.to_change() for g in c.graph_changes]
             problems += [f"candidates[{i}].{p}" for p in validate_graph_changes(state, changes)]
+    wanted = slots(n)
+    given = [c.slot for c in result.candidates]
+    if sorted(given) != sorted(wanted):
+        problems.append(f"fill each slot exactly once: {', '.join(wanted)} (got {given})")
     titles = [c.title.strip().lower() for c in result.candidates]
     if len(set(titles)) != len(titles):
         problems.append("candidates must be distinct")
@@ -265,6 +322,7 @@ class LLMForecaster:
             actions_text(actions),
             engine_text(state, engine),
             cfg.n_candidates,
+            slots_text(state, engine, cfg.n_candidates),
             delivery.describe() if delivery else "",
             limits or [],
             ending=scenario.storyline in final_storylines(state),
@@ -295,11 +353,16 @@ class LLMForecaster:
         judged = self._judge(context, drafts) if cfg.use_judge else None
         turn = min(CLAIM_TURN, engine.horizon - 1)
         resistance = check_feasibility(list(actions), state, self.role).resistance
+        lucky = favour(state)
         scores = combine(
             [
                 CandidateScores(
                     consistency=consistency(
-                        {s.node: s.change for s in d.indicator_shifts}, engine, turn
+                        {s.node: s.change for s in d.indicator_shifts},
+                        engine,
+                        turn,
+                        slot_luck(d.slot),
+                        lucky,
                     ),
                     judge=judged[i] if judged else d.self_probability,
                     base_rate=base_rate(list(d.event_tags), delivery, resistance),
