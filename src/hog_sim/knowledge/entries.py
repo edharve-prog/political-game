@@ -10,6 +10,8 @@ import hashlib
 import re
 from typing import Literal
 
+from pydantic import Field
+
 from hog_sim.content.library import CATEGORIES, Provenance, slugify
 from hog_sim.core.models import GraphChange, Model, Outcome, PolicyAction, Scenario
 
@@ -46,6 +48,11 @@ class OutcomeEntry(Model):
     candidates: list[Outcome]
     chosen: int
     provenance: Provenance
+    sacked: list[str] = Field(
+        default_factory=list,
+        description="Cast members sacked that turn; candidates' narratives may mention them, so "
+        "they are reused only on a turn that sacks the same people",
+    )
 
     @property
     def outcome(self) -> Outcome:
@@ -89,13 +96,29 @@ def size_bucket(magnitude: float) -> str:
     return next(name for name, bound in SIZE_BUCKETS if size <= bound)
 
 
+# Duration buckets (finding 9 of the 2026-10-12 review): a one-turn measure never reuses
+# outcomes written for a policy that runs all parliament. Bucketed like size, by the largest
+# bound the duration does not exceed.
+DURATION_BUCKETS = (("once", 1), ("months", 6), ("year", 12), ("long", float("inf")))
+
+
+def duration_bucket(turns: int) -> str:
+    return next(name for name, bound in DURATION_BUCKETS if turns <= bound)
+
+
 def action_signature(actions: list[PolicyAction]) -> str:
-    """What was done and roughly how much: sorted ``kind:target:sign:size`` items, where size
-    is the bucket of the summed magnitude of that kind, target and sign."""
+    """What was done, for how long and roughly how much: sorted
+    ``kind:target:sign:instrument:duration:size`` items, where size is the bucket of the
+    summed magnitude of actions sharing the rest. ``instrument`` is whether the tax or
+    spending itself went up or down (``+``/``-``, ``0`` for other kinds); aimed at an
+    indicator it can differ from the magnitude's sign (see ``PolicyAction.instrument``)."""
     totals: dict[str, float] = {}
     for a in actions:
         sign = "+" if a.magnitude > 0 else "-" if a.magnitude < 0 else "0"
-        key = f"{a.kind}:{a.target}:{sign}"
+        instrument = "0"
+        if a.kind in ("tax", "spend"):
+            instrument = {1: "+", -1: "-"}.get(int(a.instrument_sign), "0")
+        key = f"{a.kind}:{a.target}:{sign}:{instrument}:{duration_bucket(a.duration_turns)}"
         totals[key] = totals.get(key, 0.0) + abs(a.magnitude)
     items = [f"{key}:{size_bucket(total)}" for key, total in totals.items()]
     return "|".join(sorted(items)) or "none"
