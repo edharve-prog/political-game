@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from hog_sim.core.models import Category, Model, Scenario
+from hog_sim.core.models import Category, Model, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 
 
@@ -22,6 +22,11 @@ class CalendarEvent(Model):
     category: Category
     briefing: str = Field(description="Offline briefing; {group} is the by-election's group")
     options: list[str]
+    packages: list[list[PolicyAction]] = Field(
+        default_factory=list,
+        description="The actions each option stands for, in order (E16). Targets may be "
+        "{group} (the by-election's group) or {country} (the player's country).",
+    )
     affected_nodes: list[str]
     every: int = Field(12, ge=1)
     offset: int = Field(ge=0)
@@ -29,6 +34,10 @@ class CalendarEvent(Model):
 
     def falls_on(self, turn: int) -> bool:
         return turn > 0 and turn % self.every == self.offset % self.every
+
+
+def _act(kind: str, target: str, size: float) -> PolicyAction:
+    return PolicyAction(kind=kind, target=target, magnitude=size)  # type: ignore[arg-type]
 
 
 CALENDAR = [
@@ -47,6 +56,12 @@ CALENDAR = [
             "Cut taxes for business to boost growth",
             "A steady Budget with no big changes",
         ],
+        packages=[
+            [_act("tax", "{country}", 0.5), _act("spend", "sector:public", 0.5)],
+            [_act("spend", "sector:public", -0.5)],
+            [_act("tax", "group:business", -0.5)],
+            [_act("do_nothing", "{country}", 0)],
+        ],
         affected_nodes=["indicator:deficit", "sector:public", "group:business"],
         offset=3,
         urgency=0.8,
@@ -64,6 +79,11 @@ CALENDAR = [
             "Take a hard line with China",
             "Pledge more aid and keep the summit calm",
         ],
+        packages=[
+            [_act("diplomatic", "country:eu", 0.5)],
+            [_act("diplomatic", "country:china", -0.5)],
+            [_act("diplomatic", "country:eu", 0.25)],
+        ],
         affected_nodes=["country:eu", "country:china", "sector:manufacturing"],
         offset=6,
     ),
@@ -80,6 +100,11 @@ CALENDAR = [
             "Reach out to the centre ground",
             "Give backbenchers a policy concession",
         ],
+        packages=[
+            [_act("communicate", "institution:legislature", 0.5)],
+            [_act("communicate", "{country}", 0.5)],
+            [_act("spend", "institution:legislature", 0.25)],
+        ],
         affected_nodes=["institution:legislature", "group:business", "group:public_workers"],
         offset=9,
     ),
@@ -95,6 +120,11 @@ CALENDAR = [
             "Campaign on the government's record",
             "Announce help aimed at {group}",
             "Keep the leader away and let the candidate run a local campaign",
+        ],
+        packages=[
+            [_act("communicate", "{country}", 0.5)],
+            [_act("spend", "{group}", 0.5)],
+            [_act("do_nothing", "{country}", 0)],
         ],
         affected_nodes=["institution:legislature"],
         offset=0,
@@ -126,10 +156,16 @@ def fill(event: CalendarEvent, state: WorldState) -> CalendarEvent:
         *([group_id] if event.kind == "by_election" and group_id else []),
     ]
     known = set(state.node_ids())
+    places = {"{group}": group_id, "{country}": state.player_country}
+    packages = [
+        [a.model_copy(update={"target": places.get(a.target, a.target)}) for a in package]
+        for package in event.packages
+    ]
     return event.model_copy(
         update={
             "briefing": event.briefing.format(group=group),
             "options": [o.format(group=group) for o in event.options],
+            "packages": [p if all(a.target in known for a in p) else [] for p in packages],
             "affected_nodes": [n for n in nodes if n in known] or [state.player_country],
         }
     )

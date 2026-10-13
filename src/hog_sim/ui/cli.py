@@ -200,7 +200,8 @@ def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | N
     notes += [f'New pledge: "{p.text}"' for p in proposal.pledges]
     if state is not None:
         notes += [
-            f"Sacking: {state.characters[c].name}, {state.characters[c].role}"
+            f"Sacking: {state.characters[c].name}, {state.characters[c].role} "
+            "(type drop sacking to keep them)"
             for c in proposal.sacked
         ]
         notes += [
@@ -256,6 +257,9 @@ def _ask_for_turn(
             return proposal
         if command.lower() == "redo":
             return None
+        if command.lower() == "drop sacking" and proposal.sacked:
+            proposal = game.revise(proposal, proposal.submitted, sacked=[])
+            continue
         parts = command.split()
         if library is not None and len(parts) == 2 and parts[0].lower() == "save":
             try:

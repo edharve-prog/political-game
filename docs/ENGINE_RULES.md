@@ -82,6 +82,14 @@ A game is 24 turns of one month each, with a general election after the last one
    ("we will not raise taxes", "no cuts to schools") are still pledges, a refused sacking
    ("do not sack the Chancellor") sacks nobody, and cutting a programme ("cut spending on
    furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
+   "Do nothing", "wait" and "hold firm" mean do nothing only at the start of an instruction, so
+   "cut waiting lists" still acts. In "X to Y" the verb and target come from X and Y is its
+   purpose; "raise taxes to fund public services" is a national tax rise and a spend on public
+   services. Business, growth, the economy and households are targets. A calendar event's own
+   options map to ready-made actions instead of being read word by word. "In Parliament" or
+   "to the Commons" is where something is announced, not a target. A sacking needs the verb
+   to govern the minister ("sack the Housing Secretary", "replace Ruth Calder"), and the rest
+   of the sentence is still read; the review step can call a sacking off with `drop sacking`.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
    confirming.
@@ -305,8 +313,9 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
    speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
-   with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
-   Parliament is read as a whip.
+   with repetition. Offline, a response about whips, backbenchers, MPs, rebels or a vote is
+   read as a whip, and so is one that names Parliament or the Commons with nothing else to
+   aim at.
 2. **Diminishing returns.** Repeating the same kind of action on the same target within 4 turns
    halves its magnitude for each earlier use (one repeat: 50%, two: 25%). A policy meant to keep
    running should say so with its duration instead. Whipping the legislature is exempt.
