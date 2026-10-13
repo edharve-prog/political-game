@@ -31,7 +31,7 @@ from pydantic import Field
 
 from hog_sim.core.models import EdgeKind, Institution, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import WorldState
-from hog_sim.world.propagation import fiscal_cost, fiscal_size
+from hog_sim.world.propagation import fiscal_cost, fiscal_size, fiscal_turns
 
 Role = Literal["prime_minister", "president"]
 
@@ -140,8 +140,9 @@ def check_feasibility(
     deficit_limit: float = DEFICIT_LIMIT,
 ) -> FeasibilityReport:
     # Past the deficit limit, borrowing is judged on the whole package: tax rises and cuts in
-    # it can pay for spending (``policy.limits.fit_deficit`` scales it to what they cover).
-    funded = any(fiscal_cost(a, state) < 0 for a in actions)
+    # it can pay for spending (``policy.limits.fit_deficit`` scales it to what they cover), but
+    # only one that runs at least as long as the borrowing pays for it to the end (E5).
+    saving = max((fiscal_turns(a, state) for a in actions if fiscal_cost(a, state) < 0), default=0)
     return FeasibilityReport(
         checks=[
             _check(
@@ -150,7 +151,7 @@ def check_feasibility(
                 role,
                 deficit_warn=deficit_warn,
                 deficit_limit=deficit_limit,
-                funded=funded,
+                saving_turns=saving,
             )
             for a in actions
         ]
@@ -164,8 +165,10 @@ def _check(
     *,
     deficit_warn: float,
     deficit_limit: float,
-    funded: bool = False,
+    saving_turns: int = 0,
 ) -> ActionCheck:
+    """``saving_turns``: how long the package's longest tax rise or cut keeps paying, 0 when
+    nothing in it saves."""
     reqs = requirements_for(action, role)
     blockers: list[str] = []
     warnings: list[str] = []
@@ -199,6 +202,7 @@ def _check(
                 resistance = max(resistance, (1 - legislature.support) * legislature.power)
         elif req == BUDGET_HEADROOM:
             deficit = state.indicators.get(DEFICIT_ID)
+            funded = saving_turns >= fiscal_turns(action, state)
             if deficit is not None and deficit.value > deficit_limit and funded:
                 warnings.append(
                     f"deficit is {deficit.value:g}% of GDP, above the {deficit_limit:g}% limit: "
@@ -208,6 +212,11 @@ def _check(
             elif deficit is not None and deficit.value > deficit_limit:
                 blockers.append(
                     f"deficit is {deficit.value:g}% of GDP, above the {deficit_limit:g}% limit"
+                    + (
+                        ", and the package's tax rises and cuts end before it does"
+                        if saving_turns
+                        else ""
+                    )
                 )
             elif deficit is not None and deficit.value > deficit_warn:
                 warnings.append(f"deficit is already {deficit.value:g}% of GDP")

@@ -219,11 +219,18 @@ CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
     """Steps of deficit a turn from this turn's tax cuts that nothing else this turn pays for,
-    or 0 when that is under ``CONFIDENCE_THRESHOLD``."""
-    costs = [fiscal_cost(a, state) for a in actions]
-    cuts = sum(c for a, c in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0)
-    savings = sum(-c for c in costs if c < 0)
-    unfunded = cuts - savings
+    or 0 when that is under ``CONFIDENCE_THRESHOLD``.
+
+    Cuts and savings are compared over their lives (cost a turn times ``fiscal_turns``), so a
+    one-turn tax rise pays for only its own share of a cut that runs for two years (E5). With
+    every measure running as long, that is the cuts a turn less the savings a turn."""
+    costs = [(fiscal_cost(a, state), fiscal_turns(a, state)) for a in actions]
+    cuts = [(c, n) for a, (c, n) in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0]
+    cut_life = sum(c * n for c, n in cuts)
+    if cut_life <= 0:
+        return 0.0
+    saved_life = sum(-c * n for c, n in costs if c < 0)
+    unfunded = sum(c for c, _ in cuts) * max(0.0, 1 - saved_life / cut_life)
     return unfunded if unfunded >= CONFIDENCE_THRESHOLD else 0.0
 
 
@@ -351,6 +358,15 @@ def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float
     return output / gdp * 100 / scale(state, FISCAL_NODE)
 
 
+def fiscal_turns(action: PolicyAction, state: WorldState | None = None) -> int:
+    """Turns the action's deficit cost runs: its duration, and at least ``MIN_FISCAL_TURNS``
+    for a one-off; a cut to wage subsidies saves only for as long as the cover it removes
+    would have run."""
+    if state is not None and cuts_jobs_cover(action):
+        return job_cut(action, state)[1]
+    return max(action.duration_turns, MIN_FISCAL_TURNS)
+
+
 def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     """Standard steps a turn that the action adds to the deficit while it runs (negative
     when it takes them off). Actions aimed at the deficit itself have no separate cost."""
@@ -395,12 +411,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                 ]
         cost = fiscal_cost(action, state)
         if fiscal and cost:
-            # A cut to wage subsidies saves only for as long as the cover it removes would run.
-            paid = (
-                job_cut(action, state)[1]
-                if cuts_jobs_cover(action)
-                else max(turns, MIN_FISCAL_TURNS)
-            )
+            paid = fiscal_turns(action, state)
             shocks.append(Shock(node=FISCAL_NODE, delta=cost, duration_turns=paid, hold=True))
     loss = unfunded_tax_cut(actions, state)
     if state is not None and loss:

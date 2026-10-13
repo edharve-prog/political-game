@@ -222,7 +222,10 @@ reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
-deficit (a tax cut of magnitude 0.6 or more on the whole country). For each point of unfunded cut, Bank Rate jumps 0.4
+deficit (a tax cut of magnitude 0.6 or more on the whole country). Cuts and the savings that pay
+for them are compared over their lives (cost a turn times the turns it is paid, at least 6), so a
+one-turn tax rise pays for only a quarter of a cut that runs for two years. For each point of
+unfunded cut, Bank Rate jumps 0.4
 points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
@@ -284,7 +287,8 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    - it is tax, spend or legislation and the legislature's support is below **0.4**, too far
      short of a majority to force through;
    - it loosens the budget (more spending, or a tax cut) while the deficit is already above
-     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it;
+     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it for
+     as long as it runs;
    - it tries to direct an independent institution (independence 0.7 or more, like the Bank of
      England) or an indicator that only such an institution sets (Bank Rate). Communicating with
      them is always allowed.
@@ -315,9 +319,10 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    nothing free. The budget is **1.5 a turn**. Above it, every
    measure is scaled down by the same share to fit.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
-   landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
-   borrowing measures are scaled down to fit, and tax rises or spending cuts in the same package
-   make room for them. Once the deficit is past 10%, a package may still spend or cut taxes as
+   landing this turn, plus every tax and spending move in it) may not pass 10% of GDP, on any
+   turn the package's costs run. Only the borrowing measures are scaled down to fit, and tax
+   rises or spending cuts in the same package make room for them while they last: a tax rise
+   that ends after six turns does not pay for a tax cut in its seventh. Once the deficit is past 10%, a package may still spend or cut taxes as
    long as its own tax rises and spending cuts pay for it: the borrowing is scaled to what they
    cover, so the package adds nothing to the deficit. Only borrowing that nothing in the package
    pays for is blocked outright.
