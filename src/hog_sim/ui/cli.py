@@ -290,7 +290,7 @@ def _explain(game: Game, command: str) -> str:
     record = game.history[-1]
     if command == "alternatives":
         return "\n".join(alternatives(record))
-    return "\n".join(why(record, _previous(game)))
+    return "\n".join(why(record, _previous(game), game.start, game.config))
 
 
 def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
