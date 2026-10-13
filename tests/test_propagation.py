@@ -8,9 +8,12 @@ from hog_sim.world.propagation import (
     Shock,
     actions_to_shocks,
     apply_deltas,
+    fiscal_cost,
     lag0_gain,
     propagate,
+    scale,
     simulate,
+    step,
 )
 from hog_sim.world.seed.toy import toy_world
 
@@ -179,3 +182,24 @@ def test_graph_changes_cannot_destabilise_the_loops(world) -> None:
     assert any("unstable" in p for p in check_graph_change(world, closing))
     # The same link with a lag adds no same-turn loop.
     assert check_graph_change(world, closing.model_copy(update={"lag": 2})) == []
+
+
+@pytest.mark.parametrize("first", [1.0, -1.0])
+def test_sector_spending_costs_what_it_adds_after_a_boom_or_slump(first) -> None:
+    """Review finding 6: once a sector carries a deviation, a step of spending still costs
+    the output it adds, not 5% of today's boosted or depressed output."""
+    world = toy_world()
+    moved = [Shock(node="sector:public", delta=2 * first, duration_turns=3, hold=True)]
+    engine, moves = step(world, moved)
+    state = apply_deltas(world, moves)
+    state.engine, state.turn = engine, world.turn + 1
+    assert state.sectors["sector:public"].output_bn == pytest.approx(500 + 50 * first)
+
+    spend = PolicyAction(kind="spend", target="sector:public", magnitude=1.0)
+    _, with_spend = step(state, actions_to_shocks([spend], state))
+    _, without = step(state, [])
+    added = with_spend["sector:public"] - without.get("sector:public", 0.0)
+    gdp = state.countries[state.player_country].gdp_bn
+    cost = fiscal_cost(spend, state) * scale(state, "indicator:deficit") / 100 * gdp
+    assert added == pytest.approx(50.0)
+    assert cost == pytest.approx(added)

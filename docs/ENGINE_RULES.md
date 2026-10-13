@@ -176,7 +176,7 @@ A **standard step** is a fixed size per kind of node (`scale()` in `world/propag
 
 | Node | One step is |
 |---|---|
-| Sector | 5% of its output |
+| Sector | 5% of the output it would have without the boom or slump it carries |
 | Country | 1 point of growth |
 | Group | 0.05 approval (5 points) |
 | Institution | 0.1 support |
@@ -184,6 +184,9 @@ A **standard step** is a fixed size per kind of node (`scale()` in `world/propag
 | Indicator as an index | 10 points |
 
 So spending at full magnitude on the public sector (output £500bn) pushes its output up £50bn.
+A second full spend a turn later still adds £50bn and still costs £50bn, though output is
+then £550bn: a sector's step, for its output and for the budget alike, is measured against where
+it would be without the boom or slump it already carries.
 
 Special cases:
 
