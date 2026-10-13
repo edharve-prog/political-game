@@ -235,7 +235,9 @@ nominal growth (growth plus inflation) times the debt; at the start the two canc
 rate drifts toward Bank Rate as old debt is refinanced, half the gap in **24 turns**. Whatever
 the bill has risen since the start is added to the deficit, so borrowing compounds and higher
 rates cost money: Bank Rate about 2 points higher for two years adds nearly 1 point of GDP to the
-deficit. A lower bill saves money the same way. The briefing shows the debt, rate and bill.
+deficit. A lower bill saves money the same way. The briefing shows the debt, rate and bill. A
+world can leave debt untracked (a country with no debt figure); once tracked, debt paid down to
+0 is still tracked and the next deficit builds it up again.
 
 ### Foreign policy
 
@@ -306,6 +308,12 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    pays for is blocked outright.
 
 The turn log keeps both the requested and the applied actions.
+
+A checked package belongs to the turn and the world it was checked against. Confirming it
+checks that it is still the same turn and that nothing in the world has changed since, and
+runs the limits again to make sure the actions are exactly what they allow. Otherwise it is
+refused and has to be checked afresh, so a package cannot be confirmed twice, after the
+Commons has turned, or with its actions edited after the check.
 
 ---
 

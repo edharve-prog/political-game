@@ -43,12 +43,20 @@ class Country(Node):
     growth_pct: float
     relationship: float = Field(0.0, ge=-1, le=1, description="Stance towards the player")
     stability: float = Field(0.5, ge=0, le=1)
-    debt_pct: float = Field(
-        0.0, ge=0, description="Public debt, % of GDP (EB-9); 0 means debt is not tracked"
+    debt_pct: float = Field(0.0, ge=0, description="Public debt, % of GDP (EB-9)")
+    debt_tracked: bool | None = Field(
+        None,
+        description="Whether the debt is tracked. None (worlds and saves from before the flag) "
+        "means it is when ``debt_pct`` is above 0; once the debt moves this is set, so tracked "
+        "debt paid down to 0 still grows again with the next deficit",
     )
     debt_rate_pct: float | None = Field(
         None, description="Average interest rate paid on the debt; None starts it at Bank Rate"
     )
+
+    @property
+    def tracks_debt(self) -> bool:
+        return self.debt_tracked if self.debt_tracked is not None else self.debt_pct > 0
 
 
 class Sector(Node):

@@ -34,6 +34,10 @@ def _value(state: WorldState, node: str, default: float = 0.0) -> float:
     return indicator.value if indicator is not None else default
 
 
+def _tracks(state: WorldState) -> bool:
+    return state.countries[state.player_country].tracks_debt
+
+
 def debt_rate(state: WorldState, start: WorldState | None = None) -> float:
     """Average rate paid on the player's debt. Until set, it is Bank Rate at the start
     (``start``, or ``state`` itself when that is the start)."""
@@ -50,9 +54,10 @@ def interest_bill(state: WorldState, start: WorldState | None = None) -> float:
 
 def debt_line(state: WorldState) -> str:
     """One line on the debt for briefings; empty when debt is not tracked."""
-    debt = state.countries[state.player_country].debt_pct
-    if not debt:
+    country = state.countries[state.player_country]
+    if not country.tracks_debt:
         return ""
+    debt = country.debt_pct
     return (
         f"Public debt: {debt:.0f}% of GDP at an average {debt_rate(state):.1f}% interest, "
         f"a bill of {interest_bill(state):.1f}% of GDP a year"
@@ -64,7 +69,7 @@ def interest_shocks(state: WorldState, start: WorldState) -> list[Shock]:
 
     A push of ``(1 - persistence)`` times the extra bill, renewed each turn, holds the
     deficit that much above where it would be (the same top-up a held policy uses)."""
-    if FISCAL_NODE not in state.indicators or not start.countries[start.player_country].debt_pct:
+    if FISCAL_NODE not in state.indicators or not _tracks(state):
         return []
     return _interest_push(state, interest_bill(state, start) - interest_bill(start))
 
@@ -91,11 +96,7 @@ class DebtOutlook:
 
     def __init__(self, state: WorldState, start: WorldState) -> None:
         self.state = state
-        self.on = (
-            FISCAL_NODE in state.indicators
-            and bool(start.countries[start.player_country].debt_pct)
-            and bool(state.countries[state.player_country].debt_pct)
-        )
+        self.on = FISCAL_NODE in state.indicators and _tracks(state)
         self.debt = state.countries[state.player_country].debt_pct
         self.rate = debt_rate(state, start)
         self.start_bill = interest_bill(start)
@@ -117,11 +118,11 @@ def step_debt(state: WorldState, start: WorldState | None = None) -> WorldState:
     """Advance the debt stock and its average rate by one turn. Returns a new state.
 
     ``start`` supplies the opening rate when the state has none yet."""
-    country = state.countries[state.player_country]
-    if not country.debt_pct:
+    if not _tracks(state):
         return state
     new = state.snapshot()
     home = new.countries[new.player_country]
+    home.debt_tracked = True  # a debt paid down to 0 is still tracked, and grows again
     home.debt_pct, home.debt_rate_pct = _next_debt(
         home.debt_pct,
         debt_rate(state, start),
