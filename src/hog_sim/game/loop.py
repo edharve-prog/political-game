@@ -35,7 +35,9 @@ graph changes and job protection act on effects already in flight, and a node he
 fades back from the bound. The forecast (``forecast``) runs the same step from the same state,
 with the same shocks for this turn and the same rules after it (ministers leaving, institutions
 settling, the debt, the actions' graph changes), so what it shows is what resolve would do with
-no outcome; what it cannot project is listed in ``UNPROJECTED``.
+no outcome; what it cannot project is listed in ``UNPROJECTED``. With ``hidden_world`` on (D1)
+resolve plays on the game's hidden edge weights (``world.propagation.true_weights``) while the
+forecast keeps the central ones, so the forecast is the government's best guess, not the truth.
 """
 
 from __future__ import annotations
@@ -80,6 +82,7 @@ from hog_sim.world.propagation import (
     job_protection,
     propagate,
     step,
+    true_weights,
 )
 from hog_sim.world.standing import (
     SENTIMENT_SETTLE,
@@ -173,6 +176,11 @@ UNPROJECTED = [
     "the Commons' drift with the polls after this turn: approval is held where it is",
     "the chosen outcome, which is not known yet",
 ]
+# With a hidden world (D1) the forecast is a guess about the economy, not a copy of it.
+HIDDEN_WORLD_NOTE = (
+    "how this economy really responds: the forecast spreads its guesses over each link's "
+    "uncertainty, and the world plays out one of them"
+)
 
 
 def _departures(
@@ -260,7 +268,7 @@ def forecast(
         baseline=_projection(
             start, state, scenario, [], config, None, (), scenario.shocks + background
         ),
-        unprojected=UNPROJECTED,
+        unprojected=[*UNPROJECTED, HIDDEN_WORLD_NOTE] if config.hidden_world else UNPROJECTED,
     )
 
 
@@ -282,7 +290,8 @@ def resolve(
     shocks = turn_shocks(start, state, scenario, actions, config)
     shocks += outcome_shocks(outcome, state)
     cover = job_protection(state, actions)
-    engine, moves = step(state, shocks, protection=cover)
+    weights = true_weights(state, config.seed) if config.hidden_world else None
+    engine, moves = step(state, shocks, protection=cover, weights=weights)
 
     # Saves from before the engine carried its own state queued effects here; drain them.
     pending = {t: dict(d) for t, d in state.pending.items() if t > state.turn}

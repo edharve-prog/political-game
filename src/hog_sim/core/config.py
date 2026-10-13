@@ -25,6 +25,10 @@ class GameConfig(Model):
     # Political capital a turn's actions may use (policy/limits). Negative would flip the
     # sign of every scaled action.
     capital_per_turn: float = Field(1.5, ge=0)
+    # D1: resolve plays on edge weights drawn once per game from their uncertainty, while the
+    # forecast still shows the central weights and their spread. Off, the world behaves
+    # exactly as the central forecast says (the calibration harnesses and older saves).
+    hidden_world: bool = False
 
 
 def make_rng(seed: int, turn: int = 0, stream: str = "") -> random.Random:
