@@ -16,46 +16,49 @@ Project 17.
 - **CR-1 Caps cause false reversals** (finding 1). Later changes are worked out before
   clipping, so the bounded state and the queued changes disagree. Reproduced: a positive
   shock moved an indicator from 9 to 10, then to 5, then to 2.5. Fix: work out later
-  changes from the bounded state.
+  changes from the bounded state. **Done, PR #85.**
 - **CR-2 Forecasts miss consequences already on the way** (finding 2). Forecasting ignores
   queued effects and several background mechanisms that resolution uses. Example: a queued
   inflation rise of 2 points was forecast as zero. Fix: forecasts and actual turns use one
-  shared transition engine.
+  shared transition engine. **Done, PR #85, propagation step only; the full turn is SR-5.**
 - **CR-8 Repeated shocks get past the limits** (finding 8). Limits apply to each entry on
   its own, so duplicate shocks add up with no overall cap. Fix: deduplicate events and cap
-  the total for each node.
-- **CR-9 Policy effects are cut short** (from the report).
-- **CR-10 Future consequences are frozen** (from the report).
-- **CR-11 Graph changes can apply partly** (from the report).
+  the total for each node. **Done, PR #76.**
+- **CR-9 Policy effects are cut short** (from the report). **Done, PR #85.**
+- **CR-10 Future consequences are frozen** (from the report). **Done, PR #85.**
+- **CR-11 Graph changes can apply partly** (from the report). **Done, PR #80.**
 
 ### Save and resume safety (owner: "Save and resume safety" thread)
 
 - **CR-3 Finished turns can go unsaved** (finding 3). The next scenario is generated before
   the finished turn is saved, so a provider failure or an interruption loses progress. Fix:
-  save the resolved turn before asking for the next scenario.
-- **CR-12 Stale cached outcomes** (from the report).
+  save the resolved turn before asking for the next scenario. **Done, PR #78.**
+- **CR-12 Stale cached outcomes** (from the report). **Done, PR #84.**
 - **CR-13 The scenario changes on resume** (from the report; also review finding M6,
-  placed in Project 8).
-- **CR-14 Turn-length settings are unused** (from the report).
-- **CR-15 Election edge cases** (from the report).
+  placed in Project 8). **Done, PR #78.**
+- **CR-14 Turn-length settings are unused** (from the report). **Done, PR #79 (fixed at one month).**
+- **CR-15 Election edge cases** (from the report). **Done, PR #82.**
 
 ### Interpretation and fiscal rules (owner: "Interpretation and fiscal rules" thread)
 
 - **CR-4 Negated instructions become the opposite action** (finding 4). Stored
   interpretations are reused on word overlap, so "Increase public spending" and "Do not
   increase public spending" meet the reuse threshold. Fix: reuse only when action,
-  direction, amounts and duration agree, and handle negation explicitly.
+  direction, amounts and duration agree, and handle negation explicitly. **Done, PR #77; more phrasings in SR-3 and SR-4.**
 - **CR-5 Offline mode drops pledges and sackings** (finding 5). The wrapper does not pass
   on metadata found by the interpreter beneath it. Fix: every path returns the whole
-  interpretation object.
+  interpretation object. **Done, PR #77.**
 - **CR-6 Funded policies can be blocked** (finding 6). When the starting deficit is over the
   limit, spending is rejected on its own before offsetting taxes are counted. Fix: judge
-  fiscal feasibility on the whole package.
+  fiscal feasibility on the whole package. **Done, PR #81.**
 - **CR-7 Tax cuts can count as revenue rises** (finding 7). Taxes aimed at an indicator use
   the absolute magnitude, which mixes up the intended outcome with which way the tax moves.
-  Fix: keep the tax change, its fiscal cost and its expected effect on the indicator apart.
+  Fix: keep the tax change, its fiscal cost and its expected effect on the indicator apart. **Done, PR #83.**
 
 ## Phase 2: enhancements (Ed's order)
+
+Held with Project 20's enhancements (SE-1 to SE-12 in
+[semantics-review.md](semantics-review.md)), which sharpen most of these.
 
 1. **CE-1 Active-policy register.** Budgets, progress, expiry dates, amendments and
    cancellation for every policy in force.

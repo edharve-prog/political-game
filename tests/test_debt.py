@@ -7,6 +7,7 @@ from hog_sim.core.models import Outcome, Scenario, Shock
 from hog_sim.game.loop import resolve
 from hog_sim.world.debt import (
     REPRICE_HALF_LIFE,
+    debt_line,
     debt_rate,
     interest_bill,
     interest_shocks,
@@ -71,3 +72,24 @@ def test_old_saves_without_debt_are_unchanged() -> None:
     world.countries[UK].debt_pct = 0.0
     assert step_debt(world) == world
     assert interest_shocks(world, world) == []
+
+
+def test_tracked_debt_grows_again_from_zero() -> None:
+    world = toy_world()
+    world.countries[UK].debt_pct = 0.0
+    world.countries[UK].debt_tracked = True
+    world.indicators["indicator:deficit"].value = 6.0
+    after = step_debt(world)
+    assert after.countries[UK].debt_pct == pytest.approx(0.5)
+    assert debt_line(after).startswith("Public debt: 0% of GDP")
+
+
+def test_debt_paid_down_to_zero_stays_tracked() -> None:
+    world = toy_world()
+    world.countries[UK].debt_pct = 0.05
+    world.indicators["indicator:deficit"].value = -6.0  # a surplus pays it off
+    paid = step_debt(world)
+    assert paid.countries[UK].debt_pct == 0.0
+    assert paid.countries[UK].tracks_debt
+    paid.indicators["indicator:deficit"].value = 6.0
+    assert step_debt(paid).countries[UK].debt_pct == pytest.approx(0.5)

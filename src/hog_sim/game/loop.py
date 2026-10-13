@@ -40,6 +40,7 @@ no outcome; what it cannot project is listed in ``UNPROJECTED``.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Sequence
 
 from pydantic import Field
@@ -59,7 +60,7 @@ from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.feasibility import LEGISLATURE_ID, forcing_shocks
-from hog_sim.policy.limits import constrain
+from hog_sim.policy.limits import Constrained, constrain
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import (
     national_approval,
@@ -306,12 +307,32 @@ def resolve(
     return new
 
 
+class StaleProposal(RuntimeError):
+    """A proposal no longer fits the game: it was made on another turn or against a world that
+    has changed since, or its actions are not what this turn's limits allow. Propose again."""
+
+
+def state_key(state: WorldState) -> str:
+    """A fingerprint of everything in ``state``, to tell whether it has changed."""
+    return hashlib.sha256(state.to_json().encode()).hexdigest()
+
+
 class Proposal(Model):
-    """A turn's interpreted actions before they are committed."""
+    """A turn's interpreted actions before they are committed.
+
+    A proposal belongs to the turn and the world it was checked against (``turn``,
+    ``state_key``): ``Game.commit`` refuses it anywhere else, so it cannot be committed twice
+    or after the world has moved, and it re-runs the limits on ``submitted`` to make sure
+    ``actions`` is still what they allow."""
 
     response: str
     requested: list[PolicyAction]
     actions: list[PolicyAction]
+    submitted: list[PolicyAction] = Field(
+        default_factory=list, description="The actions the limits were applied to"
+    )
+    turn: int = -1
+    state_key: str = ""
     notes: list[str] = Field(default_factory=list)
     delivery: Delivery = Field(default_factory=Delivery)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
@@ -441,31 +462,54 @@ class Game:
         pledges: Sequence[Pledge] = (),
         sacked: Sequence[str] = (),
     ) -> Proposal:
-        cfg = self.config
-        limited = constrain(
-            actions,
-            self.state,
-            [r.actions for r in self.history],
-            cfg.role,
-            cfg.capital_per_turn,
-        )
+        limited = self._constrain(actions)
         return Proposal(
             response=response,
             requested=list(requested if requested is not None else actions),
             actions=limited.actions,
+            submitted=list(actions),
+            turn=self.state.turn,
+            state_key=state_key(self.state),
             notes=limited.notes,
             delivery=delivery or Delivery(),
             pledges=list(pledges),
             sacked=[c for c in sacked if c in sackable(self.state)],
         )
 
+    def _constrain(self, actions: list[PolicyAction]) -> Constrained:
+        cfg = self.config
+        return constrain(
+            actions,
+            self.state,
+            [r.actions for r in self.history],
+            cfg.role,
+            cfg.capital_per_turn,
+        )
+
+    def check(self, proposal: Proposal) -> None:
+        """Raise ``StaleProposal`` unless ``proposal`` was made for this turn, against the
+        world as it is now, and its actions are exactly what this turn's limits allow."""
+        if proposal.turn != self.state.turn:
+            raise StaleProposal(
+                f"this proposal was made on turn {proposal.turn}, and it is now turn "
+                f"{self.state.turn}"
+            )
+        if proposal.state_key != state_key(self.state):
+            raise StaleProposal("the world has changed since this proposal was checked")
+        if self._constrain(proposal.submitted).actions != proposal.actions:
+            raise StaleProposal("this proposal's actions are not what this turn's limits allow")
+
     def play_turn(self, response: str) -> TurnRecord:
         return self.commit(self.propose(response))
 
     def commit(self, proposal: Proposal) -> TurnRecord:
-        """Forecast, pick an outcome and resolve the turn with the proposal's actions."""
+        """Forecast, pick an outcome and resolve the turn with the proposal's actions.
+
+        Raises ``StaleProposal`` if the proposal does not belong to this turn and this world
+        (see ``check``): propose again and show the player the result."""
         if self.over:
             raise RuntimeError("the game is over")
+        self.check(proposal)
         state, scenario, cfg = self.state, self.scenario, self.config
         actions = proposal.actions
         engine = forecast(
