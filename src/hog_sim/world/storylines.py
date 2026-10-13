@@ -9,9 +9,18 @@ runs inside ``resolve()``, so it is deterministic and replay reproduces it:
   gains pressure, so ignoring an issue never makes it quietly go away.
 
 The other items in the turn's in-tray (``Scenario.secondary``, story SD-2) open or continue
-storylines too. One counts as acted on when an action targets one of its nodes; one left alone
-carries over and keeps escalating, unless it was minor (urgency below ``FADE_BELOW``), in
-which case it fades. The chosen outcome only ever settles the lead.
+storylines too. What happens to one depends on what this turn's decisions do to its nodes
+(``effect_on``: the engine's effect, signed by the way voters want each node to go), not on
+whether an action merely names one (E11):
+
+* helped: it eases (loses ``RELIEF`` pressure) without moving up a stage, its idle clock
+  restarts, and once its pressure is below ``FADE_BELOW`` it is dealt with and closes;
+* made worse (a cut to the sector it is about): it escalates a stage and gains pressure;
+* left alone: it carries over and keeps escalating on its idle clock, unless it was minor
+  (urgency below ``FADE_BELOW``), in which case it fades.
+
+So acting on an item never keeps it open longer than ignoring it. The chosen outcome only
+ever settles the lead.
 
 Storylines also come to a head (story SD-9). One that would reach ``FINAL_STAGE`` this turn,
 or is ``MAX_AGE`` turns old, is in its final stage: the scenario writer is told, it can only
@@ -27,8 +36,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from hog_sim.core.models import Outcome, PolicyAction, Scenario, SideIssue, Storyline
+from hog_sim.core.models import EdgeKind, Outcome, PolicyAction, Scenario, SideIssue, Storyline
 from hog_sim.core.state import WorldState
+from hog_sim.world.effects import decision_effects
 
 ESCALATE_AFTER = 3
 ESCALATION_PRESSURE = 0.15
@@ -82,10 +92,49 @@ def _add(story: Storyline, line: str) -> None:
     story.history = [*story.history, line][-HISTORY_LINES:]
 
 
-def addressed(item: SideIssue, actions: list[PolicyAction]) -> bool:
-    """An in-tray item counts as acted on when an action targets one of its nodes."""
-    nodes = set(item.affected_nodes)
-    return any(a.kind != "do_nothing" and a.target in nodes for a in actions)
+HELP_MIN = 0.05  # weighted standard steps a decision must move an item's nodes to count
+RELIEF = 0.25  # pressure an in-tray item loses on a turn the decisions help it
+
+
+def good_way(state: WorldState, node_id: str) -> float:
+    """The way voters want ``node_id`` to move: the sign of how the groups feel it (each
+    group's ``CARES_ABOUT`` or ``EMPLOYS`` weight times its share of the population). Output,
+    growth, support and approval are wanted up when no group feels them; an indicator no group
+    feels has no wanted way (0)."""
+    felt = 0.0
+    for edge in state.edges:
+        if edge.kind == EdgeKind.CARES_ABOUT and edge.target == node_id:
+            group = state.groups.get(edge.source)
+        elif edge.kind == EdgeKind.EMPLOYS and edge.source == node_id:
+            group = state.groups.get(edge.target)
+        else:
+            continue
+        if group is not None:
+            felt += edge.weight * group.population_share
+    if felt:
+        return 1.0 if felt > 0 else -1.0
+    return 0.0 if node_id in state.indicators else 1.0
+
+
+def effect_on(item: SideIssue, actions: Sequence[PolicyAction], state: WorldState) -> float:
+    """How much this turn's decisions help ``item``: what they alone do to each of its nodes
+    (``decision_effects``, standard steps), signed by the way voters want that node to go
+    (``good_way``) and summed. Positive helps, negative makes it worse. ``state`` is the
+    world the turn was played in."""
+    moves = decision_effects(state, actions, item.affected_nodes)
+    return sum(good_way(state, node_id) * move for node_id, move in moves.items())
+
+
+def addressed(item: SideIssue, actions: Sequence[PolicyAction], state: WorldState) -> bool:
+    """An in-tray item counts as acted on when this turn's decisions help it (``effect_on``),
+    not merely when an action names one of its nodes: a cut to the sector it is about is no
+    help."""
+    return effect_on(item, actions, state) > HELP_MIN
+
+
+def harmed(item: SideIssue, actions: Sequence[PolicyAction], state: WorldState) -> bool:
+    """This turn's decisions make ``item`` worse."""
+    return effect_on(item, actions, state) < -HELP_MIN
 
 
 def advance_storylines(
@@ -94,8 +143,12 @@ def advance_storylines(
     scenario: Scenario,
     outcome: Outcome,
     actions: list[PolicyAction] = (),
+    played: WorldState | None = None,
 ) -> WorldState:
-    """Return ``state`` with this turn's storyline moves applied. ``turn`` is the turn played."""
+    """Return ``state`` with this turn's storyline moves applied. ``turn`` is the turn played,
+    and ``played`` the world it was played in (default ``state``), which judges what the
+    actions do to each in-tray item."""
+    played = state if played is None else played
     if not scenario.storyline and not scenario.secondary and not open_storylines(state):
         return state
     stories = {k: v.model_copy(deep=True) for k, v in state.storylines.items()}
@@ -143,10 +196,26 @@ def advance_storylines(
     for item in scenario.secondary:
         if not item.storyline:
             continue
-        acted = addressed(item, actions)
-        story = touch(item, acted)
-        if acted:
-            _add(story, f"Turn {turn}, stage {story.stage}: {item.title} (acted on)")
+        effect = effect_on(item, actions, played)
+        known = stories.get(item.storyline)
+        eased_from = known.pressure if known is not None else item.urgency
+        story = touch(item, acted=False)
+        story.nodes = list(dict.fromkeys([*story.nodes, *item.affected_nodes]))
+        if effect > HELP_MIN:
+            # Eased, not escalated: it loses pressure from where it stood (the writer's urgency
+            # for it does not undo the easing) and its idle clock starts again.
+            story.pressure = max(0.0, eased_from - RELIEF)
+            story.last_turn = turn
+            if story.pressure < FADE_BELOW:
+                story.open = False
+                _add(story, f"Turn {turn}: {item.title}, acted on and dealt with")
+            else:
+                _add(story, f"Turn {turn}, stage {story.stage}: {item.title} (acted on, eased)")
+        elif effect < -HELP_MIN:
+            story.stage += 1
+            story.last_turn = turn
+            story.pressure = min(1.0, story.pressure + ESCALATION_PRESSURE)
+            _add(story, f"Turn {turn}, stage {story.stage}: {item.title}, made worse")
         elif item.urgency < FADE_BELOW:
             story.open = False
             _add(story, f"Turn {turn}: {item.title}, left alone and faded away")

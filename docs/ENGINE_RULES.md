@@ -694,9 +694,15 @@ Issues can run across turns:
 
 - the lead scenario opens a storyline or moves an existing one up a stage;
 - it closes only when the chosen outcome says it is resolved;
-- an in-tray item counts as acted on when an action targets one of its nodes, which moves it up
-  a stage. One left alone carries over, unless it was minor (urgency below 0.3), in which case
-  it fades away;
+- an in-tray item is judged by what the turn's actions do to its nodes, not by whether they
+  name one. The engine projects the actions alone over 4 turns (central edge weights) and
+  signs each node's average move by the way voters want it to go (from the groups that care
+  about it or work in it; output, growth and support are wanted up when no group feels them).
+  When that helps by 0.05 steps or more, the item eases: it loses 0.25 pressure without moving
+  up a stage, its idle clock restarts, and once its pressure is below 0.3 it is dealt with and
+  closes. When it hurts (a cut to the sector it is about), it moves up a stage and gains 0.15
+  pressure. One left alone carries over, unless it was minor (urgency below 0.3), in which
+  case it fades away. So acting on an item never keeps it open longer than ignoring it;
 - any open storyline nobody has touched for **3 turns** escalates a stage and gains 0.15
   pressure, so ignoring an issue never makes it quietly go away.
 
