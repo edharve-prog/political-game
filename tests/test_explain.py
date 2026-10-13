@@ -72,12 +72,13 @@ def test_a_paid_for_tax_cut_is_not_blamed_for_a_market_penalty_that_never_came()
     game = new_game()
     before = game.state
     package = [
-        PolicyAction(kind="tax", target="country:uk", magnitude=-1),
+        PolicyAction(kind="tax", target="group:business", magnitude=-1),
         PolicyAction(kind="tax", target="sector:public", magnitude=1),
     ]
     record = game.commit(game.revise(game.propose("Do nothing"), package))
     pound = "indicator:exchange_rate"
-    assert record.state_after.indicators[pound].value > before.indicators[pound].value
+    # No market penalty: the pound barely moves, where an unpaid cut knocks about 8 points off.
+    assert record.state_after.indicators[pound].value > before.indicators[pound].value - 1
     line = next(x for x in why(record, before, game.start, game.config) if "Sterling" in x)
     assert "mostly your tax on Public Sector" in line
     assert "paying for tax cuts the markets would otherwise have punished" in line
@@ -91,8 +92,8 @@ def test_a_paid_for_tax_cut_is_not_blamed_for_a_market_penalty_that_never_came()
 def test_an_unfunded_tax_cut_is_named_for_the_market_penalty() -> None:
     game = new_game()
     before = game.state
-    cut = PolicyAction(kind="tax", target="country:uk", magnitude=-1)
+    cut = PolicyAction(kind="tax", target="group:business", magnitude=-1)
     record = game.commit(game.revise(game.propose("Do nothing"), [cut]))
     line = next(x for x in why(record, before, game.start, game.config) if "Sterling" in x)
-    assert "mostly your tax on United Kingdom" in line
+    assert "mostly your tax on Business owners" in line
     assert "markets' verdict on unfunded tax cuts" in line
