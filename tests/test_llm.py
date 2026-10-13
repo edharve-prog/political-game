@@ -426,3 +426,18 @@ def test_scenario_prompt_lists_recent_scenarios_and_keeps_category(world: WorldS
     prompts = [r.messages[0].content for r in client.requests if r.schema_name == "ScenarioDraft"]
     assert "Recent scenarios" not in prompts[0]
     assert "- [energy] Energy firms warn of winter blackouts" in prompts[-1]
+
+
+def test_stress_is_measured_in_standard_steps_not_relative_change(world: WorldState) -> None:
+    """Review of 13 Oct 2026, E24: a 5% relative move flagged unemployment 4.5 to 4.73 but
+    not the energy index 100 to 104, and a deficit near 0 on any move."""
+    world.indicators["indicator:unemployment"].history = [4.5, 4.6, 4.7]
+    world.indicators["indicator:unemployment"].value = 4.73
+    world.indicators["indicator:energy_prices"].history = [100.0, 103.0, 106.0]
+    world.indicators["indicator:energy_prices"].value = 108.0
+    world.indicators["indicator:deficit"].history = [0.1, 0.2, 0.25]
+    world.indicators["indicator:deficit"].value = 0.3
+    stressed = summarise_state(world).stressed_indicators
+    assert "indicator:unemployment" not in stressed
+    assert "indicator:energy_prices" in stressed
+    assert "indicator:deficit" not in stressed
