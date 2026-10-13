@@ -72,6 +72,11 @@ class Group(Node):
     lean: float = Field(
         0.5, ge=0, le=1, description="Approval the group drifts to when nothing changes"
     )
+    resents: dict[str, float] = Field(
+        default_factory=dict,
+        description="Fairness links: other groups whose gains from approval events this group "
+        "resents, and the share of each gain it feels as a loss",
+    )
     history: list[float] = Field(
         default_factory=list, description="Approval at the start of each past turn, oldest first"
     )

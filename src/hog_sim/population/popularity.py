@@ -7,6 +7,7 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
            + sum(active event effects, held for hold_turns then halving every half_life_turns),
+             less the share of other groups' gains this group resents (``Group.resents``),
              capped at +-EVENT_CAP per group
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
@@ -20,13 +21,18 @@ half-life of ``HABIT_HALF_LIFE`` turns (EB-11). A price rise hurts most when it 
 year later it is partly the new normal. ``K`` converts one weighted standard step into
 approval points. Partial adjustment gives the electorate memory: a shock is felt over
 several turns rather than all at once, and approval drifts back to lean once it passes.
+
+Turnout is not fixed (O8): a group turns out more the further its approval sits from its
+lean, in either direction, because enthusiasm and anger both bring people to the polls. Its
+effective turnout is ``turnout * (1 + TURNOUT_SWING * |approval - lean|)``, at most
+``MAX_TURNOUT``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
+from hog_sim.core.models import ApprovalEvent, EdgeKind, Group, Model, PolicyAction
 from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_tax_cut
 
@@ -34,6 +40,8 @@ K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
 EVENT_CAP = 0.15  # most that all active events together can move a group's target (EB-6)
+TURNOUT_SWING = 2.0  # turnout rises 2% for each approval point away from lean (O8)
+MAX_TURNOUT = 0.95
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
@@ -151,11 +159,17 @@ def target_approval(
         penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
         targets = {gid: t - penalty for gid, t in targets.items()}
     felt = {gid: 0.0 for gid in targets}
+    gains = {gid: 0.0 for gid in targets}
     for event in state.events:
         w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
         for gid, effect in event.group_effects.items():
             if gid in felt:
                 felt[gid] += effect * w
+                gains[gid] += max(effect, 0.0) * w
+    # Fairness: a group feels part of what others it resents gained as its own loss.
+    for gid, group in state.groups.items():
+        for other, share in group.resents.items():
+            felt[gid] -= share * gains.get(other, 0.0)
     for gid, total in felt.items():
         targets[gid] += max(-EVENT_CAP, min(EVENT_CAP, total))
     return {gid: min(1.0, max(0.0, t)) for gid, t in targets.items()}
@@ -191,9 +205,16 @@ def national_approval(state: WorldState) -> float:
     return sum(g.population_share * g.approval for g in state.groups.values()) / total
 
 
+def effective_turnout(group: Group) -> float:
+    """Turnout raised by enthusiasm or anger: the further approval is from lean, either way,
+    the more of the group votes."""
+    swing = 1 + TURNOUT_SWING * abs(group.approval - group.lean)
+    return min(MAX_TURNOUT, max(group.turnout, group.turnout * swing))
+
+
 def vote_intention(state: WorldState) -> float:
-    """Government vote share: approval weighted by population share and turnout."""
-    weights = {gid: g.population_share * g.turnout for gid, g in state.groups.items()}
+    """Government vote share: approval weighted by population share and effective turnout."""
+    weights = {gid: g.population_share * effective_turnout(g) for gid, g in state.groups.items()}
     total = sum(weights.values())
     return sum(weights[gid] * g.approval for gid, g in state.groups.items()) / total
 

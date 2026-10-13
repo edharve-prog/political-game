@@ -212,7 +212,7 @@ def test_summary_flags_stress_anger_and_tension(world: WorldState) -> None:
     world.groups["group:young_renters"].approval = 0.3
     s = summarise_state(world)
     assert s.stressed_indicators == ["indicator:inflation"]
-    assert s.angry_groups == ["group:young_renters"]
+    assert s.angry_groups == ["group:young_renters", "group:students"]
     assert s.foreign_tensions == ["country:china"]
     text = s.to_prompt()
     assert "[STRESSED]" in text and "[ANGRY]" in text and "[TENSE]" in text
