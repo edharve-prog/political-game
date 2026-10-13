@@ -15,7 +15,9 @@ The engine is a linear dynamic system on the graph:
   ``duration_turns``, which is how a running policy works. Once nothing sustains a push,
   the node and everything it drives drift back.
 * Population groups are not propagated here: approval is Project 4's job, so ``EMPLOYS``,
-  ``CARES_ABOUT`` and any edge into a group are skipped.
+  ``CARES_ABOUT`` and any edge into or out of a group are skipped, and groups are not among
+  the engine's nodes, so a shock aimed at one does nothing (E13: one used to move approval
+  outside the event cap and stay in the engine for good, since groups never fade).
 * The engine carries its state between turns (``WorldState.engine``: fading pushes, recent
   deviations, shocks still running) and ``step`` moves it on one turn. ``resolve`` and the
   forecast (``propagate``) both use that one step, so the forecast starts from what is already
@@ -413,7 +415,11 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
 
 
 def _propagating_edges(state: WorldState) -> list[Edge]:
-    return [e for e in state.edges if e.kind in PROPAGATING and not e.target.startswith("group:")]
+    return [
+        e
+        for e in state.edges
+        if e.kind in PROPAGATING and e.target not in state.groups and e.source not in state.groups
+    ]
 
 
 def lag0_gain(state: WorldState, edges: list[Edge] | None = None) -> float:
@@ -522,7 +528,8 @@ class _Engine:
                 self.instant[e.target].append((e.source, factor))
         self.memory = max([1, *(e.lag for e in edges)])
         self.instant_items = list(self.instant.items())
-        self.nodes = list(state.node_ids())
+        # Groups are not the engine's: their approval moves in population/popularity.py.
+        self.nodes = [n for n in state.node_ids() if n not in state.groups]
         self.keep = {n: persistence(state, n) for n in self.nodes}
         self.sectors = set(state.sectors)
         self.scales = {n: scale(state, n) for n in self.nodes}
@@ -550,14 +557,16 @@ class _Engine:
         Returns this turn's deviation per node (standard steps) and its change in native
         units (empty without ``values``)."""
         keep, nodes, past = self.keep, self.nodes, engine.levels
-        own = {n: v * keep[n] for n, v in engine.own.items()}
+        # Anything carried on a node the engine does not move (a group, from an older save)
+        # is dropped.
+        own = {n: v * keep[n] for n, v in engine.own.items() if n in keep}
         for push in engine.pushes:
-            if push.start <= turn < push.end:
+            if push.start <= turn < push.end and push.node in keep:
                 # A held push tops itself back up to delta after each turn's fade.
                 held = push.hold and turn > push.start
                 delta = push.delta * (1 - keep[push.node]) if held else push.delta
                 own[push.node] = own.get(push.node, 0.0) + delta
-        engine.pushes = [p for p in engine.pushes if p.end > turn + 1]
+        engine.pushes = [p for p in engine.pushes if p.end > turn + 1 and p.node in keep]
 
         prev = {n: series[-1] for n, series in past.items()}
         limits: dict[str, tuple[float, float]] = {}
