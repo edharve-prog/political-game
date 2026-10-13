@@ -1,6 +1,7 @@
 """What the player can actually do in one turn, applied by the game loop to every mode.
 
-Four limits, in order (Project 16, EB-2 and EB-3; Project 17, EC-5):
+Four limits, in order (Project 16, EB-2 and EB-3; Project 17, EC-5), after cuts to wage
+subsidies are held to the schemes actually running (``fit_job_cuts``):
 
 1. **Feasibility**: actions ``check_feasibility`` blocks are dropped.
 2. **Diminishing returns**: an action of the same kind on the same target as one taken in
@@ -39,7 +40,15 @@ from hog_sim.policy.feasibility import (
     Role,
     check_feasibility,
 )
-from hog_sim.world.propagation import FISCAL_NODE, fiscal_cost, in_flight, scale
+from hog_sim.world.propagation import (
+    FISCAL_NODE,
+    JOB_PROTECTION,
+    cuts_jobs_cover,
+    fiscal_cost,
+    in_flight,
+    job_cover_left,
+    scale,
+)
 
 REPEAT_WINDOW = 4
 REPEAT_DECAY = 0.5
@@ -79,8 +88,9 @@ def constrain(
 
     ``past_actions`` holds the applied actions of earlier turns, oldest first.
     """
+    actions, notes = fit_job_cuts(actions, state)
     report = check_feasibility(list(actions), state, role)
-    notes = [
+    notes += [
         f"Blocked: {c.action.kind} {c.action.target} ({'; '.join(c.blockers)})"
         for c in report.checks
         if not c.feasible
@@ -126,6 +136,39 @@ def constrain(
     if note:
         notes.append(note)
     return Constrained(actions=kept, notes=notes)
+
+
+def fit_job_cuts(
+    actions: Sequence[PolicyAction], state: WorldState
+) -> tuple[list[PolicyAction], list[str]]:
+    """Hold cuts to wage subsidies to the schemes actually running: a cut with no scheme to
+    cut is dropped, and a bigger or longer cut than the cover in force is trimmed to it."""
+    share, turns = job_cover_left(state)
+    kept, notes = [], []
+    for action in actions:
+        if not cuts_jobs_cover(action):
+            kept.append(action)
+            continue
+        size = min(abs(action.magnitude), share / JOB_PROTECTION)
+        if size <= 1e-9 or not turns:
+            notes.append(
+                f"Blocked: {action.kind} {action.target} (no wage subsidy scheme is running to cut)"
+            )
+            continue
+        share -= size * JOB_PROTECTION
+        trimmed = action.model_copy(
+            update={
+                "magnitude": size if action.magnitude > 0 else -size,
+                "duration_turns": min(action.duration_turns, turns),
+            }
+        )
+        if trimmed != action:
+            notes.append(
+                f"Wage subsidies: only the scheme running can be cut, so the cut was held to "
+                f"magnitude {size:.2f} for {trimmed.duration_turns} turn(s)"
+            )
+        kept.append(trimmed)
+    return kept, notes
 
 
 def fit_deficit(

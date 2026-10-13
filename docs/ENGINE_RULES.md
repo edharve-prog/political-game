@@ -232,11 +232,16 @@ markets lent freely for the 2008 bailout and the 2020 lockdown.
 **Job protection.** Spending aimed at unemployment is a wage subsidy, like the 2020 furlough
 scheme: the state pays wages so firms keep their staff. It does not push unemployment down.
 Instead, while it runs, it holds back a share of any rise in unemployment: 80% for a full-size
-scheme (magnitude 1), 40% at half size. It costs the deficit like any other spending. It
-covers any rise in unemployment while it runs, including job losses from a slump already under
+scheme (magnitude 1), 40% at half size. It costs the deficit like any other spending.
+It covers any rise in unemployment while it runs, including job losses from a slump already under
 way when it starts, and when it ends the jobs it was holding up are lost
 after all if the economy has not recovered. In good times it only costs money. In 2020 output
 fell by a fifth but unemployment rose only from 4% to about 5%.
+
+Cutting a wage subsidy (spending on unemployment with the instrument "cut") winds down a scheme
+that is running: it takes off that much cover for as long as the cut lasts, and saves only what
+that cover cost for the turns it would have run. With no scheme running there is nothing to cut,
+so the cut is blocked; a cut bigger or longer than the scheme is trimmed to it.
 
 **Debt and its interest bill.** The UK starts with public debt of **100% of GDP** at an average
 rate of 4%, an interest bill of 4% of GDP a year that is already part of the starting deficit.

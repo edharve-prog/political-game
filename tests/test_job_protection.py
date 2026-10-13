@@ -8,11 +8,13 @@ from hog_sim.core.state import WorldState
 from hog_sim.game.loop import resolve
 from hog_sim.game.stubs import KeywordInterpreter
 from hog_sim.policy.feasibility import compatibility_problem
+from hog_sim.policy.limits import constrain
 from hog_sim.world.propagation import (
     FISCAL_NODE,
     JOB_NODE,
     JOB_PROTECTION,
     actions_to_shocks,
+    fiscal_cost,
     job_protection,
     simulate,
 )
@@ -85,3 +87,63 @@ def test_the_keyword_interpreter_knows_furlough() -> None:
     [action] = KeywordInterpreter().interpret("Launch a furlough scheme", state, quiet)
     assert (action.kind, action.target) == ("spend", JOB_NODE)
     assert action.magnitude < 0
+
+
+QUIET = Scenario(title="Quiet", briefing="", affected_nodes=[], urgency=0)
+
+
+def cut(magnitude: float = -1.0, turns: int = 6) -> PolicyAction:
+    return furlough(magnitude, turns).model_copy(update={"instrument": "cut"})
+
+
+def running(turns: int = 6) -> WorldState:
+    """A world one turn into a full-size scheme of ``turns`` turns."""
+    start = toy_world()
+    return resolve(start, start, QUIET, [furlough(turns=turns)], NOTHING, GameConfig())
+
+
+@pytest.mark.parametrize("magnitude", [1.0, -1.0])
+def test_either_sign_of_magnitude_follows_the_instrument(magnitude) -> None:
+    """Review finding 1: the spending's direction is the instrument's, not the magnitude's."""
+    state = toy_world()
+    raise_ = furlough(magnitude)
+    assert job_protection(state, [raise_])[0] == pytest.approx(JOB_PROTECTION)
+    assert fiscal_cost(raise_, state) > 0
+    assert job_protection(state, [cut(magnitude)]) == {}
+    assert fiscal_cost(cut(magnitude), state) == 0
+
+
+def test_a_cut_with_no_scheme_running_is_blocked() -> None:
+    state = toy_world()
+    constrained = constrain([cut()], state, [])
+    assert constrained.actions == []
+    assert "no wage subsidy scheme is running" in constrained.notes[0]
+    assert [s for s in actions_to_shocks([cut()], state) if s.node == FISCAL_NODE] == []
+
+
+def test_a_cut_removes_the_cover_it_saves_on() -> None:
+    state = running(turns=6)  # cover left on turns 1..5
+    constrained = constrain([cut(turns=12)], state, [])
+    [trimmed] = constrained.actions
+    assert trimmed.duration_turns == 5
+    assert job_protection(state, [trimmed]) == {}
+    [saving] = [s for s in actions_to_shocks([trimmed], state) if s.node == FISCAL_NODE]
+    [cost] = [s for s in actions_to_shocks([furlough(turns=6)], state) if s.node == FISCAL_NODE]
+    assert saving.delta == pytest.approx(-cost.delta)
+    assert saving.duration_turns == 5
+
+
+def test_a_partial_cut_leaves_the_rest_of_the_scheme() -> None:
+    state = running()
+    half = cut(-0.5, turns=2)
+    cover = job_protection(state, [half])
+    assert cover[1] == pytest.approx(0.5 * JOB_PROTECTION)
+    assert cover[3] == pytest.approx(JOB_PROTECTION)
+    assert fiscal_cost(half, state) == pytest.approx(-0.5 * fiscal_cost(furlough(), state))
+
+
+def test_a_cut_cannot_save_more_than_the_scheme_costs() -> None:
+    state = running()
+    [trimmed] = constrain([cut()], state, []).actions
+    huge = cut(-1.0).model_copy(update={"duration_turns": 24})
+    assert fiscal_cost(huge, state) == pytest.approx(fiscal_cost(trimmed, state))
