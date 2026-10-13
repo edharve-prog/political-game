@@ -25,6 +25,7 @@ from hog_sim.game.balance import LEVER_BOTS, TEXT_BOTS, _Scripted
 from hog_sim.game.loop import Game
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.population.popularity import vote_intention
+from hog_sim.world.calendar import OnCalendar
 from hog_sim.world.propagation import scale
 from hog_sim.world.seed.toy import toy_world
 
@@ -77,7 +78,11 @@ def play(name: str, seed: int, turns: int = TURNS) -> Run:
     config = GameConfig(seed=seed, election_turn=turns, k_draws=20)
     interpreter = _Scripted(LEVER_BOTS[name]) if name in LEVER_BOTS else KeywordInterpreter()
     game = Game(
-        config, toy_world(), ScenarioLibrary.load(seed=seed), interpreter, EngineForecaster()
+        config,
+        toy_world(),
+        OnCalendar(ScenarioLibrary.load(seed=seed)),
+        interpreter,
+        EngineForecaster(),
     )
     respond = _respond(name, seed)
     start = game.state

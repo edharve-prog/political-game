@@ -32,7 +32,7 @@ from hog_sim.llm.advisers import Advisers
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
-from hog_sim.world.calendar import upcoming
+from hog_sim.world.calendar import OnCalendar, upcoming
 from hog_sim.world.cast import active_cast
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed
@@ -802,7 +802,7 @@ def _main(argv: list[str] | None) -> None:
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
         plugins = (
-            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
+            OnCalendar(ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed)),
             StoredInterpreter(knowledge, KeywordInterpreter()),
             StoredForecaster(knowledge, EngineForecaster()),
         )
