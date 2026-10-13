@@ -23,7 +23,14 @@ from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
-from hog_sim.world.calendar import calendar_event, fill, scheduled_scenario
+from hog_sim.world.calendar import (
+    ECONOMY,
+    HOUSEHOLDS,
+    calendar_event,
+    fill,
+    scheduled_scenario,
+    spread,
+)
 from hog_sim.world.cast import active_cast
 from hog_sim.world.graph import build_graph, exposed_groups
 from hog_sim.world.propagation import DeltaDistribution, apply_deltas
@@ -90,11 +97,12 @@ class CannedScenarios:
         return make_rng(self.seed, state.turn, "scenario").choice(options).model_copy(deep=True)
 
 
-# Keyword -> node id. Checked in order; first match wins. ``COUNTRY`` stands for the player's
-# own country. Parliament or the Commons on their own are only a fallback target: "announce in
-# Parliament a pay rise" is about the pay rise (E17); whip, backbench or vote language aims
-# at the legislature.
-COUNTRY = "@country"
+# Keyword -> node id. Checked in order; first match wins. ``HOUSEHOLDS`` and ``ECONOMY`` stand
+# for the whole population and the whole economy: a speech goes to the nation, anything else
+# is shared out over the groups or sectors (``spread``), since tax and spending reach the
+# country through them. Parliament or the Commons on their own are only a fallback target:
+# "announce in Parliament a pay rise" is about the pay rise (E17); whip, backbench or vote
+# language aims at the legislature.
 _TARGETS = [
     (r"\bwhip|backbench|\bmps\b|\brebel|\bvotes?\b", "institution:legislature"),
     (r"furlough|job retention|wage subsid", "indicator:unemployment"),
@@ -102,13 +110,13 @@ _TARGETS = [
     (r"energy|gas|electric", "sector:energy"),
     (r"bank|financ|city", "sector:finance"),
     (r"manufactur|industr|factor|export", "sector:manufacturing"),
-    (r"household|families", COUNTRY),
+    (r"household|families", HOUSEHOLDS),
     (r"hous|home|rent|planning|build", "sector:housing"),
     (r"public|nhs|hospital|school|pay|union|wages?|nurse|teacher", "sector:public"),
     (r"china", "country:china"),
     (r"\beu\b|europe", "country:eu"),
     (r"business|\bfirms?\b|employer|compan|enterprise", "group:business"),
-    (r"growth|econom|the country", COUNTRY),
+    (r"growth|econom|the country", ECONOMY),
     (r"parliament|\bcommons\b", "institution:legislature"),
 ]
 _SIZE = [(r"huge|major|big|massive", 0.9), (r"small|modest|slight", 0.25)]
@@ -163,22 +171,17 @@ class KeywordInterpreter:
         # from its purpose ("cut" in "spend to cut waiting lists" is not a spending cut).
         main, purpose = _split_purpose(t)
         if purpose and _FUNDS.match(purpose):
-            first = self._read(main, text, state, scenario, fallback=state.player_country)
+            broad = HOUSEHOLDS if re.search(r"\btax", main) else None  # a broad tax rise
+            first = self._read(main, text, state, scenario, fallback=broad)
             if (
                 first.kind == "tax"
                 and first.magnitude > 0
                 or (first.kind == "spend" and first.magnitude < 0 and first.instrument is None)
             ):
-                spend = self._read(
-                    _FUNDS.sub("", purpose),
-                    text,
-                    state,
-                    scenario,
-                    fallback=state.player_country,
-                    kind="spend",
-                )
-                return [first, spend.model_copy(update={"magnitude": abs(first.magnitude)})]
-        return [self._read(main, text, state, scenario, purpose=purpose)]
+                spend = self._read(_FUNDS.sub("", purpose), text, state, scenario, kind="spend")
+                spend = spend.model_copy(update={"magnitude": abs(first.magnitude)})
+                return [*spread(first, state), *spread(spend, state)]
+        return spread(self._read(main, text, state, scenario, purpose=purpose), state)
 
     def _read(
         self,
@@ -190,11 +193,13 @@ class KeywordInterpreter:
         fallback: str | None = None,
         kind: str | None = None,
     ) -> PolicyAction:
-        target = _target(t, state) or _target(purpose, state)
+        target = _target(t) or _target(purpose)
         if target is None:
+            # A spend for a purpose with no target of its own stays at home.
+            skip = ("indicator:", "country:") if kind == "spend" else ("indicator:",)
             target = fallback or next(
-                (n for n in scenario.affected_nodes if not n.startswith("indicator:")),
-                state.player_country,
+                (n for n in scenario.affected_nodes if not n.startswith(skip)),
+                ECONOMY if kind == "spend" else state.player_country,
             )
         size = next((m for pat, m in _SIZE if re.search(pat, t)), 0.5)
         if kind is not None:
@@ -229,7 +234,9 @@ class KeywordInterpreter:
             kind = "tax"
         elif re.search(r"deregulat|scrap rules|relax", t):
             kind = "deregulate"
-        elif re.search(r"regulat|cap\b|ban|limit|tighten|\brules?\b", t):
+        elif re.search(
+            r"regulat|cap\b|ban|limit|tighten|(?:new|tough\w*|strict\w*|safety) rules?", t
+        ):
             kind = "regulate"
         elif re.search(r"\bcut|austerity|squeeze", t):
             kind, size = "spend", -size
@@ -276,11 +283,10 @@ def _split_purpose(t: str) -> tuple[str, str]:
     return (parts[0], parts[1]) if len(parts) == 2 and parts[0].strip() else (t, "")
 
 
-def _target(t: str, state: WorldState) -> str | None:
+def _target(t: str) -> str | None:
     if not t:
         return None
-    node = next((node for pat, node in _TARGETS if re.search(pat, t)), None)
-    return state.player_country if node == COUNTRY else node
+    return next((node for pat, node in _TARGETS if re.search(pat, t)), None)
 
 
 def calendar_package(text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction] | None:

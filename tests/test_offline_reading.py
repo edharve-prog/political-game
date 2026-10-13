@@ -20,7 +20,7 @@ def read(text: str, scenario: Scenario = QUIET, turn: int = 0):
     state = toy_world().model_copy(update={"turn": turn})
     interpreter = KeywordInterpreter()
     actions = interpreter.interpret(text, state, scenario)
-    return interpreter, [(a.kind, a.target, round(a.magnitude, 2)) for a in actions]
+    return interpreter, [(a.kind, a.target, round(a.magnitude, 3)) for a in actions]
 
 
 def budget() -> Scenario:
@@ -47,7 +47,12 @@ def test_waiting_lists_are_not_waiting(text, expected) -> None:
     [
         (
             "Raise taxes to fund public services",
-            [("tax", "country:uk", 0.5), ("spend", "sector:public", 0.5)],
+            [
+                ("tax", "group:pensioners", 0.167),
+                ("tax", "group:young_renters", 0.167),
+                ("tax", "group:public_workers", 0.167),
+                ("spend", "sector:public", 0.5),
+            ],
         ),
         ("Cut spending to bring borrowing down", [("spend", "sector:public", -0.5)]),
         ("Cut taxes for business to boost growth", [("tax", "group:business", -0.5)]),
@@ -65,16 +70,40 @@ def test_the_budget_options_read_as_their_packages(option, expected) -> None:
     [
         (
             "Raise taxes to fund public services",
-            [("tax", "country:uk", 0.5), ("spend", "sector:public", 0.5)],
+            [
+                ("tax", "group:pensioners", 0.167),
+                ("tax", "group:young_renters", 0.167),
+                ("tax", "group:public_workers", 0.167),
+                ("spend", "sector:public", 0.5),
+            ],
         ),
         ("Cut taxes for business to boost growth", [("tax", "group:business", -0.5)]),
-        ("Invest in growth", [("spend", "country:uk", 0.5)]),
-        ("Help households with the economy", [("spend", "country:uk", 0.5)]),
+        (
+            "Invest in growth",
+            [
+                ("spend", f"sector:{s}", 0.1)
+                for s in ("energy", "finance", "manufacturing", "housing", "public")
+            ],
+        ),
+        (
+            "Help households with their bills",
+            [("spend", "indicator:energy_prices", -0.5)],
+        ),
+        (
+            "Help households and families",
+            [
+                ("spend", "group:pensioners", 0.167),
+                ("spend", "group:young_renters", 0.167),
+                ("spend", "group:public_workers", 0.167),
+            ],
+        ),
+        ("A speech on the economy", [("communicate", "country:uk", 0.5)]),
     ],
 )
 def test_free_text_budget_wording_outside_the_budget(text, expected) -> None:
     """E16: business, growth, the economy and households are targets, and "X to fund Y" is
-    a tax and a spend."""
+    a tax and a spend. Tax and spending for the whole country are shared over its groups or
+    sectors; only a speech goes to the nation."""
     assert read(text)[1] == expected
 
 
@@ -88,6 +117,7 @@ def test_every_calendar_option_has_a_package_for_the_toy_world() -> None:
         for option, package in zip(filled.options, filled.packages, strict=True):
             actions = KeywordInterpreter().interpret(option, state, scenario)
             assert [(a.kind, a.target) for a in actions] == [(a.kind, a.target) for a in package]
+            assert all(a.target in set(state.node_ids()) for a in actions)
 
 
 def test_parliament_is_a_venue_not_a_target() -> None:

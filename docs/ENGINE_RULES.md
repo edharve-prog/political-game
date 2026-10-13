@@ -84,8 +84,10 @@ A game is 24 turns of one month each, with a general election after the last one
    furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
    "Do nothing", "wait" and "hold firm" mean do nothing only at the start of an instruction, so
    "cut waiting lists" still acts. In "X to Y" the verb and target come from X and Y is its
-   purpose; "raise taxes to fund public services" is a national tax rise and a spend on public
-   services. Business, growth, the economy and households are targets. A calendar event's own
+   purpose; "raise taxes to fund public services" is a broad tax rise and a spend on public
+   services. Business, growth, the economy and households are targets; a speech about them
+   goes to the nation, while tax or spending for households is shared over the population
+   groups (all but business) and for the economy over the sectors. A calendar event's own
    options map to ready-made actions instead of being read word by word. "In Parliament" or
    "to the Commons" is where something is announced, not a target. A sacking needs the verb
    to govern the minister ("sack the Housing Secretary", "replace Ruth Calder"), and the rest

@@ -25,7 +25,8 @@ class CalendarEvent(Model):
     packages: list[list[PolicyAction]] = Field(
         default_factory=list,
         description="The actions each option stands for, in order (E16). Targets may be "
-        "{group} (the by-election's group) or {country} (the player's country).",
+        "{group} (the by-election's group), {country} (the player's country, for a speech) "
+        "or {households} (shared over the population groups, see ``spread``).",
     )
     affected_nodes: list[str]
     every: int = Field(12, ge=1)
@@ -34,6 +35,31 @@ class CalendarEvent(Model):
 
     def falls_on(self, turn: int) -> bool:
         return turn > 0 and turn % self.every == self.offset % self.every
+
+
+# Targets standing for the whole population and the whole economy (see ``spread``).
+HOUSEHOLDS = "{households}"
+ECONOMY = "{economy}"
+
+
+def spread(action: PolicyAction, state: WorldState) -> list[PolicyAction]:
+    """``action``, or one action per node when it is aimed at the whole population
+    (``HOUSEHOLDS``: every group but business) or the whole economy (``ECONOMY``: every
+    sector), with its size shared out evenly. A speech or doing nothing goes to the player's
+    country instead: tax, spending and rules reach the country only through its sectors and
+    groups."""
+    if action.target not in (HOUSEHOLDS, ECONOMY):
+        return [action]
+    if action.kind in ("communicate", "do_nothing"):
+        return [action.model_copy(update={"target": state.player_country})]
+    if action.target == HOUSEHOLDS:
+        nodes = [g for g in state.groups if g != "group:business"]
+    else:
+        nodes = list(state.sectors)
+    if not nodes:
+        return [action.model_copy(update={"target": state.player_country})]
+    size = round(action.magnitude / len(nodes), 3)
+    return [action.model_copy(update={"target": n, "magnitude": size}) for n in nodes]
 
 
 def _act(kind: str, target: str, size: float) -> PolicyAction:
@@ -57,7 +83,7 @@ CALENDAR = [
             "A steady Budget with no big changes",
         ],
         packages=[
-            [_act("tax", "{country}", 0.5), _act("spend", "sector:public", 0.5)],
+            [_act("tax", HOUSEHOLDS, 0.5), _act("spend", "sector:public", 0.5)],
             [_act("spend", "sector:public", -0.5)],
             [_act("tax", "group:business", -0.5)],
             [_act("do_nothing", "{country}", 0)],
@@ -158,7 +184,11 @@ def fill(event: CalendarEvent, state: WorldState) -> CalendarEvent:
     known = set(state.node_ids())
     places = {"{group}": group_id, "{country}": state.player_country}
     packages = [
-        [a.model_copy(update={"target": places.get(a.target, a.target)}) for a in package]
+        [
+            b
+            for a in package
+            for b in spread(a.model_copy(update={"target": places.get(a.target, a.target)}), state)
+        ]
         for package in event.packages
     ]
     return event.model_copy(
