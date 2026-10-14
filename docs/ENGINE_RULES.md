@@ -431,7 +431,10 @@ Each turn, a node's deviation from where it would otherwise be is its own (fadin
 what its drivers pass on: **weight × 0.9 × the driver's deviation**, taken `lag` turns ago. The
 0.9 damping means a chain of links always loses strength. Same-turn (lag 0) links are solved
 together until they settle. Only `DRIVES`, `SUPPLIES`, `TRADES_WITH` and `INFLUENCES` edges
-spread changes, and never into population groups (approval has its own rules, section 6).
+spread changes, and never into or out of population groups (approval has its own rules,
+section 6). Groups are not engine nodes at all, so a shock aimed at a group does nothing. An
+outcome that tries one is sent back: a group's reaction goes in its group effects, under the
+event cap.
 
 Example from the starting world: higher energy prices raise inflation (weight 0.6, one turn
 later) and cut manufacturing output (0.1, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
@@ -829,7 +832,7 @@ what is coming in the next six turns.
 | Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
-| Outcome extra shock cap | ±1 step each, and ±1 step a node in total with event tags | `forecasting/candidates.py`, `world/events.py` |
+| Outcome extra shock cap | ±1 step each, and ±1 step a node in total with event tags; none on groups | `forecasting/candidates.py`, `world/events.py` |
 | Graph changes per outcome | 3 | `world/changes.py` |
 | Trade per unit of relationship | 50% of the trade weight | `world/changes.py` (`TRADE_PER_RELATIONSHIP`) |
 | Crisis abroad | below stability 0.5, up to 30% a turn, -1 step growth | `world/standing.py` |
