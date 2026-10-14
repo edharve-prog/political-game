@@ -31,7 +31,7 @@ from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
-from hog_sim.ui.builder import compose_response, describe, edit_actions
+from hog_sim.ui.builder import build_actions, compose_response, describe, edit_actions
 from hog_sim.world.calendar import upcoming
 from hog_sim.world.cast import active_cast
 from hog_sim.world.seed.toy import toy_world
@@ -183,7 +183,8 @@ def _finished(game: Game, save: str) -> str:
 
 REVIEW_PROMPT = (
     "\nPress Enter to confirm, or edit:\n"
-    "  drop 2  |  2 size 0.3  |  2 turns 4  |  save <name>  |  redo\n"
+    "  drop 2  |  2 size 0.3  |  2 turns 4  |  2 kind tax  |  2 target housing  |  add\n"
+    "  save <name>  |  redo\n"
     "> "
 )
 
@@ -232,6 +233,14 @@ def _ask_for_turn(
         if library is not None and words == ["packages"]:
             print(library.listing())
             continue
+        if words == ["build"]:
+            built = build_actions(game.state)
+            if not built:
+                continue
+            proposal = game.propose_actions(
+                "(built) " + "; ".join(describe(a) for a in built), built
+            )
+            break
         if library is not None and len(words) == 2 and words[0] == "use":
             try:
                 proposal = game.propose_actions(f"(package {words[1]})", library.get(words[1]))
@@ -264,8 +273,13 @@ def _ask_for_turn(
             except ValueError as err:
                 print(f"  {err}")
             continue
+        if command.lower() == "add":
+            proposal = game.revise(proposal, proposal.actions + build_actions(game.state))
+            dropped = []
+            continue
         try:
-            proposal = game.revise(proposal, edit_actions(proposal.actions, command))
+            nodes = list(game.state.node_ids())
+            proposal = game.revise(proposal, edit_actions(proposal.actions, command, nodes))
             dropped = []
         except ValueError as err:
             print(f"  {err}")
@@ -275,7 +289,8 @@ EXPLAIN_HINT = "\n(Type why or alternatives at the next prompt to see how that c
 
 RESPONSE_PROMPT = (
     "\nYour response: option numbers, your own words, or both (e.g. 1 3 + freeze fares).\n"
-    "Other commands: advise <question>  |  use <package>  |  packages  |  why  |  alternatives\n"
+    "Other commands: build (pick each measure from menus)  |  advise <question>  |  "
+    "use <package>  |  packages  |  why  |  alternatives\n"
     "> "
 )
 
@@ -314,8 +329,9 @@ def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
 
 
 OFFLINE_BANNER = (
-    "Mode: OFFLINE PRACTICE. Scenarios come from a built-in library and responses are\n"
-    "matched by keywords; Claude is not used."
+    "Mode: OFFLINE PRACTICE. Scenarios come from a built-in library and Claude is not used.\n"
+    "Typed responses are read by keyword matching, which only suggests a package: check it\n"
+    "and edit it at the review step, or type build to pick each measure from menus."
 )
 
 NO_CLAUDE_NOTE = "Could not reach Claude, so this game is offline practice."
