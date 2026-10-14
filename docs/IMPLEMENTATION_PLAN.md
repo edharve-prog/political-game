@@ -141,13 +141,23 @@ Each edge carries `weight`, `lag` (turns), and `uncertainty` (std dev used in Mo
 ### PolicyAction schema (what the interpreter must output)
 ```python
 class PolicyAction(BaseModel):
-    kind: Literal["tax", "spend", "regulate", "deregulate", "diplomatic",
-                  "military", "communicate", "legislate", "appoint", "do_nothing"]
-    target: str                 # node id, e.g. "sector:energy", "country:china"
-    magnitude: float            # normalised -1..1 or concrete units by kind
+    kind: Literal[
+        "tax",
+        "spend",
+        "regulate",
+        "deregulate",
+        "diplomatic",
+        "military",
+        "communicate",
+        "legislate",
+        "appoint",
+        "do_nothing",
+    ]
+    target: str  # node id, e.g. "sector:energy", "country:china"
+    magnitude: float  # normalised -1..1 or concrete units by kind
     duration_turns: int
-    requires: list[str]         # e.g. ["legislature_majority"]
-    rationale: str              # LLM's reading of the player's intent
+    requires: list[str]  # e.g. ["legislature_majority"]
+    rationale: str  # LLM's reading of the player's intent
 ```
 
 ---

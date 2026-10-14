@@ -668,9 +668,18 @@ wrote that turn, whichever reading is used.
 
 ### Picking one
 
-The default (`sample`) draws an outcome at random by probability, so the game can't be solved.
-`argmax` always takes the most likely, which makes it a difficulty setting. The draw is seeded,
-so replays match.
+The way an outcome is picked is a difficulty profile (`--luck` when starting a game):
+
+- `sample` (the default) draws an outcome at random by probability, so the game can't be solved.
+- `fair` also draws by probability, but spreads the luck out. Outcomes are ranked best first for
+  the government (by the turnout-weighted approval their events bring), and every block of four
+  turns takes exactly one draw from each quarter of the luck range, in a seeded order. Bad
+  outcomes therefore can't cluster: four aligned turns hold at most one draw from the unluckiest
+  quarter.
+- `argmax` always takes the most likely.
+- `hard` takes the worse, for the government, of the two likeliest outcomes.
+
+Every draw is seeded, so replays match.
 
 ---
 
