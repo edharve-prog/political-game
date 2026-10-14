@@ -20,7 +20,7 @@ from hog_sim.core.models import PolicyAction, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
-from hog_sim.game.loop import Game, Proposal
+from hog_sim.game.loop import Game, Proposal, StaleProposal
 from hog_sim.game.packages import PolicyLibrary
 from hog_sim.game.persistence import SaveStore
 from hog_sim.game.records import TurnRecord
@@ -228,15 +228,60 @@ def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     return "\n".join(lines)
 
 
+MODEL_FAILED_PROMPT = (
+    "Type r to try the model again, or o to use the offline reading for this turn.\n> "
+)
+
+
+def _retry_or_offline(what: str, err: Exception) -> str:
+    """After a model failure, ask whether to try again (``"retry"``) or play this step
+    offline (``"offline"``). Ctrl-D still saves and quits."""
+    print("\n" + _wrap(f"The model failed while {what}: {err}", "", "  "))
+    while True:
+        choice = input(MODEL_FAILED_PROMPT).strip().lower()
+        if choice in ("r", "retry", ""):
+            return "retry"
+        if choice in ("o", "offline"):
+            return "offline"
+
+
+def _guarded(game: Game, part: str, what: str, call, offline=None):
+    """``call()``, and when the model fails (E22) ask to retry or to run it once with
+    ``game.<part>`` (scenarios, interpreter or forecaster) swapped for ``offline``. Without
+    an offline stand-in the error is raised as before."""
+    from hog_sim.llm.client import LLMError
+
+    while True:
+        try:
+            return call()
+        except LLMError as err:
+            if offline is None:
+                raise
+            if _retry_or_offline(what, err) == "offline":
+                original = getattr(game, part)
+                setattr(game, part, offline)
+                try:
+                    return call()
+                finally:
+                    setattr(game, part, original)
+
+
 def _ask_for_turn(
-    game: Game, advisers: Advisers | None = None, library: PolicyLibrary | None = None
+    game: Game,
+    advisers: Advisers | None = None,
+    library: PolicyLibrary | None = None,
+    offline: tuple | None = None,
+    pending: Proposal | None = None,
 ) -> Proposal | None:
     """Build, review and confirm this turn's actions. ``None`` means start the response again.
 
     ``advise <question>`` asks the advisers for more options instead (Claude mode only).
     With a ``library``, ``use <name>`` loads a saved package, ``packages`` lists them and
-    ``save <name>`` at the review step saves the actions (story RB-5)."""
-    while True:
+    ``save <name>`` at the review step saves the actions (story RB-5). ``offline`` are the
+    offline plugins to fall back on when the model fails (E22); ``pending`` is a proposal
+    confirmed before the game stopped, offered again for review."""
+    proposal = pending
+    while proposal is None:
         raw = input(RESPONSE_PROMPT)
         words = raw.strip().lower().split()
         if words[:1] == ["advise"]:
@@ -258,7 +303,13 @@ def _ask_for_turn(
         options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
-            proposal = game.propose(response)
+            proposal = _guarded(
+                game,
+                "interpreter",
+                "reading your response",
+                partial(game.propose, response),
+                offline[1] if offline else None,
+            )
             break
         except ValueError as err:
             print(f"  {err}")
@@ -866,19 +917,52 @@ def _main(argv: list[str] | None) -> None:
 
     _log_turns(client, game_id, lambda: game.state.turn)
     library = PolicyLibrary(store.conn, game_id)
+    # Offline stand-ins for one step when the model fails (E22); none in offline play.
+    fallback = (
+        (
+            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
+            StoredInterpreter(knowledge, KeywordInterpreter()),
+            StoredForecaster(knowledge, EngineForecaster()),
+        )
+        if client
+        else None
+    )
+    pending = store.pending_proposal(game_id, game.state.turn)
+    if pending is not None:
+        try:
+            game.check(pending)
+            print("Your confirmed response from last time is waiting; review it to play it.")
+        except StaleProposal:
+            pending = None
     try:
         if game.over:  # resumed after the election
             print(_finished(game, args.save))
             return
         while not game.over:
             print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
-            print(_briefing(game))
             calls_before = len(client.usage.records) if client else 0
+            _guarded(
+                game,
+                "scenarios",
+                "writing this turn's scenario",
+                lambda: game.scenario,
+                fallback[0] if fallback else None,
+            )
+            print(_briefing(game))
             state_before = game.state
             proposal = None
             while proposal is None:
-                proposal = _ask_for_turn(game, advisers, library)
-            record = game.commit(proposal)
+                proposal = _ask_for_turn(game, advisers, library, fallback, pending)
+                pending = None
+            # Saved before the outcome is asked for, so a failure or a quit keeps it.
+            store.save_proposal(game_id, proposal)
+            record = _guarded(
+                game,
+                "forecaster",
+                "writing what happened",
+                partial(game.commit, proposal),
+                fallback[2] if fallback else None,
+            )
             store.save_turn(game_id, record)
             if client:
                 knowledge.harvest_turn(
