@@ -211,7 +211,17 @@ Special cases:
 - **Aimed at a population group** (a pension rise, a tax on landlords), the action is not a
   push on the graph. It becomes an approval boost or hit for that group of 0.05 per step: a
   full-magnitude pension rise is +0.10 to pensioners' target approval, held for as long as it
-  runs (section 6).
+  runs (section 6). Money handed to a group (spending on it, or a tax cut for it) also costs
+  every other group a quarter of what that group wins, for as long as it runs: the others see
+  someone else's pension rise or tax break. A tax rise on a group draws no such reaction.
+- **Tax or spending on a group also moves demand.** The money put into (or taken out of) the
+  group's pockets is spent on the sectors it buys from, held for as long as the money is paid
+  (at least 6 turns). Pensioners and public sector workers spend 80% of it, young renters 90%,
+  across the private sectors in proportion to their output (young renters weighted to housing);
+  business owners spend 40% of it, as investment in manufacturing (60%) and finance (40%). A
+  full-size pension rise (£34bn a year) therefore adds about £27bn of private-sector output, and
+  taxing business owners takes investment away. Part of every transfer is saved, so it lifts
+  output by less than spending the same money on a sector does.
 
 ### Policies that keep running
 

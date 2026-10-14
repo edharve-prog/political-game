@@ -90,6 +90,10 @@ CONFIDENCE_APPROVAL = 0.12
 # A policy aimed straight at a group (a pension rise, a tax on landlords) moves that group's
 # target approval by this much per standard step, for as long as the policy runs.
 GROUP_STEP = 0.05
+# Fairness (E6): money handed to one group (spending on it, a tax cut for it) costs every
+# other group this share of what it wins, for as long as it runs: the others see someone
+# else's pension rise or tax break, not their own.
+FAIRNESS = 0.25
 
 
 def policy_events(
@@ -99,7 +103,8 @@ def policy_events(
 
     The effect holds at full strength for the action's duration, then fades with the usual
     half-life, so a lasting benefit keeps its voters for as long as it is paid for. Given the
-    state, an unfunded tax cut that spooks markets also costs every group approval.
+    state, money handed to one group costs the others ``FAIRNESS`` of what it wins, and an
+    unfunded tax cut that spooks markets also costs every group approval.
     """
     events = []
     loss = unfunded_tax_cut(actions, state)
@@ -116,10 +121,13 @@ def policy_events(
             continue
         effect = action_factor(action) * action.magnitude * GROUP_STEP
         if effect:
+            effects = {action.target: effect}
+            if action.kind in ("tax", "spend") and effect > 0:
+                effects |= {g: -FAIRNESS * effect for g in groups if g != action.target}
             events.append(
                 ApprovalEvent(
                     name=f"{action.kind} {action.target}",
-                    group_effects={action.target: effect},
+                    group_effects=effects,
                     # Felt at full strength on the turn it starts and each turn after it
                     # while it runs: duration_turns updates in all (EC-7).
                     hold_turns=action.duration_turns - 1,
