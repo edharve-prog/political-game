@@ -6,11 +6,14 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(CARES_ABOUT weight * indicator change in standard steps)
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
-           + sum(active event effects, held for hold_turns then halving every half_life_turns),
-             capped at +-EVENT_CAP per group
+           + capped(gains from active events) - capped(losses from active events)
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
-The last term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
+Events are held for hold_turns, then halve every half_life_turns. A group's gains and its
+losses are capped separately, each below ``EVENT_CAP`` (``cap_events``), so a pile of good news
+cannot absorb a later backlash: bad news always lowers the target (E8).
+
+The deficit term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
 to a point, then each extra point of deficit costs approval across the board, so spending
 on everything cannot buy an election.
 
@@ -24,6 +27,7 @@ several turns rather than all at once, and approval drifts back to lean once it 
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -41,7 +45,8 @@ from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_ta
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
-EVENT_CAP = 0.15  # most that all active events together can move a group's target (EB-6)
+EVENT_CAP = 0.15  # most that a group's active gains, or its losses, move its target (EB-6)
+EVENT_KNEE = 0.10  # gains or losses up to this count in full; beyond it they taper to the cap
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
@@ -171,6 +176,19 @@ def policy_events(
     return events
 
 
+def cap_events(total: float) -> float:
+    """``total`` gains (or, negated, losses) from events, as they move a target: in full up to
+    ``EVENT_KNEE``, then tapering so they approach ``EVENT_CAP`` but never reach it. Each extra
+    event still counts for something, so piling on news moves a group less and less, but the
+    cap never hides news of the other sign (E8)."""
+    sign = 1.0 if total >= 0 else -1.0
+    size = abs(total)
+    if size <= EVENT_KNEE:
+        return total
+    room = EVENT_CAP - EVENT_KNEE
+    return sign * (EVENT_KNEE + room * (1 - math.exp(-(size - EVENT_KNEE) / room)))
+
+
 @dataclass(slots=True)
 class Term:
     """One part of a group's target approval (E20): ``kind`` is lean, cares, employs,
@@ -221,10 +239,9 @@ def approval_terms(
             if gid in felt:
                 felt[gid].append((event.name, effect * w))
     for gid, events in felt.items():
-        total = 0.0
-        for _, effect in events:
-            total += effect
-        capped = max(-EVENT_CAP, min(EVENT_CAP, total))
+        gains = sum(e for _, e in events if e > 0)
+        losses = sum(e for _, e in events if e < 0)
+        capped = cap_events(gains) + cap_events(losses)
         terms[gid].append(Term(kind="events", value=capped, events=events))
     return terms
 

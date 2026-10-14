@@ -508,7 +508,8 @@ Every turn, each group has a **target approval**:
 - for each institution that influences it: + 0.05 × weight × how far the institution's support
   is above or below 0.5, in steps (measured from 0.5, not from the start, so an institution
   that already backs the government lifts the group from turn one);
-- plus all active **approval events** for the group (below), capped at ±0.15 in total;
+- plus all active **approval events** for the group (below), gains and losses capped
+  separately, each just under 0.15;
 - minus the **debt penalty**: if the deficit is above 5% of GDP, every group loses 0.03 for each
   point above 5. Borrowing is tolerated up to a point, then costs credibility with everyone.
 
@@ -537,8 +538,10 @@ negligible. They come from:
 - the chosen outcome's group reactions (Claude may claim at most ±0.1 per group);
 - broken pledges (see below).
 
-Because all events together are capped at ±0.15 per group, no pile of good news can carry a
-group on its own.
+A group's gains from events and its losses are capped separately. Each counts in full up to 0.10
+and then tapers toward 0.15 without reaching it, so no pile of good news can carry a group on
+its own, and good news never hides bad: with +0.25 of good news active, a −0.05 broken pledge
+still takes 0.05 off the target. (When the cap applied to the total, it took nothing off.)
 
 ### Pledges
 
@@ -817,7 +820,7 @@ what is coming in the next six turns.
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
 | Share of approval gap closed a turn | 50% | `population/popularity.py` |
 | Voters get used to a lasting change | half-life 12 turns | `population/popularity.py` (`HABIT_HALF_LIFE`) |
-| Approval event cap per group | ±0.15 | `population/popularity.py` |
+| Approval event cap per group | gains and losses each tapering from 0.10 toward 0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
 | Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
 | Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
