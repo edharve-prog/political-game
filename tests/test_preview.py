@@ -46,8 +46,9 @@ def run(game: Game, actions):
 
 def test_the_preview_is_what_playing_the_package_in_a_quiet_world_gives() -> None:
     game = new_game()
-    result = run(game, PACKAGE)
-    game.commit(game.revise(game.propose("plan"), PACKAGE))
+    proposal = game.revise(game.propose("plan"), PACKAGE)
+    result = run(game, proposal.actions)  # as the limits leave it, as the review screen does
+    game.commit(proposal)
     deficits = [game.state.indicators["indicator:deficit"].value]
     while not game.over:
         game.play_turn("nothing")

@@ -41,7 +41,7 @@ class Path(Model):
 class MeasureCost(Model):
     action: PolicyAction
     debt: float  # debt at the election with the package minus without this measure, % of GDP
-    capital: float  # political capital it uses this turn
+    capital: float  # political capital it uses over its life (O1)
 
 
 class Preview(Model):
@@ -151,6 +151,6 @@ def preview_lines(preview: Preview, describe=lambda a: f"{a.kind} {a.target}") -
             lines.append(f"  - {describe(m.action)}")
             lines.append(
                 f"    {m.debt:+.2f}% of GDP on the debt by the election, "
-                f"{m.capital:.2f} political capital"
+                f"{m.capital:.2f} political capital over its life"
             )
     return lines
