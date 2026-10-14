@@ -81,8 +81,10 @@ Also record any promise about what the government will never or will not do, in 
 pledge. Each pledge rules out one kind of action:
 - text: the promise in a few words of the leader's own
 - kind: the action kind it rules out
-- direction: "up" when it rules out a positive magnitude (raising taxes, more military \
-action), "down" a negative one (spending cuts), "any" both
+- direction: "up" when it rules out raising the tax, spending or action itself (raising \
+taxes, more military action), "down" when it rules out cutting it (spending cuts), "any" both. \
+This is the instrument's own direction, not the target's: "no stamp duty rise" is tax, up, on \
+house prices, though a stamp duty rise aims to push house prices down
 - target: the node id it protects, or null when it covers everything of that kind ("no new \
 taxes" is tax, up, null)
 - groups: the group ids who would care most if it were broken

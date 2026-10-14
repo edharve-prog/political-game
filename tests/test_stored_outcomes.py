@@ -3,9 +3,9 @@ their narratives describe, and are not reused when today's engine contradicts th
 
 import pytest
 
-from hog_sim.core.models import Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Outcome, Pledge, PolicyAction, Scenario
 from hog_sim.game.stubs import EngineForecaster
-from hog_sim.knowledge.entries import OutcomeEntry, Provenance, scenario_id
+from hog_sim.knowledge.entries import OutcomeEntry, Provenance, reuse_context, scenario_id
 from hog_sim.knowledge.offline import StoredForecaster
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.world.propagation import actions_to_shocks, propagate
@@ -84,3 +84,84 @@ def test_outcomes_today_s_engine_contradicts_are_not_reused(tmp_path) -> None:
     out = forecaster.forecast(world, SCENARIO, [TAX], engine)
     assert forecaster.last_source == "fallback"
     assert all("Wrong way" not in c.narrative for c in out)
+
+
+# Review of 13 Oct 2026, E23: stored outcomes were matched on the actions and sackings only,
+# so a narrative written for a consulted, phased package, a broken pledge or a bill the
+# Commons blocked could be replayed for a turn where none of that happened.
+
+CONSULTED = Delivery(consulted=["sector:energy"], speed="phased")
+BLOCKED = "Blocked: spend sector:public (the Commons would not pass it; support 0.31)"
+
+
+def forecaster_with(tmp_path, context):
+    world = toy_world()
+    engine = engine_forecast(world)
+    store = KnowledgeStore(tmp_path / "k.db")
+    entry = OutcomeEntry(
+        scenario_id=scenario_id(SCENARIO),
+        scenario_title=SCENARIO.title,
+        affected_nodes=[],
+        response="windfall tax",
+        actions=[TAX],
+        candidates=[outcome("Stored", claims_matching(engine), 0.9)],
+        chosen=0,
+        provenance=Provenance(model="fake"),
+        context=context,
+    )
+    store.put("outcome", "k1", entry, scenario=entry.scenario_id)
+    return StoredForecaster(store, EngineForecaster()), world, engine
+
+
+@pytest.mark.parametrize(
+    ("stored", "delivery", "limits"),
+    [
+        (reuse_context(CONSULTED, [], []), None, []),
+        (reuse_context(None, [], [BLOCKED]), None, []),
+        (reuse_context(None, [], []), CONSULTED, []),
+        (None, CONSULTED, []),
+    ],
+)
+def test_outcomes_from_another_context_are_not_reused(tmp_path, stored, delivery, limits):
+    forecaster, world, engine = forecaster_with(tmp_path, stored)
+    forecaster.forecast(world, SCENARIO, [TAX], engine, delivery=delivery, limits=limits)
+    assert forecaster.last_source == "fallback"
+
+
+def test_outcomes_from_the_same_context_are_reused(tmp_path) -> None:
+    # The reason for a block carries numbers that change; the measure blocked is what counts.
+    stored = reuse_context(CONSULTED, [], [BLOCKED])
+    forecaster, world, engine = forecaster_with(tmp_path, stored)
+    later = BLOCKED.replace("0.31", "0.28")
+    forecaster.forecast(world, SCENARIO, [TAX], engine, delivery=CONSULTED, limits=[later])
+    assert forecaster.last_source == "stored"
+
+
+def test_old_entries_are_reused_only_on_a_plain_turn(tmp_path) -> None:
+    forecaster, world, engine = forecaster_with(tmp_path, None)
+    forecaster.forecast(world, SCENARIO, [TAX], engine)
+    assert forecaster.last_source == "stored"
+
+
+def test_a_broken_pledge_is_part_of_the_context(tmp_path) -> None:
+    forecaster, world, engine = forecaster_with(tmp_path, reuse_context(None, [], []))
+    world.pledges.append(Pledge(text="No new taxes", kind="tax", direction="up", made_turn=0))
+    forecaster.forecast(world, SCENARIO, [TAX], engine)
+    assert forecaster.last_source == "fallback"
+
+
+def test_harvest_files_the_turn_s_context(tmp_path) -> None:
+    from hog_sim.core.config import GameConfig
+    from hog_sim.game.loop import Game
+    from hog_sim.game.stubs import CannedScenarios, KeywordInterpreter
+
+    config = GameConfig(seed=0, election_turn=6, k_draws=5)
+    plugins = (CannedScenarios(0, calendar=False), KeywordInterpreter(), EngineForecaster())
+    game = Game(config, toy_world(), *plugins)
+    game.play_turn("Cap household bills. We will not raise taxes.")
+    before = game.state
+    record = game.play_turn("Put a windfall tax on energy companies")
+    store = KnowledgeStore(tmp_path / "k.db")
+    store.harvest_turn("g1", record, before)
+    (entry,) = store.outcomes(scenario_id(record.scenario))
+    assert entry.context.broken_pledges == ["We will not raise taxes"]

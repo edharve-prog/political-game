@@ -123,3 +123,7 @@ class LLMInterpreter:
     def last_sacked(self) -> list[str]:
         """Ministers the last response sacked (story SD-4)."""
         return list(self.last_interpretation.sacked) if self.last_interpretation else []
+
+    def last_unmapped(self) -> list[str]:
+        """Measures in the last response that fit nothing in the game (E21)."""
+        return list(self.last_interpretation.unmapped) if self.last_interpretation else []

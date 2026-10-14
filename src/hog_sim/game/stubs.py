@@ -319,6 +319,9 @@ def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
         if re.search(_NEGATION, t):
             if re.search(r"\btax", t) and re.search(r"rais|increas|\bnew\b|\brise|put up", t):
                 pledge = Pledge(text=words, kind="tax", direction="up")
+            elif re.search(r"\btax", t) and re.search(r"\bcut|\blower|reduc", t):
+                # "We will not cut taxes" rules out a tax cut, not a spending cut (E10).
+                pledge = Pledge(text=words, kind="tax", direction="down")
             elif re.search(r"\bcuts?\b", t):
                 target = next((node for pat, node in _TARGETS if re.search(pat, t)), None)
                 pledge = Pledge(text=words, kind="spend", direction="down", target=target)

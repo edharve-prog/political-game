@@ -13,16 +13,18 @@ from typing import Literal
 from pydantic import Field
 
 from hog_sim.content.library import CATEGORIES, Provenance, slugify
-from hog_sim.core.models import GraphChange, Model, Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, GraphChange, Model, Outcome, PolicyAction, Scenario
 
 __all__ = [
     "GraphChangeEntry",
     "InterpretationEntry",
     "OutcomeEntry",
     "Provenance",
+    "ReuseContext",
     "action_signature",
     "guess_category",
     "normalise_text",
+    "reuse_context",
     "scenario_id",
 ]
 
@@ -35,6 +37,43 @@ class InterpretationEntry(Model):
     response: str
     actions: list[PolicyAction]
     provenance: Provenance
+
+
+class ReuseContext(Model):
+    """What an outcome's narrative may describe beyond the actions and sackings (E23): how the
+    package was delivered, the pledges it broke and the measures blocked or forced through.
+    A stored outcome is reused only on a turn with the same context."""
+
+    consulted: list[str] = Field(default_factory=list)
+    speed: str = "immediate"
+    broken_pledges: list[str] = Field(default_factory=list)
+    blocked: list[str] = Field(default_factory=list)
+
+    @property
+    def plain(self) -> bool:
+        return self == ReuseContext()
+
+    def key(self) -> str:
+        return hashlib.sha256(self.model_dump_json().encode()).hexdigest()[:12]
+
+
+LIMIT_PREFIXES = ("Blocked:", "Forced through:")
+
+
+def reuse_context(
+    delivery: Delivery | None, broken_pledges: list[str], limits: list[str] | None
+) -> ReuseContext:
+    """The context to match stored outcomes on. Limit notes count only when a measure was
+    blocked or forced through, and only by kind and target: the reasons carry numbers that
+    change from turn to turn."""
+    delivery = delivery or Delivery()
+    blocked = {note.split(" (", 1)[0] for note in limits or [] if note.startswith(LIMIT_PREFIXES)}
+    return ReuseContext(
+        consulted=sorted(set(delivery.consulted)),
+        speed=delivery.speed,
+        broken_pledges=sorted(set(broken_pledges)),
+        blocked=sorted(blocked),
+    )
 
 
 class OutcomeEntry(Model):
@@ -53,6 +92,14 @@ class OutcomeEntry(Model):
         description="Cast members sacked that turn; candidates' narratives may mention them, so "
         "they are reused only on a turn that sacks the same people",
     )
+    context: ReuseContext | None = Field(
+        None,
+        description="Delivery, broken pledges and blocked measures that turn (E23); entries "
+        "from before it are reused only on a plain turn",
+    )
+
+    def fits(self, context: ReuseContext) -> bool:
+        return self.context == context if self.context is not None else context.plain
 
     @property
     def outcome(self) -> Outcome:
