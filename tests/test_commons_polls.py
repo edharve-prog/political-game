@@ -4,7 +4,7 @@ import pytest
 
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import Outcome, PolicyAction, Scenario
-from hog_sim.forecasting.scoring import BASE_RATES, base_rate
+from hog_sim.forecasting.scoring import FITTED_RATES, base_rate
 from hog_sim.game.loop import COMMONS_POLLS, INSTITUTION_SETTLE, resolve
 from hog_sim.policy.feasibility import LEGISLATURE_ID, check_feasibility
 from hog_sim.population.popularity import national_approval
@@ -49,6 +49,6 @@ def test_resistance_raises_rebellion_odds() -> None:
         == 0
     )
     rebellion = base_rate(["backbench_rebellion"], resistance=resistance)
-    assert rebellion == pytest.approx(BASE_RATES["backbench_rebellion"] * (1 + 2 * resistance))
-    assert base_rate(["strike"], resistance=resistance) == BASE_RATES["strike"]
+    assert rebellion == pytest.approx(FITTED_RATES["backbench_rebellion"] * (1 + 2 * resistance))
+    assert base_rate(["strike"], resistance=resistance) == FITTED_RATES["strike"]
     assert base_rate(["backbench_rebellion"], resistance=1.0) <= 1.0
