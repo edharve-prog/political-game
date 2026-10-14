@@ -372,9 +372,24 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    (communicate) at a quarter, whips at full price, measures forced through at double and do
    nothing free, times each measure's **lifetime**: every turn a measure runs after its first
    adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
-   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. The
-   budget is **1.5 a turn**. Above it, every measure is scaled down by the same share to fit.
-   The review screen shows each measure's capital and deficit cost over its life.
+   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. A
+   speech also carries only part of its stated size when credibility is low (see
+   Credibility below). Above the capital the government holds this turn, every measure is
+   scaled down by the same share to fit. The review screen shows each measure's capital and
+   deficit cost over its life.
+
+   **Capital is a stock.** The first turn has 1.5. At the end of every turn the stock
+   refills, and half of what the turn left unspent is banked on top, up to 3.0 in all. The
+   refill is 1.5 times four factors, each 1 at the starting world:
+
+   - approval: +4% for every point of vote intention above 48% (and down below it);
+   - majority: +2% for every point of the legislature's support above 0.6;
+   - the electoral cycle: a **honeymoon** worth +30% just after the election that halves
+     every 3 turns, and a **mid-term slump** of up to -20%, deepest halfway to the election
+     and gone by polling day;
+   - credibility: 0.5 plus credibility (so 1 at 0.5).
+
+   The refill never falls below a quarter of 1.5. The dashboard shows the stock.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP, on any
    turn the package's costs run. Only the borrowing measures are scaled down to fit, and tax
@@ -553,6 +568,24 @@ cared: 0.05 each, or 0.02 for every group when the pledge named none. The event 
 extra turn and then halves every 4 turns. A pledge breaks only once, and the player is warned
 before confirming a response that would break one. Every prompt lists the pledges, kept or
 broken, so scenarios and outcomes can refer back to them.
+
+### Credibility
+
+One score, from 0 to 1, for how far voters and markets believe the government. It starts at
+0.5 and moves at the end of each turn:
+
+- each U-turn (going the other way on a measure still running) costs 0.06;
+- each pledge broken costs 0.08;
+- a crisis (an unscheduled scenario with urgency 0.75 or more) met with a real measure on
+  something it affects earns 0.04; met with speeches, nothing, or measures elsewhere, it
+  costs 0.05;
+- then the score drifts 5% of the way back toward 0.5, so old sins fade.
+
+Credibility does three things. Every speech carries 0.5 plus credibility of its stated size
+(half at 0, one and a half at 1), applied by the limits, so the logged action is what ran.
+Every group's target approval moves by 0.1 times credibility's distance from 0.5 (so -0.03
+at 0.2). And it scales the capital refill (above). The dashboard shows it, and "why" names
+it when it moves a group.
 
 ### People
 
@@ -798,7 +831,8 @@ what is coming in the next six turns.
 |---|---|---|
 | Turns before the election | 24 | `core/config.py` |
 | Forecast horizon, random draws | 24 turns, 100 draws | `core/config.py` |
-| Political capital a turn | 1.5 | `core/config.py` |
+| Political capital | 1.5 on the first turn, then a stock: refill 1.5 x approval x majority x cycle x credibility, half of unspent banked, at most 3.0 | `core/config.py`, `policy/capital.py` |
+| Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |

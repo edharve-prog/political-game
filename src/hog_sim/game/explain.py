@@ -248,9 +248,11 @@ def why(record: TurnRecord, before: WorldState, start: WorldState, config: GameC
 
 def _judged(before: WorldState, after: WorldState) -> WorldState:
     """The state ``step_approval`` judged this turn: ``after`` with the baselines voters
-    held coming into the turn and the events as old as they were then."""
+    held coming into the turn, the credibility it had then and the events as old as they were
+    then."""
     seen = after.snapshot()
     seen.baselines = dict(before.baselines)
+    seen.credibility = before.credibility
     for event in seen.events:
         event.age_turns = max(0, event.age_turns - 1)
     return seen
@@ -265,6 +267,8 @@ def _term_label(state: WorldState, term: Term) -> str:
         return f"{_name(state, term.node)}'s standing"
     if term.kind == "debt":
         return f"deficit above {DEFICIT_TOLERANCE:g}% of GDP"
+    if term.kind == "credibility":
+        return "the government's credibility"
     return "events in force (capped)"
 
 

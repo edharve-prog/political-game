@@ -63,8 +63,21 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
+from hog_sim.policy.capital import available, next_capital
+from hog_sim.policy.credibility import (
+    CredibilityChange,
+    is_crisis,
+    meets_crisis,
+    step_credibility,
+)
 from hog_sim.policy.feasibility import LEGISLATURE_ID, forcing_shocks
-from hog_sim.policy.limits import Constrained, constrain
+from hog_sim.policy.limits import (
+    Constrained,
+    capital_cost,
+    constrain,
+    reverses,
+    still_running,
+)
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import (
     national_approval,
@@ -326,8 +339,29 @@ def resolve(
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions)
+    new.credibility = step_credibility(
+        state.credibility, credibility_change(new, state, scenario, actions)
+    )
+    new.measures = still_running(state.measures, actions)
     new.turn = state.turn + 1
+    unspent = available(state, config) - capital_cost(
+        actions, state, config.role, running=state.measures
+    )
+    new.capital = next_capital(new, unspent, config)
     return new
+
+
+def credibility_change(
+    new: WorldState, state: WorldState, scenario: Scenario, actions: Sequence[PolicyAction]
+) -> CredibilityChange:
+    """What moved credibility on ``state``'s turn (D9): its U-turns, the pledges it broke,
+    and whether a crisis was met with a real measure."""
+    return CredibilityChange(
+        u_turns=sum(reverses(a, state.measures) for a in actions),
+        broken_pledges=sum(p.broken_turn == state.turn for p in new.pledges),
+        crisis=is_crisis(scenario),
+        handled=meets_crisis(scenario, actions),
+    )
 
 
 class StaleProposal(RuntimeError):
@@ -506,7 +540,7 @@ class Game:
             self.state,
             [r.actions for r in self.history],
             cfg.role,
-            cfg.capital_per_turn,
+            available(self.state, cfg),
         )
 
     def check(self, proposal: Proposal) -> None:

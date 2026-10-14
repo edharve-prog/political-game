@@ -29,6 +29,7 @@ from hog_sim.core.models import ActionKind, Model, Outcome, PolicyAction, Scenar
 from hog_sim.core.state import WorldState
 from hog_sim.game.loop import Game, resolve
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
+from hog_sim.policy.capital import available
 from hog_sim.policy.feasibility import compatibility_problem
 from hog_sim.policy.limits import constrain, lifetime_cost
 from hog_sim.population.popularity import run_election
@@ -233,7 +234,7 @@ def quiet_game(schedule: Mapping[int, Sequence[PolicyAction]], seed: int = 0, tu
     state, past = start, []
     for turn in range(turns):
         limited = constrain(
-            list(schedule.get(turn, [])), state, past, config.role, config.capital_per_turn
+            list(schedule.get(turn, [])), state, past, config.role, available(state, config)
         )
         past.append(limited.actions)
         state = resolve(start, state, _QUIET, limited.actions, _NO_OUTCOME, config)
