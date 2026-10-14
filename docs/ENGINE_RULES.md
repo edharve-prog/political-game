@@ -499,6 +499,19 @@ differs between the two. A new wage subsidy is therefore credited with the jobs 
 than counted on both sides. The offline forecaster uses that difference to decide who welcomes
 the response and who pushes back; the scenario's own harm is not blamed on the response.
 
+### The decision preview
+
+*Source: `game/preview.py`*
+
+The review screen, before you confirm, shows what the package does by the election. It plays the
+rest of the parliament with resolve itself, the central weights and the full approval rules, once
+with the package and once doing nothing this turn. Both face this turn's scenario and then quiet
+months: no outcome effects, no new crises and no further decisions. It shows the deficit and debt
+after the next turn, every six turns and at the election, and the vote and seats at the election
+for each. For every measure it also plays the package without that measure: the measure's cost is
+how much higher the debt is at the election with it, beside the political capital it uses. This is
+what the decisions alone do in a calm world, not a forecast of what will happen.
+
 ---
 
 ## 6. Popularity, approval and the election

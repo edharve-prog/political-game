@@ -23,6 +23,7 @@ from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal, StaleProposal
 from hog_sim.game.packages import PolicyLibrary
 from hog_sim.game.persistence import SaveStore
+from hog_sim.game.preview import preview, preview_lines
 from hog_sim.game.records import TurnRecord
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
@@ -228,6 +229,24 @@ def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     return "\n".join(lines)
 
 
+def _preview_text(game: Game, proposal: Proposal) -> str:
+    """The decision preview (D2): this package against doing nothing, to the election."""
+    result = preview(
+        game.start,
+        game.state,
+        game.scenario,
+        proposal.actions,
+        game.config,
+        proposal.pledges,
+        proposal.delivery,
+        proposal.sacked,
+        game.config.role,
+    )
+    lines = [_section("Looking ahead to the election"), ""]
+    lines += preview_lines(result, describe)
+    return "\n".join(lines)
+
+
 MODEL_FAILED_PROMPT = (
     "Type r to try the model again, or o to use the offline reading for this turn.\n> "
 )
@@ -317,6 +336,7 @@ def _ask_for_turn(
             print("\n" + _wrap(f"Your advisers ask: {ask.question}", "", "  "))
     while True:
         print(_proposal_text(proposal, game.state))
+        print(_preview_text(game, proposal))
         command = input(REVIEW_PROMPT).strip()
         if command.lower() in ("", "y", "yes", "ok"):
             return proposal
