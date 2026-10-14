@@ -361,8 +361,11 @@ class Character(Model):
 class Pledge(Model):
     """A promise the leader made, remembered across turns (backlog story SD-5).
 
-    It rules out one kind of action: ``kind`` in ``direction`` ("up" is a positive
-    magnitude, "down" a negative one), on ``target`` or, when that is None, on anything.
+    It rules out one kind of action: ``kind`` in ``direction``, on ``target`` or, when that
+    is None, on anything. The direction is the instrument's own (``PolicyAction.instrument_sign``):
+    "up" raises the tax, spending or action, "down" cuts it. On a sector or group that is the
+    magnitude's sign; on an indicator it is ``instrument``, so "no stamp duty rise" is
+    ``tax``/``up`` on house prices, though the rise aims to push them down (E10).
     "No new taxes" is ``tax``/``up``/None; "hands off the NHS budget" is ``spend``/``down``
     on the health sector. The engine marks it broken when an applied action matches.
     """

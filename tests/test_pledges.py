@@ -51,6 +51,63 @@ def test_a_pledge_rules_out_one_kind_direction_and_target(pledge, action, broken
     assert breaks(pledge, action) is broken
 
 
+# E10: on an indicator, the magnitude is the way the leader wants the indicator to go, and
+# the instrument says whether the tax or spending itself goes up. A pledge's direction is the
+# instrument's, as the interpreter prompt now asks.
+NO_STAMP_DUTY_RISE = Pledge(
+    text="No stamp duty rise", kind="tax", direction="up", target="indicator:house_prices"
+)
+NO_STAMP_DUTY_CUT = Pledge(
+    text="No stamp duty cut", kind="tax", direction="down", target="indicator:house_prices"
+)
+
+
+def stamp_duty(instrument: str) -> PolicyAction:
+    # A rise cools prices (magnitude < 0); a cut lifts them (magnitude > 0).
+    magnitude = -0.4 if instrument == "raise" else 0.4
+    return PolicyAction(
+        kind="tax", target="indicator:house_prices", magnitude=magnitude, instrument=instrument
+    )
+
+
+@pytest.mark.parametrize(
+    ("pledge", "instrument", "broken"),
+    [
+        (NO_STAMP_DUTY_RISE, "raise", True),
+        (NO_STAMP_DUTY_RISE, "cut", False),
+        (NO_STAMP_DUTY_CUT, "cut", True),
+        (NO_STAMP_DUTY_CUT, "raise", False),
+        (NO_NEW_TAXES, "raise", True),
+        (NO_NEW_TAXES, "cut", False),
+    ],
+)
+def test_a_pledge_on_an_indicator_follows_the_instrument(pledge, instrument, broken) -> None:
+    assert breaks(pledge, stamp_duty(instrument)) is broken
+
+
+def test_the_interpreter_prompt_defines_direction_as_the_instrument() -> None:
+    from hog_sim.llm.prompts.interpreter import PLEDGES
+
+    assert "instrument's own direction" in PLEDGES
+    assert '"no stamp duty rise" is tax, up' in PLEDGES
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "direction"),
+    [
+        ("We will not raise taxes", "tax", "up"),
+        ("We will not cut taxes", "tax", "down"),
+        ("We will not lower taxes on business", "tax", "down"),
+        ("No cuts to schools", "spend", "down"),
+    ],
+)
+def test_keyword_pledges_read_the_instrument_direction(text, kind, direction) -> None:
+    from hog_sim.game.stubs import keyword_pledges
+
+    (pledge,) = keyword_pledges(text)[0]
+    assert (pledge.kind, pledge.direction) == (kind, direction)
+
+
 def test_breaking_a_pledge_marks_it_and_hits_the_groups_who_cared() -> None:
     state = toy_world()
     state.pledges = [NO_NEW_TAXES, HANDS_OFF_PUBLIC]
@@ -96,7 +153,7 @@ def test_a_pledge_made_in_one_turn_is_broken_in_a_later_one_and_replays(tmp_path
 
     proposal = game.propose("Put a windfall tax on energy companies")
     assert [p.text for p in broken_by(game.state, proposal.actions)] == ["We will not raise taxes"]
-    assert "Warning: this breaks your pledge" in cli._proposal_text(proposal, [], game.state)
+    assert "Warning: this breaks your pledge" in cli._proposal_text(proposal, game.state)
     second = game.commit(proposal)
     assert "breaks the pledge" in second.outcome.narrative
     assert game.state.pledges[0].broken_turn == 1
