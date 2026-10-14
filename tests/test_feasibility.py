@@ -122,6 +122,12 @@ def test_do_nothing_needs_nothing(world: WorldState) -> None:
         ("appoint", "sector:finance", 0.5, False),
         ("spend", "sector:public", 0.5, True),
         ("tax", "country:china", 0.5, False),
+        ("communicate", "country:uk", 0.5, True),
+        ("spend", "country:uk", 0.5, False),
+        ("tax", "country:uk", -0.5, False),
+        ("deregulate", "country:uk", 0.5, False),
+        ("regulate", "country:uk", 0.5, False),
+        ("legislate", "country:uk", 0.5, False),
         ("do_nothing", "country:uk", 0.0, True),
     ],
 )
