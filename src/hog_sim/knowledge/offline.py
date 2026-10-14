@@ -276,7 +276,7 @@ class StoredForecaster:
                 CandidateScores(
                     consistency=consistency(c.indicator_deltas, engine, turn),
                     judge=c.scores.get("judge", c.probability),
-                    base_rate=base_rate(c.events, delivery, resistance),
+                    base_rate=base_rate(c.events, delivery, resistance, actions),
                     self_reported=c.scores.get("self_reported", c.probability),
                 )
                 for c in candidates

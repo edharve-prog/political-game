@@ -26,6 +26,10 @@ majority for a few turns, but no longer for the rest of the game (EB-14: in the 
 review the Commons fell below a majority at turn 13 and blocked every spend and tax after).
 The legislature settles toward its starting support plus ``COMMONS_POLLS`` times the change in
 national approval since the start: backbenchers grow restless when the polls fall (EB-8).
+Settling moves only the part of support the engine does not carry (direct edits, ministers
+leaving, the polls' drift); the engine fades its own deviation (a whip, a rebellion's shock)
+by itself. Settling both reverted the same ground twice, so a whip ended below never whipping
+and a rebellion recovered past the quiet path (E7).
 
 The engine carries its own state between turns (``WorldState.engine``: each node's fading
 push, its recent deviations and the shocks still running), and each turn ``resolve`` moves it
@@ -80,6 +84,7 @@ from hog_sim.world.propagation import (
     apply_deltas,
     job_protection,
     propagate,
+    scale,
     step,
 )
 from hog_sim.world.standing import (
@@ -106,11 +111,25 @@ def _homes(state: WorldState, start: WorldState) -> dict[str, float]:
     return homes
 
 
+def _settled(support: float, home: float, deviation: float) -> float:
+    """``support`` after settling toward ``home``: only the part the engine does not carry
+    (``deviation``, in native units, which the engine fades itself) closes its gap."""
+    own = support - deviation
+    return support + (home - own) * INSTITUTION_SETTLE
+
+
+def _deviation(state: WorldState, node_id: str) -> float:
+    """What the engine carries on ``node_id`` this turn, in native units."""
+    levels = state.engine.levels.get(node_id)
+    return levels[-1] * scale(state, node_id) if levels else 0.0
+
+
 def _settle_institutions(state: WorldState, start: WorldState) -> WorldState:
     new = state.snapshot()
     for inst_id, home in _homes(state, start).items():
         inst = new.institutions[inst_id]
-        inst.support += (home - inst.support) * INSTITUTION_SETTLE
+        settled = _settled(inst.support, home, _deviation(state, inst_id))
+        inst.support = min(1.0, max(0.0, settled))
     return new
 
 
@@ -208,11 +227,15 @@ def _projection(
     left = _departures(state, scenario, actions, delivery, sacked)
     homes = _homes(state, start)
 
-    def settle(turn: int, values: dict[str, float]) -> None:
+    sizes = {inst_id: scale(state, inst_id) for inst_id in homes}
+
+    def settle(turn: int, values: dict[str, float], levels: dict[str, float]) -> None:
         if turn == state.turn and left and LEGISLATURE_ID in values:
             values[LEGISLATURE_ID] = max(0.0, values[LEGISLATURE_ID] - left * DEPARTURE_COST)
         for inst_id, home in homes.items():
-            values[inst_id] += (home - values[inst_id]) * INSTITUTION_SETTLE
+            deviation = levels.get(inst_id, 0.0) * sizes[inst_id]
+            settled = _settled(values[inst_id], home, deviation)
+            values[inst_id] = min(1.0, max(0.0, settled))
 
     changes = action_changes(state, actions)
     return Projection(
@@ -548,7 +571,14 @@ class Game:
             limits=proposal.notes,
             sacked=proposal.sacked,
         )
-        chosen = select(candidates, cfg.selection_mode, make_rng(cfg.seed, state.turn, "select"))
+        chosen = select(
+            candidates,
+            cfg.selection_mode,
+            make_rng(cfg.seed, state.turn, "select"),
+            seed=cfg.seed,
+            turn=state.turn,
+            group_weights={gid: g.population_share * g.turnout for gid, g in state.groups.items()},
+        )
 
         new = resolve(
             self.start,
