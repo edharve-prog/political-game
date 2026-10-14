@@ -307,6 +307,11 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    turn, so a rebellion costs the majority for a few turns rather than the whole game. The
    Commons settles toward its starting support **plus half the change in national approval**
    since the start: when the polls fall 10 points, backbenchers drift 0.05 less supportive.
+   Settling moves only the part of support the engine does not carry (a direct edit, a
+   minister leaving, the polls' drift). What the engine carries (a whip, a rebellion's shock)
+   fades at the engine's own rate, 72% kept a turn (section 5), and nothing else pulls it back,
+   so a whip never ends below never whipping and a rebellion never recovers past the quiet
+   path.
 
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
@@ -362,7 +367,8 @@ A node's own push fades once nothing sustains it. Each turn it keeps a share of 
 | Node | Kept each turn | Roughly halves in |
 |---|---|---|
 | Country | 80% | 3 turns |
-| Sector, institution | 90% | 6.5 turns |
+| Sector | 90% | 6.5 turns |
+| Institution | 72% | 2 turns |
 | Indicator | 85% (unless it sets its own) | 4 turns |
 | Deficit (its own setting) | 50% | 1 turn |
 
@@ -751,7 +757,7 @@ what is coming in the next six turns.
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
 | Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
-| Institutions settle back, Commons follows polls | 20% of the gap a turn; 0.5 support per point of approval | `game/loop.py` |
+| Institutions settle back, Commons follows polls | 20% of the gap a turn (the part the engine does not carry); 0.5 support per point of approval | `game/loop.py` |
 | Rebellion odds per unit of resistance | +200% | `forecasting/scoring.py` (`RESISTANCE_FACTOR`) |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
