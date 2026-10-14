@@ -32,7 +32,8 @@ you agree with it). Only indicator ids from the briefing.
 broken promise, relief at decisive action), -0.1..0.1 on a 0..1 approval scale. Leave empty \
 when the indicators say it all.
 - new_shocks: knock-on events that hit a node directly (a strike cuts public sector output, a \
-tariff hits manufacturing), in standard steps -1..1. Leave empty when nothing new happens.
+tariff hits manufacturing), in standard steps -1..1, never on a population group (a group's \
+reaction goes in group_effects). Leave empty when nothing new happens.
 - graph_changes: lasting shifts in how the world is wired, beyond this turn's numbers. Most \
 candidates have none; use at most 3. Kinds: "node_attr" moves a country's relationship \
 (-1..1) or stability, an institution's support or independence, or a sector's sentiment, by at \

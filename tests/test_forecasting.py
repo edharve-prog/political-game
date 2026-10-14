@@ -216,6 +216,17 @@ def test_none_is_the_only_tag_when_used(world, engine) -> None:
     assert "'none' cannot be combined" in client.requests[1].messages[-1].content
 
 
+def test_new_shocks_on_a_group_are_sent_back(world, engine) -> None:
+    """E13: a group's reaction belongs in group_effects, under the event cap."""
+    bad = four_candidates(engine)
+    bad.candidates[3].new_shocks[0].node = "group:pensioners"
+    client = FakeClient([bad, four_candidates(engine), verdict(0.25, 0.25, 0.25, 0.25)])
+    scenario = CannedScenarios().next_scenario(world, [])
+    LLMForecaster(client).forecast(world, scenario, [TAX], engine)
+    retry = client.requests[1].messages[-1].content
+    assert "new_shocks cannot hit population groups ['group:pensioners']" in retry
+
+
 def test_engine_text_lists_moving_indicators(world, engine) -> None:
     still = NodeForecast(
         mean=[0.0] * engine.horizon, p10=[0.0] * engine.horizon, p90=[0.0] * engine.horizon

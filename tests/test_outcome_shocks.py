@@ -81,3 +81,34 @@ def test_candidates_are_capped_and_tags_deduplicated() -> None:
     )
     assert outcome.events == ["market_selloff"]
     assert total(outcome.shocks, RATE) == MAX_OUTCOME_STEPS
+
+
+PENSIONERS = "group:pensioners"
+
+
+def test_an_outcome_shock_on_a_group_does_nothing() -> None:
+    """E13: a one-step shock on pensioners lifted approval outside the event cap and stayed in
+    the engine for good, since groups never fade. A group moves through group_effects."""
+    world = toy_world()
+    outcome = Outcome(narrative="x", probability=1, shocks=[Shock(node=PENSIONERS, delta=1.0)])
+    assert outcome_shocks(outcome, world) == []
+    quiet = Outcome(narrative="x", probability=1)
+    state, calm = world, world
+    for turn in range(10):
+        state = resolve(world, state, SCENARIO, [], outcome if turn == 0 else quiet, GameConfig())
+        calm = resolve(world, calm, SCENARIO, [], quiet, GameConfig())
+        assert state.groups[PENSIONERS].approval == calm.groups[PENSIONERS].approval
+    assert PENSIONERS not in state.engine.own and PENSIONERS not in state.engine.levels
+
+
+def test_the_engine_drops_a_group_push_carried_by_an_older_save() -> None:
+    from hog_sim.core.state import EngineState, Push
+
+    world = toy_world()
+    world.engine = EngineState(
+        own={PENSIONERS: 1.0}, pushes=[Push(node=PENSIONERS, delta=1.0, start=0, end=5)]
+    )
+    state = resolve(world, world, SCENARIO, [], Outcome(narrative="x", probability=1), GameConfig())
+    assert PENSIONERS not in state.engine.own
+    assert all(p.node != PENSIONERS for p in state.engine.pushes)
+    assert state.groups[PENSIONERS].approval == toy_world().groups[PENSIONERS].approval

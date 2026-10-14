@@ -26,10 +26,12 @@ to be, and each band carries the same engine mass. The wildcard is scored agains
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from statistics import NormalDist
 from typing import Literal
 
-from hog_sim.core.models import Delivery, Model
+from hog_sim.core.models import Delivery, Model, PolicyAction
+from hog_sim.world.levers import risk_factor
 from hog_sim.world.propagation import DeltaDistribution
 
 EventTag = Literal[
@@ -190,9 +192,15 @@ def resistance_factor(tag: str, resistance: float) -> float:
     return 1 + RESISTANCE_FACTOR.get(tag, 0.0) * resistance
 
 
-def base_rate(tags: list[str], delivery: Delivery | None = None, resistance: float = 0.0) -> float:
-    """How common the tagged events are, adjusted for delivery and the resistance the
-    actions meet; untagged counts as a quiet outcome.
+def base_rate(
+    tags: list[str],
+    delivery: Delivery | None = None,
+    resistance: float = 0.0,
+    actions: Sequence[PolicyAction] = (),
+) -> float:
+    """How common the tagged events are, adjusted for delivery, the resistance the actions
+    meet and the risks their levers carry (``world.levers.risk_factor``); untagged counts as
+    a quiet outcome.
 
     All the tags have to happen, so the rarest bounds the chance (P(A and B) <= min). Adding
     a tag can therefore never make an outcome look more common (EC-9).
@@ -203,7 +211,8 @@ def base_rate(tags: list[str], delivery: Delivery | None = None, resistance: flo
             1.0,
             BASE_RATES.get(t, 0.1)
             * delivery_factor(t, delivery)
-            * resistance_factor(t, resistance),
+            * resistance_factor(t, resistance)
+            * risk_factor(t, actions),
         )
         for t in tags
     )

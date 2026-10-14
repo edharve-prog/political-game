@@ -259,6 +259,12 @@ def check_candidates(
         bad += [s.node for s in c.new_shocks if s.node not in catalogue]
         if bad:
             problems.append(f"candidates[{i}]: unknown ids {sorted(set(bad))}")
+        on_groups = sorted({s.node for s in c.new_shocks if s.node in groups})
+        if on_groups:
+            problems.append(
+                f"candidates[{i}]: new_shocks cannot hit population groups {on_groups}; "
+                "put a group's reaction in group_effects"
+            )
         if not c.event_tags:
             problems.append(f"candidates[{i}]: event_tags is empty; use ['none']")
         elif "none" in c.event_tags and len(c.event_tags) > 1:
@@ -365,7 +371,7 @@ class LLMForecaster:
                         lucky,
                     ),
                     judge=judged[i] if judged else d.self_probability,
-                    base_rate=base_rate(list(d.event_tags), delivery, resistance),
+                    base_rate=base_rate(list(d.event_tags), delivery, resistance, actions),
                     self_reported=d.self_probability,
                 )
                 for i, d in enumerate(drafts)
