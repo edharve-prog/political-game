@@ -19,9 +19,9 @@ subsidies are held to the schemes actually running (``fit_job_cuts``):
 4. **Deficit ceiling**: the deficit this package would leave (today's, plus what is
    already landing this turn, plus every tax and spending move in the package) may not pass
    ``DEFICIT_LIMIT``, and once past it the package may not add to it. Borrowing measures
-   are scaled down to fit; tax rises and cuts in the same package make room for them, so
-   a funded package goes ahead even above the limit (feasibility only blocks borrowing
-   there when nothing in the package pays for it).
+   are scaled down to fit; tax rises and cuts in the same package make room for them for
+   as long as they run, so a funded package goes ahead even above the limit (feasibility
+   only blocks borrowing there when nothing in the package pays for it to the end).
 
 Before any of them, durations are held to ``MAX_TURNS`` for their kind: a speech is news
 for a few turns, not a policy that runs for two years.
@@ -51,12 +51,11 @@ from hog_sim.policy.feasibility import (
 from hog_sim.world.propagation import (
     FISCAL_NODE,
     JOB_PROTECTION,
-    MIN_FISCAL_TURNS,
     cuts_jobs_cover,
     fiscal_cost,
+    fiscal_turns,
     in_flight,
     job_cover_left,
-    job_cut,
     scale,
 )
 
@@ -168,11 +167,7 @@ def lifetime_cost(action: PolicyAction, state: WorldState) -> LifetimeCost:
     deficit, turns = 0.0, 0
     if FISCAL_NODE in state.indicators:
         deficit = fiscal_cost(action, state) * scale(state, FISCAL_NODE)
-        turns = (
-            job_cut(action, state)[1]
-            if cuts_jobs_cover(action)
-            else max(action.duration_turns, MIN_FISCAL_TURNS)
-        )
+        turns = fiscal_turns(action, state)
     return LifetimeCost(
         capital=capital_cost([action], state),
         deficit=deficit,
@@ -287,19 +282,30 @@ def fit_deficit(
     actions: list[PolicyAction], state: WorldState, limit: float = DEFICIT_LIMIT
 ) -> tuple[list[PolicyAction], str | None]:
     """Scale the package's borrowing so the projected deficit stays within ``limit``, or,
-    when it is already past the limit, so the package adds nothing to it."""
+    when it is already past the limit, so the package adds nothing to it.
+
+    The deficit is projected for every turn the package's costs run, not only this one, so a
+    tax rise pays for borrowing only while it lasts (E5): a one-turn rise cannot fund a cut
+    that runs for two years."""
     deficit = state.indicators.get(FISCAL_NODE)
     if deficit is None:
         return actions, None
     step = scale(state, FISCAL_NODE)
     costs = [fiscal_cost(a, state) * step for a in actions]
-    loosening = sum(c for c in costs if c > 0)
-    landing = in_flight(state, FISCAL_NODE)
-    projected = deficit.value + landing + sum(costs)
-    ceiling = max(limit, deficit.value + landing)
-    if loosening <= 0 or projected <= ceiling + 1e-9:
+    paid = [fiscal_turns(a, state) for a in actions]
+    if not any(c > 0 for c in costs):
         return actions, None
-    share = max(0.0, loosening - (projected - ceiling)) / loosening
+    base = deficit.value + in_flight(state, FISCAL_NODE)
+    ceiling = max(limit, base)
+    share, worst = 1.0, base
+    for t in range(max(paid)):
+        loosening = sum(c for c, n in zip(costs, paid, strict=True) if c > 0 and t < n)
+        saving = sum(c for c, n in zip(costs, paid, strict=True) if c < 0 and t < n)
+        worst = max(worst, base + loosening + saving)
+        if loosening > 0:
+            share = min(share, max(0.0, ceiling - base - saving) / loosening)
+    if share >= 1 - 1e-9:
+        return actions, None
     fitted = [
         a.model_copy(update={"magnitude": a.magnitude * share}) if c > 0 else a
         for a, c in zip(actions, costs, strict=True)
@@ -307,11 +313,11 @@ def fit_deficit(
     fitted = [a for a, c in zip(fitted, costs, strict=True) if c <= 0 or share > 0]
     if ceiling > limit:
         return fitted, (
-            f"Deficit limit: the deficit is already {deficit.value + landing:.1f}% of GDP, past "
+            f"Deficit limit: the deficit is already {base:.1f}% of GDP, past "
             f"the {limit:g}% limit, so the package's borrowing was scaled to {share:.0%}, as "
-            "far as its tax rises and cuts pay for"
+            "far as its tax rises and cuts pay for while they last"
         )
     return fitted, (
-        f"Deficit limit: the package would take the deficit to {projected:.1f}% of GDP, past "
+        f"Deficit limit: the package would take the deficit to {worst:.1f}% of GDP, past "
         f"the {limit:g}% limit, so its borrowing was scaled to {share:.0%}"
     )

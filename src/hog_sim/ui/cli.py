@@ -763,6 +763,14 @@ def _main(argv: list[str] | None) -> None:
         "Read it with: hog-sim logs",
     )
     parser.add_argument(
+        "--luck",
+        choices=["sample", "fair", "argmax", "hard"],
+        default="sample",
+        help="how each turn's outcome is picked (new games only): sample draws by probability "
+        "(the default), fair also draws but spreads bad luck out so it can't cluster, argmax "
+        "always takes the most likely, hard takes the worse of the two likeliest",
+    )
+    parser.add_argument(
         "--check-llm",
         action="store_true",
         help="make one small call to the model to confirm the connection works, then exit",
@@ -845,7 +853,7 @@ def _main(argv: list[str] | None) -> None:
         )
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
-        config, start = GameConfig(seed=args.seed), toy_world()
+        config, start = GameConfig(seed=args.seed, selection_mode=args.luck), toy_world()
         game_id = store.new_game(config, start)
         recaller.game_id = game_id
         _log_turns(client, game_id, lambda: start.turn)

@@ -192,10 +192,6 @@ def test_the_four_turn_law_bot_no_longer_pays(idle) -> None:
     assert gain(idle, schedule=schedule) <= MARGIN
 
 
-@pytest.mark.xfail(
-    reason="E6: taxing or paying a group has no economic effect yet (Fiscal incidence thread)",
-    strict=False,
-)
 def test_a_deficit_neutral_transfer_between_groups_does_not_buy_the_election(idle) -> None:
     package = [act("tax", "group:business", 0.75, 24), act("spend", "group:pensioners", 0.75, 24)]
     assert gain(idle, *package) <= MARGIN
