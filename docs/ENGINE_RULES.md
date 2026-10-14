@@ -128,6 +128,12 @@ not the cut blamed for a penalty that never came. Whatever is left after the sha
 that only act together, limits they share) is reported as "how this turn's causes combined"
 rather than spread among them.
 
+For the three biggest approval moves it shows where each group's approval is heading and why,
+using the same terms the approval rules add up (section on approval below): the group's lean,
+then the largest pushes away from it, in points. A push is an indicator the group cares about,
+the sector it works in, an institution's standing, the penalty for a deficit above 5% of GDP,
+or an approval event (or all events together, when they hit the cap).
+
 ---
 
 ## 3. Actions: what the player can do
@@ -147,7 +153,7 @@ Every response becomes one or more **actions**. An action has:
 
 | Target | Allowed kinds |
 |---|---|
-| The player's own country | tax, spend, regulate, deregulate, legislate, communicate |
+| The player's own country | communicate only (a speech to the nation) |
 | A foreign country | diplomatic, military, communicate |
 | A sector | tax, spend, regulate, deregulate, legislate, communicate |
 | A population group | tax, spend, regulate, deregulate, legislate, communicate |
@@ -156,6 +162,13 @@ Every response becomes one or more **actions**. An action has:
 
 "Do nothing" fits anything. Any other indicator can only be moved indirectly, by acting on
 something that drives it, so the world graph carries the trade-offs.
+
+The player's own country's growth comes from what its sectors do, so tax, spending and rules
+for "the country" have to be aimed at the sectors or groups they reach, where they carry their
+costs. No action pushes the player's own growth rate directly, so a speech to the nation moves
+no output. (Until 13 October 2026 national tax, spending and deregulation pushed UK growth 2
+steps a unit; the extra growth cut the deficit and swelled GDP, so spending on the country paid
+for itself and left debt lower than doing nothing.)
 
 ### How hard each kind pushes
 
@@ -166,7 +179,7 @@ by the kind's factor:
 |---|---|---|
 | spend | +1 | +2 steps |
 | appoint, deregulate | +0.5 | +1 step |
-| communicate | +0.2 | +0.4 steps |
+| communicate | +0.2 | +0.4 steps (on a sector or country, once: see below) |
 | regulate | -0.5 | -1 step |
 | tax | -1 | -2 steps |
 | diplomatic, military, do nothing | 0 | no direct push (see foreign policy below) |
@@ -198,7 +211,40 @@ Special cases:
 - **Aimed at a population group** (a pension rise, a tax on landlords), the action is not a
   push on the graph. It becomes an approval boost or hit for that group of 0.05 per step: a
   full-magnitude pension rise is +0.10 to pensioners' target approval, held for as long as it
-  runs (section 6).
+  runs (section 6). Money handed to a group (spending on it, or a tax cut for it) also costs
+  every other group a quarter of what that group wins, for as long as it runs: the others see
+  someone else's pension rise or tax break. A tax rise on a group draws no such reaction.
+- **Tax or spending on a group also moves demand.** The money put into (or taken out of) the
+  group's pockets is spent on the sectors it buys from, held for as long as the money is paid
+  (at least 6 turns). Pensioners and public sector workers spend 80% of it, young renters 90%,
+  across the private sectors in proportion to their output (young renters weighted to housing);
+  business owners spend 40% of it, as investment in manufacturing (60%) and finance (40%). A
+  full-size pension rise (£34bn a year) therefore adds about £27bn of private-sector output, and
+  taxing business owners takes investment away. Part of every transfer is saved, so it lifts
+  output by less than spending the same money on a sector does.
+- **A speech to a sector or a foreign country** lifts it once, by 0.4 steps per unit, and the lift fades
+  like any one-off: it does not hold output up for as long as the speech "runs".
+
+### Every lever has a loser or a risk
+
+*Source: `world/levers.py`*
+
+Levers that cost no money have a downside of their own, so a majority cannot be bought with
+laws, speeches and red tape:
+
+- **A rule aimed at a group** (legislate, regulate or deregulate: renters' rights, a law for
+  pensioners) has a losing side, who lose as much as the group gains: a law for pensioners costs
+  young renters, one for renters or public workers costs business owners, one for business
+  costs public workers and young renters half each. Unless the same package puts money behind
+  the group (spending on it, or a tax cut for it), the law's appeal is felt in full for 3 turns
+  at most, then fades.
+- **Deregulating a sector** costs workers their protections: young renters and public workers
+  lose 0.3 steps of approval per unit each (public workers 0.6 when the public sector itself is
+  deregulated), for as long as it runs. Energy deregulation also pushes bills up 0.2 steps per
+  unit (riskier supply), finance deregulation pushes house prices up 0.5 steps per unit and
+  doubles the odds of a market sell-off or capital flight at full size, and housing
+  deregulation pushes house prices up 0.4 steps per unit.
+- **A speech** runs for 3 turns at most, and to a sector or a foreign country it is a one-off lift.
 
 ### Policies that keep running
 
@@ -211,8 +257,8 @@ Spending and tax also move `indicator:deficit`, as a flow, for as long as the po
 for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) is the
 output the action adds (or removes), as a share of GDP: a full-size rise in public spending
 adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while the same rise
-for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
-whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
+for the smaller housing sector costs 0.56 points. Aimed at anything else (a group, an
+indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
 taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
 (`instrument`), since the size's sign there is the way the player wants the indicator to move:
@@ -222,7 +268,10 @@ reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
-deficit (a tax cut of magnitude 0.6 or more on the whole country). For each point of unfunded cut, Bank Rate jumps 0.4
+deficit (a tax cut of magnitude 0.6 or more on a group). Cuts and the savings that pay
+for them are compared over their lives (cost a turn times the turns it is paid, at least 6), so a
+one-turn tax rise pays for only a quarter of a cut that runs for two years. For each point of
+unfunded cut, Bank Rate jumps 0.4
 points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
@@ -284,7 +333,8 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    - it is tax, spend or legislation and the legislature's support is below **0.4**, too far
      short of a majority to force through;
    - it loosens the budget (more spending, or a tax cut) while the deficit is already above
-     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it;
+     **10% of GDP**, and nothing in the package (a tax rise or a spending cut) pays for it for
+     as long as it runs;
    - it tries to direct an independent institution (independence 0.7 or more, like the Bank of
      England) or an indicator that only such an institution sets (Bank Rate). Communicating with
      them is always allowed.
@@ -301,23 +351,35 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    turn, so a rebellion costs the majority for a few turns rather than the whole game. The
    Commons settles toward its starting support **plus half the change in national approval**
    since the start: when the polls fall 10 points, backbenchers drift 0.05 less supportive.
+   Settling moves only the part of support the engine does not carry (a direct edit, a
+   minister leaving, the polls' drift). What the engine carries (a whip, a rebellion's shock)
+   fades at the engine's own rate, 72% kept a turn (section 5), and nothing else pulls it back,
+   so a whip never ends below never whipping and a rebellion never recovers past the quiet
+   path.
 
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
    speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
    with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
    Parliament is read as a whip.
-2. **Diminishing returns.** Repeating the same kind of action on the same target within 4 turns
-   halves its magnitude for each earlier use (one repeat: 50%, two: 25%). A policy meant to keep
-   running should say so with its duration instead. Whipping the legislature is exempt.
+2. **Diminishing returns.** Repeating the same kind of action on the same target, in the same
+   direction, within 4 turns halves its magnitude for each earlier use (one repeat: 50%, two:
+   25%). A policy meant to keep running should say so with its duration instead. Whipping the
+   legislature is exempt. Going the other way on a measure that is still running (cutting a tax
+   you raised for 6 turns, two turns in) is a **U-turn**, not a repeat: it keeps its full size
+   but costs an extra 1.0 capital per unit for the credibility it spends.
 3. **Political capital.** A turn's package costs the sum of its magnitudes, with speeches
    (communicate) at a quarter, whips at full price, measures forced through at double and do
-   nothing free. The budget is **1.5 a turn**. Above it, every
-   measure is scaled down by the same share to fit.
+   nothing free, times each measure's **lifetime**: every turn a measure runs after its first
+   adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
+   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. The
+   budget is **1.5 a turn**. Above it, every measure is scaled down by the same share to fit.
+   The review screen shows each measure's capital and deficit cost over its life.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
-   landing this turn, plus every tax and spending move in it) may not pass 10% of GDP. Only the
-   borrowing measures are scaled down to fit, and tax rises or spending cuts in the same package
-   make room for them. Once the deficit is past 10%, a package may still spend or cut taxes as
+   landing this turn, plus every tax and spending move in it) may not pass 10% of GDP, on any
+   turn the package's costs run. Only the borrowing measures are scaled down to fit, and tax
+   rises or spending cuts in the same package make room for them while they last: a tax rise
+   that ends after six turns does not pay for a tax cut in its seventh. Once the deficit is past 10%, a package may still spend or cut taxes as
    long as its own tax rises and spending cuts pay for it: the borrowing is scaled to what they
    cover, so the package adds nothing to the deficit. Only borrowing that nothing in the package
    pays for is blocked outright.
@@ -356,7 +418,8 @@ A node's own push fades once nothing sustains it. Each turn it keeps a share of 
 | Node | Kept each turn | Roughly halves in |
 |---|---|---|
 | Country | 80% | 3 turns |
-| Sector, institution | 90% | 6.5 turns |
+| Sector | 90% | 6.5 turns |
+| Institution | 72% | 2 turns |
 | Indicator | 85% (unless it sets its own) | 4 turns |
 | Deficit (its own setting) | 50% | 1 turn |
 
@@ -668,9 +731,18 @@ wrote that turn, whichever reading is used.
 
 ### Picking one
 
-The default (`sample`) draws an outcome at random by probability, so the game can't be solved.
-`argmax` always takes the most likely, which makes it a difficulty setting. The draw is seeded,
-so replays match.
+The way an outcome is picked is a difficulty profile (`--luck` when starting a game):
+
+- `sample` (the default) draws an outcome at random by probability, so the game can't be solved.
+- `fair` also draws by probability, but spreads the luck out. Outcomes are ranked best first for
+  the government (by the turnout-weighted approval their events bring), and every block of four
+  turns takes exactly one draw from each quarter of the luck range, in a seeded order. Bad
+  outcomes therefore can't cluster: four aligned turns hold at most one draw from the unluckiest
+  quarter.
+- `argmax` always takes the most likely.
+- `hard` takes the worse, for the government, of the two likeliest outcomes.
+
+Every draw is seeded, so replays match.
 
 ---
 
@@ -731,12 +803,15 @@ what is coming in the next six turns.
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |
 | Max same-turn loop gain | 0.9 | `world/propagation.py` |
-| Repeat window, repeat penalty | 4 turns, half per use | `policy/limits.py` |
+| Repeat window, repeat penalty | 4 turns, half per use in the same direction | `policy/limits.py` |
+| Upkeep, longest speech, U-turn | +0.1 of the first turn's capital per extra turn; 3 turns; +1.0 capital per unit | `policy/limits.py` (`UPKEEP`, `MAX_TURNS`, `UTURN_CAPITAL`) |
+| Law for a group: counterparty, hold without money | loses as much as the group gains; 3 turns | `world/levers.py` |
+| Deregulation: workers' loss | 0.3 steps per unit for young renters and public workers (0.6 public workers for the public sector) | `world/levers.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
 | Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
-| Institutions settle back, Commons follows polls | 20% of the gap a turn; 0.5 support per point of approval | `game/loop.py` |
+| Institutions settle back, Commons follows polls | 20% of the gap a turn (the part the engine does not carry); 0.5 support per point of approval | `game/loop.py` |
 | Rebellion odds per unit of resistance | +200% | `forecasting/scoring.py` (`RESISTANCE_FACTOR`) |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
@@ -814,7 +889,18 @@ pensions, spend on everything and so on), plus a "do nothing" bot. The test fail
 - indicators sit at a hard bound in more than 10% of turns;
 - acting does worse on average than doing nothing by more than half a point of vote share.
 
-Run `uv run python -m hog_sim.game.balance` to see the table.
+A schedule bot plays the strategy the review of 13 October found dominant: on turns 0 to 3,
+a 24-turn law and a 24-turn speech for one group each, then nothing. It is held to the same
+win limit as the lever bots.
+
+The **exploit search** plays seeded random and greedy packages (each kind on each target it
+fits, at sizes ±0.5 and ±1, for 1, 6 or 24 turns, up to 3 measures) once on turn 0 of a quiet
+game with no outcomes, and fails on any package that costs nothing in deficit yet beats doing
+nothing at the election by more than half a point of vote share.
+
+Run `uv run python -m hog_sim.game.balance` to see the table, and add `--search 400` to run the
+exploit search (it exits with an error when anything breaks a limit). A nightly workflow runs a
+larger search.
 
 ### Checking against history
 
