@@ -247,8 +247,11 @@ def test_the_forecast_matches_resolve_over_several_turns(monkeypatch) -> None:
     with no outcome and the central weights. The Commons' drift with the polls is held off:
     the forecast does not project approval, and says so."""
     import hog_sim.game.loop as loop
+    import hog_sim.world.opposition as opposition
 
     monkeypatch.setattr(loop, "COMMONS_POLLS", 0.0)
+    # By-elections turn on approval too, which the forecast does not project.
+    monkeypatch.setattr(opposition, "BYELECTION_CHANCE", 0.0)
     start = certain(toy_world())
     state = play(start, 2, scenario(Shock(node="indicator:interest_rate", delta=1)))[-1]
     actions = [

@@ -34,6 +34,7 @@ from hog_sim.population.popularity import ElectionResult, national_approval, vot
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.calendar import upcoming
 from hog_sim.world.cast import active_cast
+from hog_sim.world.opposition import opposition_line
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed
 
@@ -134,6 +135,7 @@ def _dashboard(
             )
             loyalty = f"{c.loyalty * 100:>3.0f}% {change}"
             lines.append(_wrap(c.role, f"  {c.name:<22}{loyalty:<12}", " " * 36))
+    lines += ["", "OPPOSITION", _wrap(opposition_line(state), "  ", "    ")]
     coming = upcoming(state.turn)
     if coming:
         lines += ["", "COMING UP"]

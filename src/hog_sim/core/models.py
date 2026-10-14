@@ -77,6 +77,22 @@ class Group(Node):
     )
 
 
+class ByElection(Model):
+    turn: int
+    held: bool  # the government kept the seat
+
+
+class Opposition(Model):
+    """The opposition's quarterly stance and by-election record (O9, ``world/opposition.py``)."""
+
+    stance: str | None = Field(None, description="The stance in force, a key of STANCES")
+    since: int = 0
+    applied: dict[str, float] = Field(
+        default_factory=dict, description="Lean changes the stance in force made, to undo"
+    )
+    byelections: list[ByElection] = Field(default_factory=list)
+
+
 class Institution(Node):
     support: float = Field(0.5, ge=0, le=1, description="Support for the government")
     power: float = Field(0.5, ge=0, le=1)

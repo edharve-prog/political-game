@@ -17,6 +17,7 @@ from hog_sim.core.models import (
     Institution,
     Model,
     NodeKind,
+    Opposition,
     Pledge,
     Sector,
     Storyline,
@@ -80,6 +81,9 @@ class WorldState(Model):
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     characters: dict[str, Character] = Field(
         default_factory=dict, description="The cast, by id (SD-4)"
+    )
+    opposition: Opposition = Field(
+        default_factory=Opposition, description="The opposition's stance and by-elections (O9)"
     )
 
     @model_validator(mode="after")

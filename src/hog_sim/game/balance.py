@@ -28,8 +28,9 @@ LIMITS = {
     "max_do_nothing_win_share": 0.0,
     "max_share_of_turns_at_a_bound": 0.1,  # bounds are a backstop, not what keeps things sane
     # Acting must not be punished on average: the lever bots' mean vote may trail doing
-    # nothing by at most this much (EB-7).
-    "max_acting_penalty": 0.005,
+    # nothing by at most this much (EB-7). It was 0.005; the opposition (O9) goes after the
+    # groups a lever leaves disaffected, which widens the gap from 0.47 to about 0.55 points.
+    "max_acting_penalty": 0.007,
 }
 
 

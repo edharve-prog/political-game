@@ -18,7 +18,9 @@ were actually applied and notes saying why any were cut.
 Storylines (issues that run across turns) move in resolve too: see ``world/storylines.py``.
 So do pledges (SD-5): an action a kept pledge rules out breaks it and costs approval, and the
 turn's new pledges are added afterwards. See ``policy/pledges.py``.
-The cast's loyalty moves there as well (SD-4): see ``world/cast.py``.
+The cast's loyalty moves there as well (SD-4): see ``world/cast.py``. So does the opposition
+(O9), which picks a stance and may fight a by-election every quarter: see
+``world/opposition.py``.
 
 Institutions settle back toward where they started the game: each turn closes
 ``INSTITUTION_SETTLE`` of the gap in their support. A rebellion still costs the government its
@@ -72,6 +74,7 @@ from hog_sim.world.cast import DEPARTURE_COST, apply_cast, sackable
 from hog_sim.world.changes import action_changes, apply_graph_changes
 from hog_sim.world.debt import DebtOutlook, interest_shocks, step_debt
 from hog_sim.world.events import outcome_shocks
+from hog_sim.world.opposition import step_opposition
 from hog_sim.world.propagation import (
     DeltaDistribution,
     Projection,
@@ -171,6 +174,7 @@ UNPROJECTED = [
     "group approval: the forecast shows no change, and approval is judged from the indicators",
     "crises abroad in later turns, which are drawn turn by turn",
     "the Commons' drift with the polls after this turn: approval is held where it is",
+    "the opposition's quarterly stance and by-elections, which turn on approval",
     "the chosen outcome, which is not known yet",
 ]
 
@@ -303,6 +307,7 @@ def resolve(
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions)
+    new = step_opposition(new, state.turn, config.seed)
     new.turn = state.turn + 1
     return new
 
