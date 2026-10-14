@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-7"
+VERSION = "interpret-8"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -19,8 +19,9 @@ except on an indicator target, where the sign is the direction, see magnitude)
 sanctions, expulsions)
 - military: military action or posture towards a foreign country (> 0 escalation, < 0 \
 de-escalation)
-- communicate: speeches, campaigns, briefings aimed at a group or institution (> 0 \
-conciliatory or reassuring, < 0 confrontational)
+- communicate: speeches, campaigns, briefings aimed at a group or institution, or a speech \
+to the nation aimed at the player's own country (> 0 conciliatory or reassuring, < 0 \
+confrontational)
 - legislate: pass a law about the target that is not mainly a tax, spend or regulation
 - appoint: appoint or sack someone at an institution (> 0 appoint an ally, < 0 sack)
 - do_nothing: the leader explicitly declines to act; target the player's own country
@@ -28,7 +29,9 @@ conciliatory or reassuring, < 0 confrontational)
 Fields of each action:
 - target: one node id from the briefing, the thing most directly acted on. Pick the closest \
 node; never invent ids. Housing policy targets the housing sector, a pension rise targets \
-pensioners, a deal with Brussels targets the EU. When the leader aims at a price or rate \
+pensioners, a deal with Brussels targets the EU. The player's own country takes only a \
+speech: national tax or spending targets the sectors or groups it reaches (business taxes \
+target business owners). When the leader aims at a price or rate \
 itself, target that indicator only if the briefing lists that kind of action for it as \
 [direct: ...] (a cap on energy bills is regulate on energy prices). Otherwise target the \
 sector, group or institution the policy works through: spending to create jobs targets the \
