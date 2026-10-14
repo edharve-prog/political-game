@@ -1,12 +1,10 @@
-"""The fuller electorate: every voter counted, turnout that moves, and fairness (O8, M5)."""
+"""The fuller electorate: every voter counted and turnout that moves (O8, M5)."""
 
 import pytest
 
-from hog_sim.core.models import ApprovalEvent
 from hog_sim.population.popularity import (
     MAX_TURNOUT,
     effective_turnout,
-    target_approval,
     vote_intention,
 )
 from hog_sim.world.seed.toy import toy_world
@@ -39,17 +37,3 @@ def test_an_angry_group_weighs_more_at_the_ballot() -> None:
     fixed = world.model_copy(deep=True)
     fixed.groups["group:young_renters"].lean -= 0.1  # same approval, no anger
     assert vote_intention(world) < vote_intention(fixed) < before
-
-
-def test_others_resent_a_group_singled_out_for_gain() -> None:
-    world = toy_world()
-    base = target_approval(world, world)
-    world.events = [ApprovalEvent(name="pension rise", group_effects={"group:pensioners": 0.1})]
-    after = target_approval(world, world)
-    assert after["group:pensioners"] > base["group:pensioners"]
-    assert after["group:students"] < base["group:students"]
-    assert after["group:young_renters"] < base["group:young_renters"]
-    assert after["group:homeowners"] == base["group:homeowners"]
-    # Losses are not resented.
-    world.events = [ApprovalEvent(name="pension cut", group_effects={"group:pensioners": -0.1})]
-    assert target_approval(world, world)["group:students"] == base["group:students"]

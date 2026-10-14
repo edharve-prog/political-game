@@ -67,7 +67,6 @@ def toy_world() -> WorldState:
             turnout=0.45,
             approval=0.35,
             lean=0.35,
-            resents={"group:pensioners": 0.2, "group:business": 0.2},
         ),
         Group(
             id="group:public_workers",
@@ -86,7 +85,6 @@ def toy_world() -> WorldState:
             turnout=0.62,
             approval=0.48,
             lean=0.48,
-            resents={"group:public_workers": 0.2, "group:business": 0.1},
         ),
         Group(
             id="group:homeowners",
@@ -103,7 +101,6 @@ def toy_world() -> WorldState:
             turnout=0.45,
             approval=0.32,
             lean=0.32,
-            resents={"group:pensioners": 0.25},
         ),
     ]
     institutions = [

@@ -7,7 +7,6 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
            + sum(active event effects, held for hold_turns then halving every half_life_turns),
-             less the share of other groups' gains this group resents (``Group.resents``),
              capped at +-EVENT_CAP per group
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
@@ -159,17 +158,11 @@ def target_approval(
         penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
         targets = {gid: t - penalty for gid, t in targets.items()}
     felt = {gid: 0.0 for gid in targets}
-    gains = {gid: 0.0 for gid in targets}
     for event in state.events:
         w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
         for gid, effect in event.group_effects.items():
             if gid in felt:
                 felt[gid] += effect * w
-                gains[gid] += max(effect, 0.0) * w
-    # Fairness: a group feels part of what others it resents gained as its own loss.
-    for gid, group in state.groups.items():
-        for other, share in group.resents.items():
-            felt[gid] -= share * gains.get(other, 0.0)
     for gid, total in felt.items():
         targets[gid] += max(-EVENT_CAP, min(EVENT_CAP, total))
     return {gid: min(1.0, max(0.0, t)) for gid, t in targets.items()}

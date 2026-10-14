@@ -447,8 +447,7 @@ Every turn, each group has a **target approval**:
 - for each institution that influences it: + 0.05 × weight × how far the institution's support
   is above or below 0.5, in steps (measured from 0.5, not from the start, so an institution
   that already backs the government lifts the group from turn one);
-- plus all active **approval events** for the group (below), less its share of what groups it
-  resents gained from theirs (**fairness**, below), capped at ±0.15 in total;
+- plus all active **approval events** for the group (below), capped at ±0.15 in total;
 - minus the **debt penalty**: if the deficit is above 5% of GDP, every group loses 0.03 for each
   point above 5. Borrowing is tolerated up to a point, then costs credibility with everyone.
 
@@ -479,20 +478,6 @@ negligible. They come from:
 
 Because all events together are capped at ±0.15 per group, no pile of good news can carry a
 group on its own.
-
-### Fairness
-
-Some groups resent gains singled out for others. A group feels a share of every positive event
-another group gets as a loss of its own:
-
-| Group | Resents gains for | Share |
-|---|---|---|
-| Young renters | pensioners, business owners | 0.2 each |
-| Private sector workers | public sector workers, business owners | 0.2, 0.1 |
-| Students | pensioners | 0.25 |
-
-A pension rise worth +0.1 to pensioners therefore costs students 0.025 and young renters 0.02.
-Losses are not resented.
 
 ### Pledges
 
