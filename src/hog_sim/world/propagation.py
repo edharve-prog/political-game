@@ -381,12 +381,67 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     return _FISCAL_SIGN.get(action.kind, 0.0) * size * fiscal_steps(action, state)
 
 
+# Tax and spending aimed at a population group move money in or out of its pockets (E6), and
+# it spends DEMAND_SHARE of that on the sectors in DEMAND_SECTORS: pensioners and workers on
+# what households buy, business owners on investment. A group with no entry spends
+# DEFAULT_DEMAND_SHARE across the private sectors in proportion to their output (public
+# services are not bought with a pension). A transfer therefore lifts output by less than
+# spending the same money on a sector does, since part of it is saved.
+DEFAULT_DEMAND_SHARE = 0.7
+DEMAND_SHARE = {
+    "group:pensioners": 0.8,
+    "group:young_renters": 0.9,
+    "group:public_workers": 0.8,
+    "group:business": 0.4,
+}
+DEMAND_SECTORS = {
+    "group:business": {"sector:manufacturing": 0.6, "sector:finance": 0.4},
+    "group:young_renters": {
+        "sector:housing": 0.4,
+        "sector:manufacturing": 0.3,
+        "sector:energy": 0.2,
+        "sector:finance": 0.1,
+    },
+}
+PUBLIC_SECTOR = "sector:public"
+
+
+def _demand_weights(group: str, state: WorldState) -> dict[str, float]:
+    weights = {s: w for s, w in DEMAND_SECTORS.get(group, {}).items() if s in state.sectors}
+    if weights:
+        return weights
+    private = {s: sec.output_bn for s, sec in state.sectors.items() if s != PUBLIC_SECTOR}
+    total = sum(private.values())
+    return {s: out / total for s, out in private.items()} if total > 0 else {}
+
+
+def demand_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
+    """What a group spends of a transfer to it (spending, a tax cut), or stops spending when
+    taxed, as held pushes on the sectors it buys from, for as long as the money is paid."""
+    if state is None or action.target not in state.groups or action.kind not in _FISCAL_SIGN:
+        return []
+    cost = fiscal_cost(action, state)
+    if not cost:
+        return []
+    gdp = state.countries[state.player_country].gdp_bn
+    money = cost * scale(state, FISCAL_NODE) / 100 * gdp  # £bn a year into the group's pockets
+    spent = money * DEMAND_SHARE.get(action.target, DEFAULT_DEMAND_SHARE)
+    turns = max(action.duration_turns, MIN_FISCAL_TURNS)
+    return [
+        Shock(node=s, delta=spent * w / scale(state, s), duration_turns=turns, hold=True)
+        for s, w in _demand_weights(action.target, state).items()
+        if spent * w
+    ]
+
+
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """Map interpreted actions to engine shocks.
 
     Each action holds its push on the target for its duration, except on the player's own
-    country, whose growth no action sets directly. Actions aimed at a population
-    group are not shocks: they become approval events (``population.popularity.policy_events``).
+    country, whose growth no action sets directly. Actions aimed at a population group are not
+    shocks on the group: they become approval events (``population.popularity.policy_events``),
+    and tax or spending on it moves what it spends in the sectors it buys from
+    (``demand_shocks``).
     When ``state`` is given and has a deficit indicator, spending and tax also hold a cost on
     the deficit, so nothing is free and a longer programme costs more.
     """
@@ -416,6 +471,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     and e.target == action.target
                     and e.source in state.sectors
                 ]
+        shocks += demand_shocks(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:
             paid = fiscal_turns(action, state)
