@@ -4,19 +4,27 @@ Four limits, in order (Project 16, EB-2 and EB-3; Project 17, EC-5), after cuts 
 subsidies are held to the schemes actually running (``fit_job_cuts``):
 
 1. **Feasibility**: actions ``check_feasibility`` blocks are dropped.
-2. **Diminishing returns**: an action of the same kind on the same target as one taken in
-   the last ``REPEAT_WINDOW`` turns has its magnitude halved for each such use, so hammering
-   one lever stops paying. A policy meant to keep running should say so with its duration.
+2. **Diminishing returns**: an action of the same kind on the same target, in the same
+   direction, as one taken in the last ``REPEAT_WINDOW`` turns has its magnitude halved for
+   each such use, so hammering one lever stops paying. A policy meant to keep running should
+   say so with its duration. Going the other way on a measure still running is a U-turn, not
+   a repeat: it keeps its full size but costs ``UTURN_CAPITAL`` more capital, for the
+   credibility it spends (E12).
 3. **Political capital**: a turn's package costs the sum of its magnitudes (speeches cost a
    quarter, but whipping the legislature costs in full, and a measure forced through without a
-   majority costs ``FORCE_CAPITAL`` times as much, EB-14). Above ``capital`` a turn, every
-   measure is scaled down to fit.
+   majority costs ``FORCE_CAPITAL`` times as much, EB-14), times each measure's lifetime
+   (``lifetime_factor``): every turn a measure runs after its first adds ``UPKEEP`` of its
+   first turn's cost, charged when it is decided, so a longer measure is never free (E1,
+   O1). Above ``capital`` a turn, every measure is scaled down to fit.
 4. **Deficit ceiling**: the deficit this package would leave (today's, plus what is
    already landing this turn, plus every tax and spending move in the package) may not pass
    ``DEFICIT_LIMIT``, and once past it the package may not add to it. Borrowing measures
    are scaled down to fit; tax rises and cuts in the same package make room for them for
    as long as they run, so a funded package goes ahead even above the limit (feasibility
    only blocks borrowing there when nothing in the package pays for it to the end).
+
+Before any of them, durations are held to ``MAX_TURNS`` for their kind: a speech is news
+for a few turns, not a policy that runs for two years.
 
 The game is the only place these run: interpreters report what the player asked for.
 
@@ -54,6 +62,15 @@ from hog_sim.world.propagation import (
 REPEAT_WINDOW = 4
 REPEAT_DECAY = 0.5
 CAPITAL_COST = {"communicate": 0.25, "do_nothing": 0.0}
+# Upkeep (E1, O1): each turn a measure runs after its first costs this share of its first
+# turn's capital. Capital does not carry over between turns yet, so the whole lifetime is
+# charged on the turn the measure is decided; a 12-turn measure costs 2.1 times a one-off.
+UPKEEP = 0.1
+# Longest a measure of each kind may run, in turns (E1). A speech is news, not a programme.
+MAX_TURNS = {"communicate": 3}
+# A U-turn (E12) spends credibility: going the other way on a measure still running costs
+# this much more capital per unit than the measure alone would.
+UTURN_CAPITAL = 1.0
 
 
 class Constrained(Model):
@@ -61,11 +78,46 @@ class Constrained(Model):
     notes: list[str] = Field(default_factory=list)
 
 
+def lifetime_factor(action: PolicyAction) -> float:
+    """How many first turns' worth of capital a measure costs over its life (``UPKEEP``)."""
+    return 1 + UPKEEP * (action.duration_turns - 1)
+
+
+def _direction(action: PolicyAction) -> float:
+    """Which way a measure goes: the tax or spending's own direction, else the magnitude's."""
+    return action.instrument_sign
+
+
+def _running(past_actions: Sequence[Sequence[PolicyAction]]) -> list[PolicyAction]:
+    """Earlier turns' actions still in force this turn (``past_actions`` ends last turn)."""
+    now = len(past_actions)
+    return [
+        a
+        for i, turn in enumerate(past_actions)
+        for a in turn
+        if a.kind != "do_nothing" and i + a.duration_turns > now
+    ]
+
+
+def is_u_turn(action: PolicyAction, past_actions: Sequence[Sequence[PolicyAction]]) -> bool:
+    """Whether ``action`` goes the other way on a measure of the same kind and target that
+    is still running (E12)."""
+    way = _direction(action)
+    return bool(way) and any(
+        a.kind == action.kind and a.target == action.target and _direction(a) == -way
+        for a in _running(past_actions)
+    )
+
+
 def capital_cost(
-    actions: Sequence[PolicyAction], state: WorldState | None = None, role: Role = "prime_minister"
+    actions: Sequence[PolicyAction],
+    state: WorldState | None = None,
+    role: Role = "prime_minister",
+    past_actions: Sequence[Sequence[PolicyAction]] = (),
 ) -> float:
-    """Political capital the package uses. Whipping the legislature is hard graft, not a
-    speech; given the state, measures forced through without a majority cost more."""
+    """Political capital the package uses over the life of its measures. Whipping the
+    legislature is hard graft, not a speech; given the state, measures forced through
+    without a majority cost more; given earlier turns' actions, so do U-turns."""
     forced = (
         [c.forced for c in check_feasibility(list(actions), state, role).checks]
         if state is not None
@@ -74,8 +126,53 @@ def capital_cost(
     total = 0.0
     for action, force in zip(actions, forced, strict=True):
         unit = 1.0 if action.target == LEGISLATURE_ID else CAPITAL_COST.get(action.kind, 1.0)
-        total += unit * abs(action.magnitude) * (FORCE_CAPITAL if force else 1.0)
+        if is_u_turn(action, past_actions):
+            unit += UTURN_CAPITAL
+        unit *= FORCE_CAPITAL if force else 1.0
+        total += unit * abs(action.magnitude) * lifetime_factor(action)
     return total
+
+
+def fit_durations(actions: Sequence[PolicyAction]) -> tuple[list[PolicyAction], list[str]]:
+    """Hold each measure to the longest its kind may run (``MAX_TURNS``)."""
+    kept, notes = [], []
+    for action in actions:
+        cap = MAX_TURNS.get(action.kind)
+        if cap is not None and action.duration_turns > cap:
+            notes.append(
+                f"Duration: a {action.kind} on {action.target} can run at most {cap} turns, "
+                f"not {action.duration_turns}"
+            )
+            action = action.model_copy(update={"duration_turns": cap})
+        kept.append(action)
+    return kept, notes
+
+
+class LifetimeCost(Model):
+    """What one measure costs over its whole life, as the review screen shows it (O1)."""
+
+    capital: float
+    deficit: float = Field(0.0, description="Points of GDP it adds to the deficit while paid")
+    deficit_turns: int = Field(0, description="Turns the deficit cost is paid for")
+
+    @property
+    def deficit_turn_pts(self) -> float:
+        """The deficit cost summed over the turns it is paid, in points of GDP x turns."""
+        return self.deficit * self.deficit_turns
+
+
+def lifetime_cost(action: PolicyAction, state: WorldState) -> LifetimeCost:
+    """Capital and deficit ``action`` costs over its life, as decided (before this turn's
+    capital budget scales the package)."""
+    deficit, turns = 0.0, 0
+    if FISCAL_NODE in state.indicators:
+        deficit = fiscal_cost(action, state) * scale(state, FISCAL_NODE)
+        turns = fiscal_turns(action, state)
+    return LifetimeCost(
+        capital=capital_cost([action], state),
+        deficit=deficit,
+        deficit_turns=turns if deficit else 0,
+    )
 
 
 def constrain(
@@ -89,7 +186,9 @@ def constrain(
 
     ``past_actions`` holds the applied actions of earlier turns, oldest first.
     """
-    actions, notes = fit_job_cuts(actions, state)
+    actions, notes = fit_durations(actions)
+    cut, cut_notes = fit_job_cuts(actions, state)
+    actions, notes = cut, notes + cut_notes
     report = check_feasibility(list(actions), state, role)
     notes += [
         f"Blocked: {c.action.kind} {c.action.target} ({'; '.join(c.blockers)})"
@@ -98,7 +197,7 @@ def constrain(
     ]
 
     recent = Counter(
-        (a.kind, a.target)
+        (a.kind, a.target, _direction(a))
         for turn in past_actions[-REPEAT_WINDOW:]
         for a in turn
         if a.kind != "do_nothing"
@@ -109,8 +208,15 @@ def constrain(
         # wear out with repetition (EB-14).
         whip = action.kind == "communicate" and action.target == LEGISLATURE_ID
         uses = (
-            recent[(action.kind, action.target)] if action.kind != "do_nothing" and not whip else 0
+            recent[(action.kind, action.target, _direction(action))]
+            if action.kind != "do_nothing" and not whip
+            else 0
         )
+        if is_u_turn(action, past_actions):
+            notes.append(
+                f"U-turn: {action.kind} {action.target} reverses a measure still running, which "
+                "costs credibility and extra political capital"
+            )
         if uses:
             factor = REPEAT_DECAY**uses
             action = action.model_copy(update={"magnitude": action.magnitude * factor})
@@ -125,7 +231,7 @@ def constrain(
         for c in report.checks
         if c.forced
     ]
-    used = capital_cost(kept, state, role)
+    used = capital_cost(kept, state, role, past_actions)
     if used > capital:
         share = capital / used
         kept = [a.model_copy(update={"magnitude": a.magnitude * share}) for a in kept]

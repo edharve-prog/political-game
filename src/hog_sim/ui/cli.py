@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
-from hog_sim.core.models import SideIssue
+from hog_sim.core.models import PolicyAction, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
@@ -29,6 +29,7 @@ from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
+from hog_sim.policy.limits import lifetime_cost
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
@@ -188,10 +189,25 @@ REVIEW_PROMPT = (
 )
 
 
+def _lifetime(action: PolicyAction, state: WorldState | None) -> str:
+    """What a measure costs over its whole life, for the review screen (O1)."""
+    if state is None or action.kind == "do_nothing":
+        return ""
+    cost = lifetime_cost(action, state)
+    deficit = (
+        f", deficit {cost.deficit:+.2f} pts of GDP for {cost.deficit_turns} turns"
+        if cost.deficit
+        else ""
+    )
+    return f"  [over its life: {cost.capital:.2f} capital{deficit}]"
+
+
 def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
-        lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
+        lines += [
+            f"  {i}. {describe(a)}{_lifetime(a, state)}" for i, a in enumerate(proposal.actions, 1)
+        ]
     else:
         lines.append("  (no actions: this turn the government does nothing)")
     notes = [f"Not possible: {line}" for line in dropped]

@@ -39,6 +39,7 @@ from pydantic import Field
 from hog_sim.core.config import make_rng
 from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import EngineState, Push, WorldState
+from hog_sim.world.levers import deregulation_side
 
 DAMPING = 0.9
 MAX_ITERATIONS = 200  # lag-0 fixed point; a stable graph settles well within this
@@ -188,6 +189,15 @@ LEGISLATE_GROUP_FACTOR = 0.5
 # speech moves anyone else.
 WHIP_TARGET = "institution:legislature"
 WHIP_STEPS = 1.0
+
+
+def _fleeting(action: PolicyAction) -> bool:
+    """A speech to a sector or a country: a one-off lift, not a running push."""
+    return (
+        action.kind == "communicate"
+        and action.target != WHIP_TARGET
+        and action.target.startswith(("sector:", "country:"))
+    )
 
 
 def action_factor(action: PolicyAction) -> float:
@@ -456,7 +466,11 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         # moves no output, and growth comes from what the sectors do.
         home = state is not None and action.target == state.player_country
         push = 0.0 if protects_jobs(action) or home else action_factor(action) * action.magnitude
-        if push and not action.target.startswith("group:"):
+        if push and _fleeting(action):
+            # A speech lifts confidence once and the lift fades (E4): it does not hold output
+            # up for as long as it "runs".
+            shocks.append(Shock(node=action.target, delta=push))
+        elif push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
                 state is not None
@@ -471,6 +485,12 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     and e.target == action.target
                     and e.source in state.sectors
                 ]
+        if state is not None:
+            shocks += [
+                Shock(node=node, delta=steps * action.magnitude, duration_turns=turns, hold=True)
+                for node, steps in deregulation_side(action).items()
+                if node in state.indicators
+            ]
         shocks += demand_shocks(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:
