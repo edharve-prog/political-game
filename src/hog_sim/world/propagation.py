@@ -39,6 +39,7 @@ from pydantic import Field
 from hog_sim.core.config import make_rng
 from hog_sim.core.models import Edge, EdgeKind, Model, NodeKind, PolicyAction, Shock
 from hog_sim.core.state import EngineState, Push, WorldState
+from hog_sim.world.levers import deregulation_side
 
 DAMPING = 0.9
 MAX_ITERATIONS = 200  # lag-0 fixed point; a stable graph settles well within this
@@ -66,13 +67,16 @@ METRICS = {
     NodeKind.INDICATOR: "value",
 }
 
-# Share of a node's own push kept each turn (half-lives: indicators ~4 turns, sectors and
-# institutions ~6.5, countries ~3). Groups keep theirs: approval drift is Project 4's job.
+# Share of a node's own push kept each turn (half-lives: indicators ~4 turns, sectors ~6.5,
+# countries ~3, institutions ~2). Groups keep theirs: approval drift is Project 4's job.
+# Institutions fade at the rate they used to reach by fading 0.9 here and then settling 20% of
+# the way home in ``game.loop``; settling now moves only what the engine does not carry, so
+# the engine's fade is the only reversion its deviation gets (E7).
 PERSISTENCE = {
     NodeKind.COUNTRY: 0.8,
     NodeKind.SECTOR: 0.9,
     NodeKind.GROUP: 1.0,
-    NodeKind.INSTITUTION: 0.9,
+    NodeKind.INSTITUTION: 0.72,
     NodeKind.INDICATOR: 0.85,
 }
 
@@ -189,6 +193,15 @@ WHIP_TARGET = "institution:legislature"
 WHIP_STEPS = 1.0
 
 
+def _fleeting(action: PolicyAction) -> bool:
+    """A speech to a sector or a country: a one-off lift, not a running push."""
+    return (
+        action.kind == "communicate"
+        and action.target != WHIP_TARGET
+        and action.target.startswith(("sector:", "country:"))
+    )
+
+
 def action_factor(action: PolicyAction) -> float:
     """Signed standard steps per unit of magnitude that the action pushes its target."""
     if action.kind == "communicate" and action.target == WHIP_TARGET:
@@ -221,11 +234,18 @@ CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
     """Steps of deficit a turn from this turn's tax cuts that nothing else this turn pays for,
-    or 0 when that is under ``CONFIDENCE_THRESHOLD``."""
-    costs = [fiscal_cost(a, state) for a in actions]
-    cuts = sum(c for a, c in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0)
-    savings = sum(-c for c in costs if c < 0)
-    unfunded = cuts - savings
+    or 0 when that is under ``CONFIDENCE_THRESHOLD``.
+
+    Cuts and savings are compared over their lives (cost a turn times ``fiscal_turns``), so a
+    one-turn tax rise pays for only its own share of a cut that runs for two years (E5). With
+    every measure running as long, that is the cuts a turn less the savings a turn."""
+    costs = [(fiscal_cost(a, state), fiscal_turns(a, state)) for a in actions]
+    cuts = [(c, n) for a, (c, n) in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0]
+    cut_life = sum(c * n for c, n in cuts)
+    if cut_life <= 0:
+        return 0.0
+    saved_life = sum(-c * n for c, n in costs if c < 0)
+    unfunded = sum(c for c, _ in cuts) * max(0.0, 1 - saved_life / cut_life)
     return unfunded if unfunded >= CONFIDENCE_THRESHOLD else 0.0
 
 
@@ -382,6 +402,15 @@ def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float
     return output / gdp * 100 / scale(state, FISCAL_NODE)
 
 
+def fiscal_turns(action: PolicyAction, state: WorldState | None = None) -> int:
+    """Turns the action's deficit cost runs: its duration, and at least ``MIN_FISCAL_TURNS``
+    for a one-off; a cut to wage subsidies saves only for as long as the cover it removes
+    would have run."""
+    if state is not None and cuts_jobs_cover(action):
+        return job_cut(action, state)[1]
+    return max(action.duration_turns, MIN_FISCAL_TURNS)
+
+
 def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     """Standard steps a turn that the action adds to the deficit while it runs (negative
     when it takes them off). Actions aimed at the deficit itself have no separate cost."""
@@ -393,11 +422,67 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     return _FISCAL_SIGN.get(action.kind, 0.0) * size * fiscal_steps(action, state)
 
 
+# Tax and spending aimed at a population group move money in or out of its pockets (E6), and
+# it spends DEMAND_SHARE of that on the sectors in DEMAND_SECTORS: pensioners and workers on
+# what households buy, business owners on investment. A group with no entry spends
+# DEFAULT_DEMAND_SHARE across the private sectors in proportion to their output (public
+# services are not bought with a pension). A transfer therefore lifts output by less than
+# spending the same money on a sector does, since part of it is saved.
+DEFAULT_DEMAND_SHARE = 0.7
+DEMAND_SHARE = {
+    "group:pensioners": 0.8,
+    "group:young_renters": 0.9,
+    "group:public_workers": 0.8,
+    "group:business": 0.4,
+}
+DEMAND_SECTORS = {
+    "group:business": {"sector:manufacturing": 0.6, "sector:finance": 0.4},
+    "group:young_renters": {
+        "sector:housing": 0.4,
+        "sector:manufacturing": 0.3,
+        "sector:energy": 0.2,
+        "sector:finance": 0.1,
+    },
+}
+PUBLIC_SECTOR = "sector:public"
+
+
+def _demand_weights(group: str, state: WorldState) -> dict[str, float]:
+    weights = {s: w for s, w in DEMAND_SECTORS.get(group, {}).items() if s in state.sectors}
+    if weights:
+        return weights
+    private = {s: sec.output_bn for s, sec in state.sectors.items() if s != PUBLIC_SECTOR}
+    total = sum(private.values())
+    return {s: out / total for s, out in private.items()} if total > 0 else {}
+
+
+def demand_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
+    """What a group spends of a transfer to it (spending, a tax cut), or stops spending when
+    taxed, as held pushes on the sectors it buys from, for as long as the money is paid."""
+    if state is None or action.target not in state.groups or action.kind not in _FISCAL_SIGN:
+        return []
+    cost = fiscal_cost(action, state)
+    if not cost:
+        return []
+    gdp = state.countries[state.player_country].gdp_bn
+    money = cost * scale(state, FISCAL_NODE) / 100 * gdp  # £bn a year into the group's pockets
+    spent = money * DEMAND_SHARE.get(action.target, DEFAULT_DEMAND_SHARE)
+    turns = max(action.duration_turns, MIN_FISCAL_TURNS)
+    return [
+        Shock(node=s, delta=spent * w / scale(state, s), duration_turns=turns, hold=True)
+        for s, w in _demand_weights(action.target, state).items()
+        if spent * w
+    ]
+
+
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """Map interpreted actions to engine shocks.
 
-    Each action holds its push on the target for its duration. Actions aimed at a population
-    group are not shocks: they become approval events (``population.popularity.policy_events``).
+    Each action holds its push on the target for its duration, except on the player's own
+    country, whose growth no action sets directly. Actions aimed at a population group are not
+    shocks on the group: they become approval events (``population.popularity.policy_events``),
+    and tax or spending on it moves what it spends in the sectors it buys from
+    (``demand_shocks``).
     When ``state`` is given and has a deficit indicator, spending and tax also hold a cost on
     the deficit, so nothing is free and a longer programme costs more.
     """
@@ -408,9 +493,18 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
             continue
+        # Nothing pushes the player's own growth rate directly (E3): a speech to the nation
+        # moves no output, and growth comes from what the sectors do.
+        # Nor does a speech to a foreign country move its economy (M3): only the relationship.
+        home = state is not None and action.target == state.player_country
         abroad = action.kind == "communicate" and foreign_country(action, state)
-        push = 0.0 if protects_jobs(action) or abroad else action_factor(action) * action.magnitude
-        if push and not action.target.startswith("group:"):
+        still = protects_jobs(action) or home or abroad
+        push = 0.0 if still else action_factor(action) * action.magnitude
+        if push and _fleeting(action):
+            # A speech lifts confidence once and the lift fades (E4): it does not hold output
+            # up for as long as it "runs".
+            shocks.append(Shock(node=action.target, delta=push))
+        elif push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
                 state is not None
@@ -425,14 +519,16 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                     and e.target == action.target
                     and e.source in state.sectors
                 ]
+        if state is not None:
+            shocks += [
+                Shock(node=node, delta=steps * action.magnitude, duration_turns=turns, hold=True)
+                for node, steps in deregulation_side(action).items()
+                if node in state.indicators
+            ]
+        shocks += demand_shocks(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:
-            # A cut to wage subsidies saves only for as long as the cover it removes would run.
-            paid = (
-                job_cut(action, state)[1]
-                if cuts_jobs_cover(action)
-                else max(turns, MIN_FISCAL_TURNS)
-            )
+            paid = fiscal_turns(action, state)
             shocks.append(Shock(node=FISCAL_NODE, delta=cost, duration_turns=paid, hold=True))
     loss = unfunded_tax_cut(actions, state)
     if state is not None and loss:
@@ -518,9 +614,10 @@ def pushes_for(shocks: list[Shock], state: WorldState, turn: int | None = None) 
 # Makes, for one projected path, a function called once per turn after the first with the
 # projected values (native units by node id) that returns the background pushes due that turn.
 Outlook = Callable[[], Callable[[dict[str, float]], list[Shock]]]
-# Called after each projected turn's step with the absolute turn and the projected values
-# (updated in place): the rules resolve applies to the world after the engine moves it.
-Settle = Callable[[int, dict[str, float]], None]
+# Called after each projected turn's step with the absolute turn, the projected values
+# (updated in place) and the engine's deviation per node that turn (standard steps): the rules
+# resolve applies to the world after the engine moves it.
+Settle = Callable[[int, dict[str, float], dict[str, float]], None]
 
 
 @dataclass
@@ -836,14 +933,14 @@ def _path(
         model = first if t == state.turn else later_model
         if later is not None and t > state.turn:
             engine.pushes += pushes_for(later(values), state, t)
-        model.step(engine, t, course.protection.get(t, 0.0), values)
+        level, _ = model.step(engine, t, course.protection.get(t, 0.0), values)
         for n, queued in state.pending.get(t, {}).items():
             low, high = model.bounds[n]
             v = values[n] + queued
             v = min(high, v) if high is not None else v
             values[n] = max(low, v) if low is not None else v
         if course.settle is not None:
-            course.settle(t, values)
+            course.settle(t, values, level)
         for n in start:
             path[n].append(values[n] - start[n])
     return path

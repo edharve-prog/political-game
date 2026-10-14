@@ -141,8 +141,8 @@ CASES: list[Case] = [
         expect=[
             _e(
                 "tax",
-                "country:uk group:business group:public_workers group:pensioners "
-                "group:young_renters sector:public",
+                "group:business group:public_workers group:pensioners group:young_renters "
+                "sector:public",
                 +1,
             ),
             _e("spend", "sector:public group:public_workers", +1),

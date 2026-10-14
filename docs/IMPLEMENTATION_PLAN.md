@@ -141,13 +141,23 @@ Each edge carries `weight`, `lag` (turns), and `uncertainty` (std dev used in Mo
 ### PolicyAction schema (what the interpreter must output)
 ```python
 class PolicyAction(BaseModel):
-    kind: Literal["tax", "spend", "regulate", "deregulate", "diplomatic",
-                  "military", "communicate", "legislate", "appoint", "do_nothing"]
-    target: str                 # node id, e.g. "sector:energy", "country:china"
-    magnitude: float            # normalised -1..1 or concrete units by kind
+    kind: Literal[
+        "tax",
+        "spend",
+        "regulate",
+        "deregulate",
+        "diplomatic",
+        "military",
+        "communicate",
+        "legislate",
+        "appoint",
+        "do_nothing",
+    ]
+    target: str  # node id, e.g. "sector:energy", "country:china"
+    magnitude: float  # normalised -1..1 or concrete units by kind
     duration_turns: int
-    requires: list[str]         # e.g. ["legislature_majority"]
-    rationale: str              # LLM's reading of the player's intent
+    requires: list[str]  # e.g. ["legislature_majority"]
+    rationale: str  # LLM's reading of the player's intent
 ```
 
 ---
@@ -348,6 +358,21 @@ Each project: **Goal · Scope · Deliverables · Key decisions · Open questions
 - **Backlog:** [backlog/semantics-review.md](backlog/semantics-review.md); full review in [review/2026-10-12-engine-review.md](review/2026-10-12-engine-review.md).
 - **Done when:** each defect has a test built from Ed's reproduction that fails on main and passes after the fix, and the full suite, balance, backtests and stability still pass.
 
+### Project 21 — Costless Levers and Model Upgrade
+- **Goal:** no lever is free, the rules layered on the engine don't double count, offline reading is safe, the interface tells the truth, and the economic and political models are sound enough to calibrate.
+- **Why:** Ed's review of f09b02d (2026-10-13, after Project 20's fixes) found a dominant strategy: four turns of free laws and speeches, one group a turn, win 5 of 5 offline games with 54.8% of the vote against 47.7% for doing nothing. It lists 24 errors (7 P1), 7 modelling weaknesses and 20 enhancements.
+- **To-do list:** [plan/backlog/review-2026-10-13.md](backlog/review-2026-10-13.md) in the shared folder is the live checklist: one line per item, tagged with its thread, ticked as PRs merge. Repo snapshot at [backlog/review-2026-10-13.md](backlog/review-2026-10-13.md); full review in [review/2026-10-13-review.md](review/2026-10-13-review.md).
+- **Seven threads:**
+  - "Costless levers and balance bot": E1, E2, E4, E12, O1, O2, D4, the four-turn law bot, tests T1 and T2.
+  - "Fiscal incidence and lifetime cost": E3, E5, E6, E9, tests T3 and T7.
+  - "Engine rule fixes": E7, E8, E10, E11, E13, E14, D5, tests T4 to T6.
+  - "Offline reading and calendar": E15 to E19, O7, D6, test T8.
+  - "Truthful interface": E20 to E24, O10, D2.
+  - "Economic model upgrade": M1 to M4, M6, O3, O4, D1.
+  - "Political systems": M5, M7, O5, O6, O8, O9, D3, D7 to D10.
+- **Order:** the review's own: costless levers with the search bot first, then engine rules, offline reading, the interface and the model.
+- **Done when:** every line on the to-do list is ticked, the eight property tests pass, the search bot finds no free package that beats doing nothing by more than 0.5 vote points, and a final PR review across all the work is done.
+
 ### 6a. Dependencies & Interfaces
 
 What each project consumes and provides, so projects can be built in parallel against stubs.
@@ -374,6 +399,7 @@ What each project consumes and provides, so projects can be built in parallel ag
 | 18 | CI & Test Quality | 17 (P2 items), 16 (balance job) | CI matrix and installed-wheel smoke job; `semantics` and `balance` pytest markers; nightly workflow; Hypothesis profiles; coverage report |
 | 19 | Turn Consistency | 3, 5, 6, 8, 14, 15, 16 | One transition engine shared by forecasts and resolution; save before the next scenario; reuse that respects negation and size; package-level fiscal checks |
 | 20 | Policy Semantics & Counterfactuals | 19 | Subsidy programmes with real cover; paired policy and baseline runs; full-turn transition in projection mode; proposals bound to a turn and state version; effect ledger |
+| 21 | Costless Levers & Model Upgrade | 16, 19, 20 | Running-policy upkeep and lifetime cost; side effects for every lever; exploit-search balance bot; output-gap and gilt-yield blocks; offline policy builder; turn checkpoints |
 
 **Stub-first rule:** each project ships a trivial stub of its interface early (e.g. `propagate` returning zero deltas, `generate_scenario` returning a canned scenario) so the full loop in Project 8 runs end to end from the start and every project improves one piece of a working game.
 
@@ -417,7 +443,8 @@ Smallest thing that is fun and proves the architecture:
 | 17 | Engine Correctness | Done (PRs #26, #28, #29, #30) | Built by the "Engine findings triage and fixes" thread; see projects/17-engine-correctness.md |
 | 18 | CI & Test Quality | In progress (CI-7, CI-6 workflow part, CI-3 done, PR #31) | Assessed by the "Enhancements assessment and backlog" thread; see backlog/ci-and-quality.md |
 | 19 | Turn Consistency | Phase 1 done (CR-1 to CR-15, PRs #76 to #85); Phase 2 (CE-1 to CE-8) waits alongside Project 20's enhancements, which refine it | Threads "Turn engine consistency", "Save and resume safety" and "Interpretation and fiscal rules"; see backlog/consistency-review.md |
-| 20 | Policy Semantics & Counterfactuals | In progress (defects started 2026-10-12) | Threads "Subsidy and fiscal scale fixes", "Offline interpretation safety" and "Forecast and explanation consistency"; see backlog/semantics-review.md |
+| 20 | Policy Semantics & Counterfactuals | Defects done (SR-1 to SR-12, PRs #87 to #96); SR-13 to SR-17 and SE-1 to SE-12 mostly picked up by Project 21 | Threads "Subsidy and fiscal scale fixes", "Offline interpretation safety" and "Forecast and explanation consistency"; see backlog/semantics-review.md |
+| 21 | Costless Levers & Model Upgrade | In progress (started 2026-10-13) | Seven threads; live checklist in plan/backlog/review-2026-10-13.md |
 
 ---
 
@@ -450,6 +477,7 @@ Smallest thing that is fun and proves the architecture:
 | 2026-10-10 | Heterodox schools of thought: their added mechanisms join the shared world; only links the schools contradict on become lenses, with the world at a middle value; players meet the lenses as unlabelled advisers whose schools they must work out (CA-8) | Ed asked that calibration allow for heterodox views, then pointed out that the mainstream world can take Marxian and other mechanisms directly; lenses are needed only where one world can't hold two answers |
 | 2026-10-12 | Ed's code review of 7be7c65 becomes Project 19: 15 fixes (CR-1 to CR-15) in three parallel threads, then 8 enhancements (CE-1 to CE-8) in Ed's order | The forecast, the simulation and the narrative can disagree about the same decision; consistency comes before new features |
 | 2026-10-12 | Ed's second review (361a0ff) becomes Project 20: 11 defects plus legislation's free output in three parallel threads; design items SR-13 to SR-17 and enhancements SE-1 to SE-12 wait until those land | Meaning, money, counterfactuals and explanations must agree before more scenarios are added; the enhancements refine Project 19's CE list |
+| 2026-10-13 | Ed's third review (f09b02d) becomes Project 21: a shared to-do list of all 61 items, each tagged with one of seven threads that tick their own lines, then a final PR review | A dominant strategy of free laws and speeches wins every offline game; costless levers come first, judged by an exploit-search bot |
 | 2026-10-02 | The `main` branch rule requires CI checks but no approvals | Ed is the only maintainer, and GitHub doesn't let an author approve their own PR |
 
 ---

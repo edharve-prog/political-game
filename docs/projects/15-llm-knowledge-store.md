@@ -90,11 +90,11 @@ the store even though the save file still drops them.
 ```python
 class GraphChange(Model):
     kind: Literal["edge_weight", "add_edge", "node_attr"]
-    source: str | None      # edge changes
+    source: str | None  # edge changes
     target: str | None
     edge_kind: EdgeKind | None
-    node: str | None        # node_attr
-    attr: str | None        # whitelisted per node kind
+    node: str | None  # node_attr
+    attr: str | None  # whitelisted per node kind
     delta: float
     reason: str
 ```
