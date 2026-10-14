@@ -123,14 +123,14 @@ def test_indicators_stay_inside_their_bounds() -> None:
 
 
 def test_outcome_events_move_the_economy() -> None:
-    """A tagged market sell-off raises Bank Rate and hits finance (EB-5)."""
+    """A tagged market sell-off raises gilt yields and hits finance (EB-5, O4)."""
     start = toy_world()
     selloff = Outcome(narrative="Markets sold off", events=["market_selloff"], probability=1)
     after = resolve(start, start, QUIET, [], selloff, GameConfig())
-    assert value(after, "indicator:interest_rate") > value(start, "indicator:interest_rate")
+    assert value(after, "indicator:gilt_yield") > value(start, "indicator:gilt_yield")
     assert after.sectors["sector:finance"].output_bn < start.sectors["sector:finance"].output_bn
     quiet = resolve(start, start, QUIET, [], NOTHING, GameConfig())
-    assert value(quiet, "indicator:interest_rate") == value(start, "indicator:interest_rate")
+    assert value(quiet, "indicator:gilt_yield") == value(start, "indicator:gilt_yield")
 
 
 def test_unknown_event_nodes_are_skipped() -> None:
@@ -140,7 +140,7 @@ def test_unknown_event_nodes_are_skipped() -> None:
     del world.sectors["sector:finance"]
     world.edges = [e for e in world.edges if "sector:finance" not in (e.source, e.target)]
     nodes = {s.node for s in event_shocks(["market_selloff", "media_praise"], world)}
-    assert nodes == {"indicator:interest_rate"}
+    assert nodes == {"indicator:gilt_yield"}
 
 
 def growth(state, country):

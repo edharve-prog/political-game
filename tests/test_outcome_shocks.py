@@ -46,8 +46,8 @@ def test_tags_and_shocks_on_one_node_share_the_cap() -> None:
     )
     shocks = outcome_shocks(outcome, world)
     assert abs(total(shocks, "sector:finance") + MAX_OUTCOME_STEPS) < 1e-9
-    # Bank Rate (+0.3 and +0.2) is within the cap and untouched.
-    assert abs(total(shocks, RATE) - 0.5) < 1e-9
+    # Gilt yields (+0.5 and +0.4) are within the cap and untouched.
+    assert abs(total(shocks, "indicator:gilt_yield") - 0.9) < 1e-9
 
 
 def test_cap_keeps_opposite_shocks_and_shape() -> None:

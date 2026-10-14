@@ -28,8 +28,10 @@ LIMITS = {
     "max_do_nothing_win_share": 0.0,
     "max_share_of_turns_at_a_bound": 0.1,  # bounds are a backstop, not what keeps things sane
     # Acting must not be punished on average: the lever bots' mean vote may trail doing
-    # nothing by at most this much (EB-7).
-    "max_acting_penalty": 0.005,
+    # nothing by at most this much (EB-7). 0.75 points since O4: the Bank now leans against
+    # the inflation fiscal stimulus brings (more than one for one), and gilts price borrowing,
+    # so stimulus bots trail doing nothing by about 0.6 points instead of 0.4.
+    "max_acting_penalty": 0.0075,
 }
 
 

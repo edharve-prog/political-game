@@ -209,12 +209,13 @@ MIN_FISCAL_TURNS = 6
 
 # Markets and unfunded tax cuts (CA-4): a tax cut that this turn's other decisions do not pay
 # for, worth at least CONFIDENCE_THRESHOLD steps of deficit a turn, makes markets doubt the
-# government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes Bank
-# Rate up and the pound down once, and costs every group approval (see
+# government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes gilt
+# yields up (O4: the risk premium, not Bank Rate, which the Bank sets) and the pound down once,
+# and costs every group approval (see
 # ``population.popularity.policy_events``). Spending is not judged this way: markets lent
 # freely for the 2008 bailout and the 2020 lockdown.
 CONFIDENCE_THRESHOLD = 0.75
-CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": -0.8}
+CONFIDENCE_SHOCKS = {"indicator:gilt_yield": 1.0, "indicator:exchange_rate": -0.8}
 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
