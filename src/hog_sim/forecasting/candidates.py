@@ -371,7 +371,9 @@ class LLMForecaster:
                         lucky,
                     ),
                     judge=judged[i] if judged else d.self_probability,
-                    base_rate=base_rate(list(d.event_tags), delivery, resistance, actions),
+                    base_rate=base_rate(
+                        list(d.event_tags), delivery, resistance, scenario.urgency, actions
+                    ),
                     self_reported=d.self_probability,
                 )
                 for i, d in enumerate(drafts)

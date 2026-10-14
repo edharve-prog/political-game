@@ -335,6 +335,12 @@ def resolve(
     return new
 
 
+def not_possible(unmapped: Sequence[str]) -> list[str]:
+    """Limit notes for measures the interpreter could not map to anything in the game, so the
+    outcome prompt treats them like blocked measures rather than as enacted (E21)."""
+    return [f"{m}: not possible, nothing in the game can carry it out" for m in unmapped]
+
+
 class StaleProposal(RuntimeError):
     """A proposal no longer fits the game: it was made on another turn or against a world that
     has changed since, or its actions are not what this turn's limits allow. Propose again."""
@@ -365,6 +371,9 @@ class Proposal(Model):
     delivery: Delivery = Field(default_factory=Delivery)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     sacked: list[str] = Field(default_factory=list, description="Cast ids sacked (SD-4)")
+    unmapped: list[str] = Field(
+        default_factory=list, description="Measures the interpreter could not map (E21)"
+    )
 
 
 class Game:
@@ -461,7 +470,15 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
-        return self._limit(response, requested, delivery=delivery, pledges=pledges, sacked=sacked)
+        unmapped = getattr(self.interpreter, "last_unmapped", lambda: [])()
+        return self._limit(
+            response,
+            requested,
+            delivery=delivery,
+            pledges=pledges,
+            sacked=sacked,
+            unmapped=unmapped,
+        )
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -479,6 +496,7 @@ class Game:
             proposal.delivery,
             proposal.pledges,
             proposal.sacked,
+            proposal.unmapped,
         )
 
     def _limit(
@@ -489,6 +507,7 @@ class Game:
         delivery: Delivery | None = None,
         pledges: Sequence[Pledge] = (),
         sacked: Sequence[str] = (),
+        unmapped: Sequence[str] = (),
     ) -> Proposal:
         limited = self._constrain(actions)
         return Proposal(
@@ -502,6 +521,7 @@ class Game:
             delivery=delivery or Delivery(),
             pledges=list(pledges),
             sacked=[c for c in sacked if c in sackable(self.state)],
+            unmapped=list(unmapped),
         )
 
     def _constrain(self, actions: list[PolicyAction]) -> Constrained:
@@ -549,7 +569,7 @@ class Game:
             actions,
             engine,
             delivery=proposal.delivery,
-            limits=proposal.notes,
+            limits=proposal.notes + not_possible(proposal.unmapped),
             sacked=proposal.sacked,
         )
         chosen = select(
@@ -587,6 +607,7 @@ class Game:
             delivery=proposal.delivery,
             pledges=proposal.pledges,
             sacked=proposal.sacked,
+            unmapped=proposal.unmapped,
         )
         self.state = new
         self.history.append(record)

@@ -11,8 +11,11 @@ Each candidate gets three scores, each in (0, 1]:
   An indicator the engine expects to move materially but the candidate leaves out counts as
   a claim of no change, so saying nothing is not a free pass.
 * **judge**: an independent LLM estimate of its probability (``forecasting/candidates.py``).
-* **base_rate**: how common its tagged events are in practice (``BASE_RATES``). Several
-  tags all have to happen, so the rarest one bounds the score.
+* **base_rate**: how common its tagged events are in practice (``FITTED_RATES``: the
+  ``BASE_RATES`` placeholders updated with historical episodes, ``forecasting/base_rates.py``).
+  Several tags all have to happen: the rarest bounds the chance, and each further tag lowers
+  it a little, since events cluster but are not certain to come together. A quiet outcome is
+  less likely when the scenario is urgent or the actions meet resistance.
 
 Candidates fill forecast slots (D3, ``slots``): one per equal-probability band of the
 engine's distribution, ordered by luck for the government, plus a wildcard. A slot candidate
@@ -31,6 +34,7 @@ from statistics import NormalDist
 from typing import Literal
 
 from hog_sim.core.models import Delivery, Model, PolicyAction
+from hog_sim.forecasting.base_rates import HISTORICAL, fit_base_rates
 from hog_sim.world.levers import risk_factor
 from hog_sim.world.propagation import DeltaDistribution
 
@@ -51,7 +55,7 @@ EventTag = Literal[
 ]
 
 # Rough chance that a policy response of this game's scale sets off each kind of event
-# within a few months. Placeholders to be calibrated in Project 11.
+# within a few months. Hand-set placeholders: the prior that FITTED_RATES updates.
 BASE_RATES: dict[str, float] = {
     "none": 0.5,
     "market_selloff": 0.08,
@@ -67,6 +71,9 @@ BASE_RATES: dict[str, float] = {
     "business_investment": 0.12,
     "capital_flight": 0.04,
 }
+
+# The rates the game uses: placeholders updated with historical episodes (D7).
+FITTED_RATES: dict[str, float] = fit_base_rates(BASE_RATES, HISTORICAL)
 
 # 10th to 90th percentile of a normal spans 2 * 1.2816 standard deviations.
 _P10_P90_SPAN = 2 * 1.2816
@@ -170,14 +177,34 @@ IMPOSED = {"strike": 1.3, "protest": 1.3, "backbench_rebellion": 1.2, "media_bac
 PHASED = {"market_selloff": 0.75, "capital_flight": 0.75}
 
 
+# Consulting calms an event only when someone who could start it was consulted (M7):
+# workers or employers for a strike, any group for a protest or a legal challenge, MPs for a
+# rebellion. Courts and other institutions can also bring or settle a legal challenge.
+CONSULT_PREFIXES = {
+    "strike": ("group:", "sector:"),
+    "protest": ("group:",),
+    "backbench_rebellion": ("institution:legislature",),
+    "legal_challenge": ("group:", "institution:"),
+}
+
+
+def consulted_for(tag: str, delivery: Delivery) -> bool:
+    """Whether the leader consulted someone who could start (or stop) this event. For an
+    event no stakeholder starts, such as a media backlash, consulting anyone counts."""
+    prefixes = CONSULT_PREFIXES.get(tag)
+    if prefixes is None:
+        return bool(delivery.consulted)
+    return any(c.startswith(prefixes) for c in delivery.consulted)
+
+
 def delivery_factor(tag: str, delivery: Delivery | None) -> float:
     """Multiplier on a tag's base rate for how the response was delivered."""
     if delivery is None:
         return 1.0
-    factor = CONSULTED.get(tag, 1.0) if delivery.consulted else 1.0
+    factor = CONSULTED.get(tag, 1.0) if consulted_for(tag, delivery) else 1.0
     if delivery.speed == "phased":
         factor *= PHASED.get(tag, 1.0)
-    elif not delivery.consulted:
+    elif not consulted_for(tag, delivery):
         factor *= IMPOSED.get(tag, 1.0)
     return factor
 
@@ -192,30 +219,54 @@ def resistance_factor(tag: str, resistance: float) -> float:
     return 1 + RESISTANCE_FACTOR.get(tag, 0.0) * resistance
 
 
+# A quiet outcome gets rarer as the scenario grows urgent or the actions meet resistance:
+# its rate is multiplied by (1 - QUIET_URGENCY * urgency) * (1 - QUIET_RESISTANCE * resistance).
+QUIET_URGENCY = 0.5
+QUIET_RESISTANCE = 0.5
+# How strongly co-tagged events come together: each tag beyond the rarest multiplies the
+# chance by its own rate ** (1 - TAG_CORRELATION). 1 would be "the rarest bounds it" (they
+# always come together), 0 independent events.
+TAG_CORRELATION = 0.7
+
+
+def tag_rate(
+    tag: str,
+    delivery: Delivery | None = None,
+    resistance: float = 0.0,
+    urgency: float = 0.0,
+    actions: Sequence[PolicyAction] = (),
+) -> float:
+    """One tag's base rate, adjusted for delivery, resistance, the risks the actions' levers
+    carry (``world.levers.risk_factor``) and, for a quiet outcome, urgency."""
+    rate = FITTED_RATES.get(tag, 0.1) * delivery_factor(tag, delivery)
+    if tag == "none":
+        rate *= (1 - QUIET_URGENCY * urgency) * (1 - QUIET_RESISTANCE * resistance)
+    else:
+        rate *= resistance_factor(tag, resistance) * risk_factor(tag, actions)
+    return min(1.0, rate)
+
+
 def base_rate(
     tags: list[str],
     delivery: Delivery | None = None,
     resistance: float = 0.0,
+    urgency: float = 0.0,
     actions: Sequence[PolicyAction] = (),
 ) -> float:
     """How common the tagged events are, adjusted for delivery, the resistance the actions
-    meet and the risks their levers carry (``world.levers.risk_factor``); untagged counts as
-    a quiet outcome.
+    meet, the risks their levers carry and the scenario's urgency; untagged counts as a quiet
+    outcome.
 
-    All the tags have to happen, so the rarest bounds the chance (P(A and B) <= min). Adding
-    a tag can therefore never make an outcome look more common (EC-9).
+    The rarest tag bounds the chance (P(A and B) <= min), and each further tag lowers it by
+    its own rate ** (1 - TAG_CORRELATION). Adding a tag can therefore never make an outcome
+    look more common (EC-9).
     """
-    tags = [t for t in tags if t != "none"] or ["none"]
-    return min(
-        min(
-            1.0,
-            BASE_RATES.get(t, 0.1)
-            * delivery_factor(t, delivery)
-            * resistance_factor(t, resistance)
-            * risk_factor(t, actions),
-        )
-        for t in tags
-    )
+    tags = list(dict.fromkeys(t for t in tags if t != "none")) or ["none"]
+    rates = sorted(tag_rate(t, delivery, resistance, urgency, actions) for t in tags)
+    chance = rates[0]
+    for rate in rates[1:]:
+        chance *= rate ** (1 - TAG_CORRELATION)
+    return chance
 
 
 def combine(scores: list[CandidateScores], weights: ScoreWeights) -> list[CandidateScores]:
