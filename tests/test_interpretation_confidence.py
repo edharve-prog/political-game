@@ -67,7 +67,7 @@ def test_review_screen_shows_spans_and_checks() -> None:
         EngineForecaster(),
     )
     proposal = game.propose("Option: Tax the banks\nOption: Subsidise something")
-    text = cli._proposal_text(proposal, [], game.state)
+    text = cli._proposal_text(proposal, game.state)
     assert 'from "Tax the banks"' in text
     assert "CHECK: no target was named, so it was guessed from the scenario" in text
     # An action the player edits is theirs now: no reading, no flag.
