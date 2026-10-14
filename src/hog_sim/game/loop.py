@@ -318,16 +318,22 @@ def resolve(
     new.job_protection = {t: share for t, share in cover.items() if t > state.turn}
     new.events = [*new.events, *policy_events(actions, state), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
-    new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
+    new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked, played=state)
     new = settle_sentiment(new)  # before this turn's changes, so a new mood is felt in full
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
-    new = advance_storylines(new, state.turn, scenario, outcome, actions)
+    new = advance_storylines(new, state.turn, scenario, outcome, actions, played=state)
     new.turn = state.turn + 1
     return new
+
+
+def not_possible(unmapped: Sequence[str]) -> list[str]:
+    """Limit notes for measures the interpreter could not map to anything in the game, so the
+    outcome prompt treats them like blocked measures rather than as enacted (E21)."""
+    return [f"{m}: not possible, nothing in the game can carry it out" for m in unmapped]
 
 
 class StaleProposal(RuntimeError):
@@ -360,6 +366,9 @@ class Proposal(Model):
     delivery: Delivery = Field(default_factory=Delivery)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     sacked: list[str] = Field(default_factory=list, description="Cast ids sacked (SD-4)")
+    unmapped: list[str] = Field(
+        default_factory=list, description="Measures the interpreter could not map (E21)"
+    )
 
 
 class Game:
@@ -456,7 +465,15 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
-        return self._limit(response, requested, delivery=delivery, pledges=pledges, sacked=sacked)
+        unmapped = getattr(self.interpreter, "last_unmapped", lambda: [])()
+        return self._limit(
+            response,
+            requested,
+            delivery=delivery,
+            pledges=pledges,
+            sacked=sacked,
+            unmapped=unmapped,
+        )
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -480,6 +497,7 @@ class Game:
             proposal.delivery,
             proposal.pledges,
             proposal.sacked if sacked is None else sacked,
+            proposal.unmapped,
         )
 
     def _limit(
@@ -490,6 +508,7 @@ class Game:
         delivery: Delivery | None = None,
         pledges: Sequence[Pledge] = (),
         sacked: Sequence[str] = (),
+        unmapped: Sequence[str] = (),
     ) -> Proposal:
         limited = self._constrain(actions)
         return Proposal(
@@ -503,6 +522,7 @@ class Game:
             delivery=delivery or Delivery(),
             pledges=list(pledges),
             sacked=[c for c in sacked if c in sackable(self.state)],
+            unmapped=list(unmapped),
         )
 
     def _constrain(self, actions: list[PolicyAction]) -> Constrained:
@@ -550,7 +570,7 @@ class Game:
             actions,
             engine,
             delivery=proposal.delivery,
-            limits=proposal.notes,
+            limits=proposal.notes + not_possible(proposal.unmapped),
             sacked=proposal.sacked,
         )
         chosen = select(
@@ -588,6 +608,7 @@ class Game:
             delivery=proposal.delivery,
             pledges=proposal.pledges,
             sacked=proposal.sacked,
+            unmapped=proposal.unmapped,
         )
         self.state = new
         self.history.append(record)

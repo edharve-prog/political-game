@@ -123,3 +123,47 @@ def test_calendar_turns_do_not_count_against_the_new_storyline_rule() -> None:
         record(3, "gas-t0"),
     ]
     assert must_open_new(state, history)
+
+
+def test_the_offline_library_reaches_the_calendar(monkeypatch) -> None:
+    """E19: the CLI and the stability runs wrap the library in the calendar."""
+    from hog_sim.content.library import ScenarioLibrary
+    from hog_sim.game import stability
+    from hog_sim.world.calendar import OnCalendar
+
+    config = GameConfig(seed=1, election_turn=5, k_draws=10)
+    source = OnCalendar(ScenarioLibrary.load(seed=1))
+    game = Game(config, toy_world(), source, KeywordInterpreter(), EngineForecaster())
+    for _ in range(4):
+        game.play_turn("do nothing")
+    titles = [r.scenario.title for r in game.history]
+    assert titles[3] == "The Budget" and "The Budget" not in titles[:3]
+    assert source.seed == 1  # anything else is the library's own
+
+    seen: list[str] = []
+    real = Game.play_turn
+
+    def spy(self, text):
+        seen.append(self.scenario.title)
+        return real(self, text)
+
+    monkeypatch.setattr(Game, "play_turn", spy)
+    stability.play("do nothing", seed=1, turns=4)
+    assert seen[3] == "The Budget"
+
+
+def test_offline_cli_shows_the_budget_on_turn_3(tmp_path, monkeypatch, capsys) -> None:
+    import builtins
+
+    answers = iter(["do nothing", ""] * 3)
+
+    def fake_input(prompt=""):
+        try:
+            return next(answers)
+        except StopIteration:
+            raise EOFError from None
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+    cli.main(["--offline", "--save", str(tmp_path / "g.db")])
+    # The Budget's options are listed only when it is the lead issue.
+    assert "Raise taxes to fund public services" in capsys.readouterr().out

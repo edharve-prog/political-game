@@ -36,9 +36,11 @@ from hog_sim.knowledge.entries import (
     action_signature,
     guess_category,
     normalise_text,
+    reuse_context,
     scenario_id,
 )
 from hog_sim.llm.summary import summarise_state
+from hog_sim.policy.pledges import broken_by
 
 log = logging.getLogger(__name__)
 
@@ -174,9 +176,15 @@ class KnowledgeStore:
                 sid,
             )
             written += 1
+        context = reuse_context(
+            record.delivery,
+            [p.text for p in broken_by(state_before, record.actions)],
+            record.notes,
+        )
+        key = f"{sid}|{action_signature(record.actions)}"
         self.put(
             "outcome",
-            f"{sid}|{action_signature(record.actions)}",
+            key if context.plain else f"{key}|{context.key()}",
             OutcomeEntry(
                 scenario_id=sid,
                 scenario_title=scenario.title,
@@ -187,6 +195,7 @@ class KnowledgeStore:
                 chosen=record.chosen,
                 provenance=prov,
                 sacked=sorted(record.sacked),
+                context=context,
             ),
             sid,
         )
