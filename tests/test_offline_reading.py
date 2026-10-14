@@ -13,6 +13,14 @@ from hog_sim.ui import cli
 from hog_sim.world.calendar import CALENDAR, calendar_event, fill, scheduled_scenario
 from hog_sim.world.seed.toy import toy_world
 
+HOUSEHOLDS = [g for g in toy_world().groups if g != "group:business"]
+
+
+def shared(kind: str, total: float) -> list[tuple[str, str, float]]:
+    """``total`` shared evenly over every group but business, as ``spread`` does."""
+    return [(kind, g, round(total / len(HOUSEHOLDS), 3)) for g in HOUSEHOLDS]
+
+
 QUIET = Scenario(title="Quiet", briefing="", affected_nodes=["sector:housing"], urgency=0)
 
 
@@ -48,9 +56,7 @@ def test_waiting_lists_are_not_waiting(text, expected) -> None:
         (
             "Raise taxes to fund public services",
             [
-                ("tax", "group:pensioners", 0.167),
-                ("tax", "group:young_renters", 0.167),
-                ("tax", "group:public_workers", 0.167),
+                *shared("tax", 0.5),
                 ("spend", "sector:public", 0.5),
             ],
         ),
@@ -71,9 +77,7 @@ def test_the_budget_options_read_as_their_packages(option, expected) -> None:
         (
             "Raise taxes to fund public services",
             [
-                ("tax", "group:pensioners", 0.167),
-                ("tax", "group:young_renters", 0.167),
-                ("tax", "group:public_workers", 0.167),
+                *shared("tax", 0.5),
                 ("spend", "sector:public", 0.5),
             ],
         ),
@@ -91,11 +95,7 @@ def test_the_budget_options_read_as_their_packages(option, expected) -> None:
         ),
         (
             "Help households and families",
-            [
-                ("spend", "group:pensioners", 0.167),
-                ("spend", "group:young_renters", 0.167),
-                ("spend", "group:public_workers", 0.167),
-            ],
+            shared("spend", 0.5),
         ),
         ("A speech on the economy", [("communicate", "country:uk", 0.5)]),
     ],
