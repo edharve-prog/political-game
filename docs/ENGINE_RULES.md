@@ -153,7 +153,7 @@ Every response becomes one or more **actions**. An action has:
 
 | Target | Allowed kinds |
 |---|---|
-| The player's own country | tax, spend, regulate, deregulate, legislate, communicate |
+| The player's own country | communicate only (a speech to the nation) |
 | A foreign country | diplomatic, military, communicate |
 | A sector | tax, spend, regulate, deregulate, legislate, communicate |
 | A population group | tax, spend, regulate, deregulate, legislate, communicate |
@@ -162,6 +162,13 @@ Every response becomes one or more **actions**. An action has:
 
 "Do nothing" fits anything. Any other indicator can only be moved indirectly, by acting on
 something that drives it, so the world graph carries the trade-offs.
+
+The player's own country's growth comes from what its sectors do, so tax, spending and rules
+for "the country" have to be aimed at the sectors or groups they reach, where they carry their
+costs. No action pushes the player's own growth rate directly, so a speech to the nation moves
+no output. (Until 13 October 2026 national tax, spending and deregulation pushed UK growth 2
+steps a unit; the extra growth cut the deficit and swelled GDP, so spending on the country paid
+for itself and left debt lower than doing nothing.)
 
 ### How hard each kind pushes
 
@@ -217,8 +224,8 @@ Spending and tax also move `indicator:deficit`, as a flow, for as long as the po
 for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) is the
 output the action adds (or removes), as a share of GDP: a full-size rise in public spending
 adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while the same rise
-for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
-whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
+for the smaller housing sector costs 0.56 points. Aimed at anything else (a group, an
+indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
 taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
 (`instrument`), since the size's sign there is the way the player wants the indicator to move:
@@ -228,7 +235,7 @@ reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
-deficit (a tax cut of magnitude 0.6 or more on the whole country). For each point of unfunded cut, Bank Rate jumps 0.4
+deficit (a tax cut of magnitude 0.6 or more on a group). For each point of unfunded cut, Bank Rate jumps 0.4
 points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low

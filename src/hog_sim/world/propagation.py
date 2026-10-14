@@ -368,7 +368,8 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """Map interpreted actions to engine shocks.
 
-    Each action holds its push on the target for its duration. Actions aimed at a population
+    Each action holds its push on the target for its duration, except on the player's own
+    country, whose growth no action sets directly. Actions aimed at a population
     group are not shocks: they become approval events (``population.popularity.policy_events``).
     When ``state`` is given and has a deficit indicator, spending and tax also hold a cost on
     the deficit, so nothing is free and a longer programme costs more.
@@ -380,7 +381,10 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
             continue
-        push = 0.0 if protects_jobs(action) else action_factor(action) * action.magnitude
+        # Nothing pushes the player's own growth rate directly (E3): a speech to the nation
+        # moves no output, and growth comes from what the sectors do.
+        home = state is not None and action.target == state.player_country
+        push = 0.0 if protects_jobs(action) or home else action_factor(action) * action.magnitude
         if push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
