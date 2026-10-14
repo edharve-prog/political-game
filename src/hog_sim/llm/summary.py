@@ -18,6 +18,7 @@ from hog_sim.world.calendar import calendar_lines
 from hog_sim.world.cast import active_cast, cast_line
 from hog_sim.world.debt import debt_line
 from hog_sim.world.graph import build_graph, edges_of
+from hog_sim.world.propagation import scale
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
 
@@ -162,24 +163,27 @@ def summarise_state(
     *,
     precedents: list[str] | None = None,
     window: int = 3,
-    stress_threshold: float = 0.05,
+    stress_steps: float = 0.5,
     angry_below: float = 0.4,
     turning_drop: float = 0.02,
     max_events: int = 8,
 ) -> StateSummary:
     """Summarise ``state`` for a prompt.
 
-    An indicator is stressed when it moved by at least ``stress_threshold`` (relative) over
-    the last ``window`` turns of history. A group is angry below ``angry_below`` approval and
-    turning when its approval fell by at least ``turning_drop`` over the window. A foreign
-    country is tense with a negative relationship or stability under 0.4.
+    An indicator is stressed when it moved by at least ``stress_steps`` standard steps
+    (``scale``: a point for a rate, ten for an index) over the last ``window`` turns of
+    history, so the flag does not depend on an indicator's units or how near zero it is (E24).
+    A group is angry below ``angry_below`` approval and turning when its approval fell by at
+    least ``turning_drop`` over the window. A foreign country is tense with a negative
+    relationship or stability under 0.4.
     """
     indicators = []
     stressed = []
     for ind in state.indicators.values():
-        change = None
+        change = steps = None
         if ind.history:
             past = ind.history[-window] if len(ind.history) >= window else ind.history[0]
+            steps = (ind.value - past) / scale(state, ind.id)
             if past:
                 change = (ind.value - past) / abs(past)
         indicators.append(
@@ -192,7 +196,7 @@ def summarise_state(
                 interventions=list(ind.interventions),
             )
         )
-        if change is not None and abs(change) >= stress_threshold:
+        if steps is not None and abs(steps) >= stress_steps:
             stressed.append(ind.id)
 
     groups = sorted(state.groups.values(), key=lambda g: g.approval)

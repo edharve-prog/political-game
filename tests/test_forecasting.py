@@ -17,7 +17,7 @@ from hog_sim.forecasting.candidates import (
     engine_text,
 )
 from hog_sim.forecasting.scoring import (
-    BASE_RATES,
+    FITTED_RATES,
     Z_CAP,
     CandidateScores,
     ScoreWeights,
@@ -48,8 +48,9 @@ def engine(world):
     return propagate(world, actions_to_shocks([TAX]), horizon=6, k_draws=100)
 
 
-def draft(title, inflation, tags=("none",), p=0.25, effects=(), shocks=(), changes=()):
+def draft(title, inflation, tags=("none",), p=0.25, effects=(), shocks=(), changes=(), slot="p50"):
     return CandidateDraft(
+        slot=slot,
         title=title,
         narrative=f"{title} happened.",
         indicator_shifts=[Shift(node="indicator:inflation", change=inflation)],
@@ -67,9 +68,29 @@ def four_candidates(engine):
     return CandidateSet(
         candidates=[
             draft("As expected", expected, p=0.5),
-            draft("Pensioner anger", expected, ["protest"], 0.2, [("group:pensioners", -0.04)]),
-            draft("Market panic", expected + 3.0, ["market_selloff", "capital_flight"], 0.2),
-            draft("Strike wave", expected, ["strike"], 0.1, shocks=[("sector:public", -0.5)]),
+            draft(
+                "Pensioner anger",
+                expected,
+                ["protest"],
+                0.2,
+                [("group:pensioners", -0.04)],
+                slot="p17",
+            ),
+            draft(
+                "Market panic",
+                expected + 3.0,
+                ["market_selloff", "capital_flight"],
+                0.2,
+                slot="wildcard",
+            ),
+            draft(
+                "Strike wave",
+                expected,
+                ["strike"],
+                0.1,
+                shocks=[("sector:public", -0.5)],
+                slot="p83",
+            ),
         ]
     )
 
@@ -106,7 +127,7 @@ def test_leaving_out_material_moves_is_not_free(engine) -> None:
 
 
 def test_base_rates() -> None:
-    assert base_rate([]) == BASE_RATES["none"]
+    assert base_rate([]) == FITTED_RATES["none"]
     assert base_rate(["capital_flight"]) < base_rate(["media_backlash"])
 
 
@@ -193,6 +214,17 @@ def test_none_is_the_only_tag_when_used(world, engine) -> None:
     scenario = CannedScenarios().next_scenario(world, [])
     LLMForecaster(client).forecast(world, scenario, [TAX], engine)
     assert "'none' cannot be combined" in client.requests[1].messages[-1].content
+
+
+def test_new_shocks_on_a_group_are_sent_back(world, engine) -> None:
+    """E13: a group's reaction belongs in group_effects, under the event cap."""
+    bad = four_candidates(engine)
+    bad.candidates[3].new_shocks[0].node = "group:pensioners"
+    client = FakeClient([bad, four_candidates(engine), verdict(0.25, 0.25, 0.25, 0.25)])
+    scenario = CannedScenarios().next_scenario(world, [])
+    LLMForecaster(client).forecast(world, scenario, [TAX], engine)
+    retry = client.requests[1].messages[-1].content
+    assert "new_shocks cannot hit population groups ['group:pensioners']" in retry
 
 
 def test_engine_text_lists_moving_indicators(world, engine) -> None:
@@ -286,3 +318,52 @@ def test_one_far_off_claim_is_a_penalty_not_a_veto(engine) -> None:
     probabilities = [s.probability for s in combine(turn0, ScoreWeights())]
     assert max(probabilities) < 0.7  # was 0.98
     assert all(p >= 0.03 for p in probabilities)
+
+
+# --- forecast slots (review 2026-10-13, D3) --------------------------------
+
+
+def test_slots_split_the_forecast_into_equal_bands() -> None:
+    from hog_sim.forecasting.scoring import slot_luck, slots
+
+    assert slots(4) == ["p17", "p50", "p83", "wildcard"]
+    assert slots(2) == ["p50", "wildcard"]
+    assert [slot_luck(s) for s in slots(4)] == [0.17, 0.5, 0.83, None]
+
+
+def test_unlucky_band_sits_on_the_bad_side_of_each_indicator(world, engine) -> None:
+    from hog_sim.forecasting.candidates import favour
+    from hog_sim.forecasting.scoring import slot_target
+
+    lucky = favour(world)
+    assert lucky["indicator:inflation"] == -1.0 and lucky["indicator:unemployment"] == -1.0
+    f = engine.nodes["indicator:inflation"]
+    assert f.p90[2] > f.p10[2]
+    worst = slot_target(f.mean[2], f.p10[2], f.p90[2], 0.17, lucky["indicator:inflation"])
+    best = slot_target(f.mean[2], f.p10[2], f.p90[2], 0.83, lucky["indicator:inflation"])
+    assert worst > f.mean[2] > best
+
+
+def test_a_band_candidate_is_scored_against_its_band(world, engine) -> None:
+    from hog_sim.forecasting.candidates import favour
+    from hog_sim.forecasting.scoring import slot_target
+
+    lucky = favour(world)
+    at_band = {
+        n: slot_target(f.mean[2], f.p10[2], f.p90[2], 0.17, lucky.get(n, 1.0))
+        for n, f in engine.nodes.items()
+        if n.startswith("indicator:")
+    }
+    assert consistency(at_band, engine, 2, 0.17, lucky) == pytest.approx(1.0)
+    assert consistency(at_band, engine, 2) < 1.0
+
+
+def test_prompt_lists_slots_and_missing_slots_are_retried(world, engine) -> None:
+    unslotted = four_candidates(engine)
+    unslotted.candidates[3].slot = "p50"
+    client = FakeClient([unslotted, four_candidates(engine), verdict(0.25, 0.25, 0.25, 0.25)])
+    scenario = CannedScenarios().next_scenario(world, [])
+    LLMForecaster(client).forecast(world, scenario, [TAX], engine)
+    prompt = client.requests[0].messages[0].content
+    assert "- p17 (worst band):" in prompt and "- wildcard:" in prompt
+    assert "fill each slot exactly once" in client.requests[1].messages[-1].content
