@@ -254,9 +254,10 @@ def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = Non
 # JOB_PROTECTION of any rise in unemployment its drivers would cause, per unit of magnitude,
 # so firms keep their staff through a slump; in good times it only costs money. It covers any
 # rise while it runs, including one from a slump already under way, and costs the same as any
-# other spending. Its direction is the spending's (``instrument``): a cut winds down a scheme
-# that is running, removing cover and saving only what that cover cost, and with no scheme
-# running there is nothing to cut.
+# other spending for the cover it adds. Schemes add up, to at most all of a rise, so topping
+# up a running scheme pays only for the extra cover it buys. Its direction is the spending's
+# (``instrument``): a cut winds down a scheme that is running, removing cover and saving only
+# what that cover cost, turn by turn, and with no scheme running there is nothing to cut.
 JOB_NODE = "indicator:unemployment"
 JOB_PROTECTION = 0.8
 
@@ -288,22 +289,73 @@ def job_cut(action: PolicyAction, state: WorldState) -> tuple[float, int]:
     return (size, turns) if size > NEGLIGIBLE and turns else (0.0, 0)
 
 
-def job_protection(state: WorldState, actions: list[PolicyAction]) -> dict[int, float]:
-    """Share of job losses held back on each absolute turn: what earlier schemes still cover,
-    less this turn's cuts, plus this turn's new spending on unemployment. Overlapping schemes
-    cover the larger share."""
+def _job_changes(
+    state: WorldState, actions: list[PolicyAction]
+) -> tuple[dict[int, float], list[list[float]]]:
+    """Share of job losses held back on each absolute turn once this turn's schemes are in,
+    and for each action the share it adds (a scheme or a top-up) or removes (a cut) on each
+    turn from this one, for as long as it runs.
+
+    Cuts come first and remove at most the cover running that turn. Overlapping schemes add
+    up, to at most all of a rise, so a top-up adds only what the cover had room for (E9)."""
     cover = {t: share for t, share in state.job_protection.items() if t >= state.turn}
-    for action in actions:
+    changes: list[list[float]] = [[] for _ in actions]
+    for i, action in enumerate(actions):
         if cuts_jobs_cover(action):
             size, turns = job_cut(action, state)
             for t in range(state.turn, state.turn + turns):
-                cover[t] = max(0.0, cover.get(t, 0.0) - JOB_PROTECTION * size)
-    for action in actions:
+                removed = min(cover.get(t, 0.0), JOB_PROTECTION * size)
+                cover[t] = cover.get(t, 0.0) - removed
+                changes[i].append(removed)
+    for i, action in enumerate(actions):
         if protects_jobs(action) and not cuts_jobs_cover(action):
-            share = min(1.0, JOB_PROTECTION * abs(action.magnitude))
             for t in range(state.turn, state.turn + action.duration_turns):
-                cover[t] = max(cover.get(t, 0.0), share)
-    return {t: share for t, share in cover.items() if share > NEGLIGIBLE}
+                was = cover.get(t, 0.0)
+                cover[t] = min(1.0, was + JOB_PROTECTION * abs(action.magnitude))
+                changes[i].append(cover[t] - was)
+    return {t: share for t, share in cover.items() if share > NEGLIGIBLE}, changes
+
+
+def job_protection(state: WorldState, actions: list[PolicyAction]) -> dict[int, float]:
+    """Share of job losses held back on each absolute turn: what earlier schemes still cover,
+    less this turn's cuts, plus this turn's new spending on unemployment. Overlapping schemes
+    add up, to at most all of a rise."""
+    return _job_changes(state, actions)[0]
+
+
+def _job_costs(changes: list[float], sign: float) -> list[float]:
+    """Steps of deficit on each turn for the cover a scheme adds (sign +1) or a cut removes
+    (sign -1): each unit of magnitude's worth of cover costs ``FISCAL_STEPS``."""
+    return [sign * share / JOB_PROTECTION * FISCAL_STEPS for share in changes]
+
+
+def _job_shocks(costs: list[float], one_off: bool) -> list[Shock]:
+    """Deficit shocks for a wage subsidy's turn-by-turn costs: one held shock per run of turns
+    with the same cost. A scheme shorter than ``MIN_FISCAL_TURNS`` is paid evenly over that
+    minimum, as any one-off is."""
+    if one_off and len(costs) < MIN_FISCAL_TURNS:
+        total = sum(costs)
+        if abs(total) <= NEGLIGIBLE:
+            return []
+        delta = total / MIN_FISCAL_TURNS
+        return [Shock(node=FISCAL_NODE, delta=delta, duration_turns=MIN_FISCAL_TURNS, hold=True)]
+    shocks, t = [], 0
+    while t < len(costs):
+        end = t
+        while end < len(costs) and abs(costs[end] - costs[t]) <= NEGLIGIBLE:
+            end += 1
+        if abs(costs[t]) > NEGLIGIBLE:
+            shocks.append(
+                Shock(
+                    node=FISCAL_NODE,
+                    delta=costs[t],
+                    start_turn=t,
+                    duration_turns=end - t,
+                    hold=True,
+                )
+            )
+        t = end
+    return shocks
 
 
 def _held(node_id: str, push: float, share: float) -> float:
@@ -387,9 +439,14 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     when it takes them off). Actions aimed at the deficit itself have no separate cost."""
     if action.target == FISCAL_NODE:
         return 0.0
+    if state is not None and protects_jobs(action):
+        # A wage subsidy pays for the cover it adds, and a cut saves the cover it removes,
+        # turn by turn (E9); this is the average a turn over the turns it is paid.
+        cut = cuts_jobs_cover(action)
+        costs = _job_costs(_job_changes(state, [action])[1][0], -1.0 if cut else 1.0)
+        paid = len(costs) if cut else max(len(costs), MIN_FISCAL_TURNS)
+        return sum(costs) / paid if paid else 0.0
     size = fiscal_size(action)
-    if state is not None and cuts_jobs_cover(action):
-        size = -job_cut(action, state)[0]  # only the cover running can be cut
     return _FISCAL_SIGN.get(action.kind, 0.0) * size * fiscal_steps(action, state)
 
 
@@ -458,8 +515,9 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
     the deficit, so nothing is free and a longer programme costs more.
     """
     fiscal = state is not None and FISCAL_NODE in state.indicators
+    jobs = _job_changes(state, actions)[1] if state is not None else []
     shocks = []
-    for action in actions:
+    for i, action in enumerate(actions):
         turns = action.duration_turns
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
@@ -493,6 +551,12 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                 for node, steps in deregulation_side(action).items()
                 if node in state.indicators
             ]
+        if fiscal and protects_jobs(action):
+            # A wage subsidy pays, turn by turn, for the cover it adds alongside the schemes
+            # already running, and a cut saves only the cover it removes while it would have run.
+            cut = cuts_jobs_cover(action)
+            shocks += _job_shocks(_job_costs(jobs[i], -1.0 if cut else 1.0), one_off=not cut)
+            continue
         shocks += demand_shocks(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:

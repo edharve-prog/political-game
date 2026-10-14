@@ -23,6 +23,11 @@ half-life of ``HABIT_HALF_LIFE`` turns (EB-11). A price rise hurts most when it 
 year later it is partly the new normal. ``K`` converts one weighted standard step into
 approval points. Partial adjustment gives the electorate memory: a shock is felt over
 several turns rather than all at once, and approval drifts back to lean once it passes.
+
+Turnout is not fixed (O8): a group turns out more the further its approval sits from its
+lean, in either direction, because enthusiasm and anger both bring people to the polls. Its
+effective turnout is ``turnout * (1 + TURNOUT_SWING * |approval - lean|)``, at most
+``MAX_TURNOUT``.
 """
 
 from __future__ import annotations
@@ -31,7 +36,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
+from hog_sim.core.models import ApprovalEvent, EdgeKind, Group, Model, PolicyAction
 from hog_sim.core.state import WorldState
 from hog_sim.policy.credibility import approval_shift
 from hog_sim.world.levers import (
@@ -48,6 +53,8 @@ ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
 EVENT_CAP = 0.15  # most that a group's active gains, or its losses, move its target (EB-6)
 EVENT_KNEE = 0.10  # gains or losses up to this count in full; beyond it they taper to the cap
+TURNOUT_SWING = 2.0  # turnout rises 2% for each approval point away from lean (O8)
+MAX_TURNOUT = 0.95
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
@@ -297,9 +304,16 @@ def national_approval(state: WorldState) -> float:
     return sum(g.population_share * g.approval for g in state.groups.values()) / total
 
 
+def effective_turnout(group: Group) -> float:
+    """Turnout raised by enthusiasm or anger: the further approval is from lean, either way,
+    the more of the group votes."""
+    swing = 1 + TURNOUT_SWING * abs(group.approval - group.lean)
+    return min(MAX_TURNOUT, max(group.turnout, group.turnout * swing))
+
+
 def vote_intention(state: WorldState) -> float:
-    """Government vote share: approval weighted by population share and turnout."""
-    weights = {gid: g.population_share * g.turnout for gid, g in state.groups.items()}
+    """Government vote share: approval weighted by population share and effective turnout."""
+    weights = {gid: g.population_share * effective_turnout(g) for gid, g in state.groups.items()}
     total = sum(weights.values())
     return sum(weights[gid] * g.approval for gid, g in state.groups.items()) / total
 

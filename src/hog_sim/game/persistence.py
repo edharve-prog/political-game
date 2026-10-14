@@ -1,7 +1,9 @@
 """SQLite saves: one row per game, one row per turn, and the scenario waiting to be played.
 
 The waiting scenario is saved as soon as it is fetched, so resuming shows the same scenario
-instead of asking the source (Claude, or a library that may have grown) for a new one.
+instead of asking the source (Claude, or a library that may have grown) for a new one. A
+confirmed proposal is saved before the outcome is asked for (E22), so a model failure or a
+quit at that point does not lose the player's response: resuming offers it again.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from pathlib import Path
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import Model, Scenario
 from hog_sim.core.state import WorldState
+from hog_sim.game.loop import Proposal
 from hog_sim.game.records import TurnRecord
 
 _SCHEMA = """
@@ -32,6 +35,11 @@ CREATE TABLE IF NOT EXISTS pending_scenarios (
     game_id TEXT PRIMARY KEY REFERENCES games(game_id),
     turn INTEGER NOT NULL,
     scenario TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pending_proposals (
+    game_id TEXT PRIMARY KEY REFERENCES games(game_id),
+    turn INTEGER NOT NULL,
+    proposal TEXT NOT NULL
 );
 """
 
@@ -82,6 +90,24 @@ class SaveStore:
         if row is None or row[0] != turn:
             return None
         return _Pending.model_validate_json(row[1]).scenario
+
+    def save_proposal(self, game_id: str, proposal: Proposal) -> None:
+        """Keep the confirmed proposal for its turn until that turn is played (E22)."""
+        with self.conn:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO pending_proposals (game_id, turn, proposal) "
+                "VALUES (?, ?, ?)",
+                (game_id, proposal.turn, proposal.model_dump_json()),
+            )
+
+    def pending_proposal(self, game_id: str, turn: int) -> Proposal | None:
+        """The proposal confirmed for ``turn`` and not yet played, or ``None``."""
+        row = self.conn.execute(
+            "SELECT turn, proposal FROM pending_proposals WHERE game_id = ?", (game_id,)
+        ).fetchone()
+        if row is None or row[0] != turn:
+            return None
+        return Proposal.model_validate_json(row[1])
 
     def load(self, game_id: str) -> tuple[GameConfig, WorldState, list[TurnRecord]]:
         row = self.conn.execute(

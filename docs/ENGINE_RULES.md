@@ -55,8 +55,10 @@ weight -0.4, so higher inflation lowers their approval.
 ### The starting world
 
 The only world today is the hand-built UK in `world/seed/toy.py`: the UK, the EU and China; five
-sectors (energy, finance, manufacturing, housing, public); four groups (pensioners, young
-renters, public sector workers, business owners); the House of Commons and the Bank of England;
+sectors (energy, finance, manufacturing, housing, public); seven groups that together make up
+the whole electorate (pensioners 19%, young renters 15%, public sector workers 17%, business
+owners 8%, private sector workers 22%, mortgaged homeowners 13%, students 6%); the House of
+Commons and the Bank of England;
 and seven indicators (inflation, unemployment, Bank Rate, energy prices, house prices, deficit,
 and the pound's exchange rate).
 Its numbers are illustrative round figures, not sourced data.
@@ -287,9 +289,15 @@ way when it starts, and when it ends the jobs it was holding up are lost
 after all if the economy has not recovered. In good times it only costs money. In 2020 output
 fell by a fifth but unemployment rose only from 4% to about 5%.
 
+Schemes running at the same time add up, to at most all of a rise, and each pays only for the
+cover it adds, turn by turn. Topping up a running full-size scheme with a half-size one takes cover
+from 80% to 100% and costs a quarter of a full scheme a turn while both run; once the first scheme
+ends, the top-up's own 40% costs its full half.
+
 Cutting a wage subsidy (spending on unemployment with the instrument "cut") winds down a scheme
 that is running: it takes off that much cover for as long as the cut lasts, and saves only what
-that cover cost for the turns it would have run. With no scheme running there is nothing to cut,
+that cover cost, turn by turn, for the turns it would have run (so a cut across a scheme that
+steps down later saves less in its later turns). With no scheme running there is nothing to cut,
 so the cut is blocked; a cut bigger or longer than the scheme is trimmed to it.
 
 **Debt and its interest bill.** The UK starts with public debt of **100% of GDP** at an average
@@ -508,6 +516,19 @@ differs between the two. A new wage subsidy is therefore credited with the jobs 
 than counted on both sides. The offline forecaster uses that difference to decide who welcomes
 the response and who pushes back; the scenario's own harm is not blamed on the response.
 
+### The decision preview
+
+*Source: `game/preview.py`*
+
+The review screen, before you confirm, shows what the package does by the election. It plays the
+rest of the parliament with resolve itself, the central weights and the full approval rules, once
+with the package and once doing nothing this turn. Both face this turn's scenario and then quiet
+months: no outcome effects, no new crises and no further decisions. It shows the deficit and debt
+after the next turn, every six turns and at the election, and the vote and seats at the election
+for each. For every measure it also plays the package without that measure: the measure's cost is
+how much higher the debt is at the election with it, beside the political capital it uses. This is
+what the decisions alone do in a calm world, not a forecast of what will happen.
+
 ---
 
 ## 6. Popularity, approval and the election
@@ -628,7 +649,9 @@ defend the leader.
 
 - **National approval** is each group's approval weighted by population share.
 - **Vote share** weights each group by population share × turnout, so high-turnout groups like
-  pensioners count for more.
+  pensioners count for more. Turnout rises with feeling, either way: a group's turnout is
+  multiplied by 1 + 2 × |approval − lean| (at most 95%), so an angry group and an enthusiastic
+  one both turn out more than a content one.
 - **Seats** follow the two-party cube law: seat share = v³ / (v³ + (1 - v)³), out of 650 seats.
   A small lead in votes becomes a large lead in seats.
 - The player **wins** with a majority: more than 325 seats.
@@ -739,8 +762,13 @@ changes it.
      likely, an unlucky or lucky candidate that stays on its band scores as well as the expected
      one; the judge and base rates decide between them.
    - **Judge**: the judge's probability (or Claude's own estimate if the judge is off).
-   - **Base rate**: how common its tagged events are in practice. Several tags all have to
-     happen, so the rarest one sets the score.
+   - **Base rate**: how common its tagged events are in practice. The rates start from
+     hand-set guesses and are fitted to 23 UK policy episodes and what followed them
+     (`forecasting/base_rates.py`); `hog-sim base-rates` prints both, with how often each event
+     came up in your saved games. Several tags all have to happen: the rarest sets the ceiling
+     and each further tag lowers it a little (by its own rate to the power 0.3), because events
+     cluster but don't always come together. A quiet outcome is rarer when the scenario is
+     urgent (×(1 − 0.5 × urgency)) or the actions meet resistance (×(1 − 0.5 × resistance)).
 4. The scores are blended (consistency 40%, judge 40%, base rate 20%, on a log scale) and turned
    into probabilities that add up to 1.
 
@@ -751,6 +779,14 @@ How the response was delivered shifts the base rates:
 | Stakeholders consulted | strikes, protests and rebellions 0.6×, legal challenges 0.7× |
 | Imposed without consultation | strikes and protests 1.3×, rebellions 1.2×, media backlash 1.1× |
 | Phased in | market sell-offs and capital flight 0.75× |
+
+Consulting only counts for an event when the people consulted could start it: a group or
+sector for a strike, a group for a protest, the Commons for a rebellion, a group or institution
+for a legal challenge. Consulting the central bank does nothing for strike risk, and a strike is
+still "imposed" on the workers. For other events, consulting anyone counts.
+
+Outcome probabilities are shown as **relative likelihood** until the base rates are checked
+against held-out episodes.
 
 Resistance (section 4) multiplies the base rate of a backbench rebellion by 1 + 2 × resistance,
 so a spending bill with the Commons at 0.6 support (resistance 0.32) is 1.64 times as likely to
@@ -774,7 +810,11 @@ direction, whether the tax or spending itself went up or down, how long it runs 
 So a small spend never reuses outcomes written for a huge one, a one-off payment never reuses
 outcomes written for a policy that runs all parliament, and cutting a bill subsidy never reuses
 outcomes written for raising it. Outcomes from a turn that sacked someone are reused only on a
-turn that sacks the same people, since their stories may mention it. Each stored outcome keeps
+turn that sacks the same people, since their stories may mention it. Likewise they are reused
+only on a turn delivered the same way (who was consulted, imposed or phased), breaking the same
+pledges, with the same measures blocked or forced through; outcomes stored before this check
+are reused only on a plain turn (no consultation, imposed at once, nothing broken or blocked).
+Each stored outcome keeps
 the numbers it claimed, so its story still matches them, and is re-scored against today's
 forecast; only those that fit it (consistency at least 0.2) are offered.
 
