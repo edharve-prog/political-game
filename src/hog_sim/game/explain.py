@@ -9,7 +9,8 @@ measures that made or prevented them. What happens with none of them (the tail o
 turns and background pressures) is its own share, and whatever is left over is how the causes
 combined (shared limits, interactions), reported rather than hidden. The largest share is
 named with the graph path it travelled. It then gives the reasons behind the biggest approval
-moves: the approval events in force and the indicators each group cares about.
+moves: each group's target approval split into the terms the approval rules add up (lean,
+what it cares about, where it works, institutions, the debt penalty and events), largest first.
 ``alternatives`` lists the outcomes that were not chosen, with their scores.
 
 Everything here reads the turn record and the states either side of it; nothing changes.
@@ -23,17 +24,22 @@ from dataclasses import dataclass
 import networkx as nx
 
 from hog_sim.core.config import GameConfig
-from hog_sim.core.models import EdgeKind, Outcome, PolicyAction, Scenario
+from hog_sim.core.models import Outcome, PolicyAction, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.game.loop import resolve
 from hog_sim.game.records import TurnRecord
-from hog_sim.population.popularity import EVENT_FLOOR, _event_weight
+from hog_sim.population.popularity import (
+    DEFICIT_TOLERANCE,
+    EVENT_CAP,
+    Term,
+    approval_terms,
+    target_approval,
+)
 from hog_sim.world.events import outcome_shocks
 from hog_sim.world.propagation import (
     CONFIDENCE_SHOCKS,
     PROPAGATING,
     actions_to_shocks,
-    scale,
     unfunded_tax_cut,
 )
 
@@ -235,34 +241,57 @@ def why(record: TurnRecord, before: WorldState, start: WorldState, config: GameC
     for change, group_id in groups:
         lines.append(
             f"  {_name(before, group_id)} {change * 100:+.1f} pts: "
-            + "; ".join(_approval_reasons(before, after, group_id))
+            + "; ".join(_approval_reasons(before, after, start, group_id))
         )
     return lines
 
 
-def _approval_reasons(before: WorldState, after: WorldState, group_id: str) -> list[str]:
-    reasons = []
-    events = []
-    for e in after.events:
-        effect = e.group_effects.get(group_id, 0.0) * _event_weight(
-            e.age_turns, e.half_life_turns, e.hold_turns
-        )
-        if abs(effect) >= EVENT_FLOOR:
-            events.append((effect, e.name))
-    events.sort(key=lambda x: -abs(x[0]))
-    reasons += [f'"{name}" {effect * 100:+.1f}' for effect, name in events[:2]]
-    cares = []
-    for edge in before.edges:
-        if edge.kind == EdgeKind.CARES_ABOUT and edge.source == group_id:
-            if edge.target in before.indicators and edge.target in after.indicators:
-                change = after.indicators[edge.target].value - before.indicators[edge.target].value
-                felt = edge.weight * change / scale(before, edge.target)
-                if abs(change) >= MIN_MOVE:
-                    cares.append((felt, edge.target, change))
-    cares.sort(key=lambda x: -abs(x[0]))
-    for _, ind_id, change in cares[:2]:
-        reasons.append(f"cares about {_name(before, ind_id)} ({change:+.2f})")
-    return reasons or ["drifting back towards their usual level"]
+def _judged(before: WorldState, after: WorldState) -> WorldState:
+    """The state ``step_approval`` judged this turn: ``after`` with the baselines voters
+    held coming into the turn and the events as old as they were then."""
+    seen = after.snapshot()
+    seen.baselines = dict(before.baselines)
+    for event in seen.events:
+        event.age_turns = max(0, event.age_turns - 1)
+    return seen
+
+
+def _term_label(state: WorldState, term: Term) -> str:
+    if term.kind == "cares":
+        return f"cares about {_name(state, term.node)}"
+    if term.kind == "employs":
+        return f"works in {_name(state, term.node)}"
+    if term.kind == "influences":
+        return f"{_name(state, term.node)}'s standing"
+    if term.kind == "debt":
+        return f"deficit above {DEFICIT_TOLERANCE:g}% of GDP"
+    return "events in force (capped)"
+
+
+def _approval_reasons(
+    before: WorldState, after: WorldState, start: WorldState, group_id: str
+) -> list[str]:
+    """The terms of the group's target approval as ``target_approval`` computes them (E20):
+    where it is heading, its lean, and the largest pushes away from the lean, in points."""
+    seen = _judged(before, after)
+    terms = approval_terms(seen, start, seen.baselines)[group_id]
+    target = target_approval(seen, start, seen.baselines)[group_id]
+    lean = next(t.value for t in terms if t.kind == "lean")
+    pushes = []
+    for term in terms:
+        if term.kind == "lean":
+            continue
+        capped = term.kind == "events" and abs(sum(e for _, e in term.events)) > EVENT_CAP
+        if term.kind == "events" and not capped:
+            pushes += [(effect, f'"{name}"') for name, effect in term.events]
+        else:
+            pushes.append((term.value, _term_label(before, term)))
+    pushes = [p for p in pushes if abs(p[0]) >= 5e-4]
+    pushes.sort(key=lambda p: -abs(p[0]))
+    head = f"heading for {target * 100:.0f}% (lean {lean * 100:.0f}%)"
+    if not pushes:
+        return [f"{head}, drifting back towards their usual level"]
+    return [head, *(f"{label} {value * 100:+.1f}" for value, label in pushes[:TOP])]
 
 
 def alternatives(record: TurnRecord) -> list[str]:

@@ -20,51 +20,51 @@ reproductions (section E of the review) become regressions.
   unemployment gives job cover from the absolute magnitude whatever its instrument, while the
   fiscal side books a cut as a saving. A six-turn cut saves 1.25 points of deficit *and* gives
   80% cover. Fix: track real subsidy programmes; a rise adds cover, a cut removes existing
-  cover and saves only what it removes, and a cut with nothing to cut is rejected.
+  cover and saves only what it removes, and a cut with nothing to cut is rejected. **Done, PR #96.**
 - **SR-6 Sector spending is costed and felt on different scales** (finding 6, P2). Cost uses
   5% of current output; the physical effect uses 5% of baseline output. A second full spend on
-  public services costs £55bn but adds £50bn. Fix: one agreed scale for both.
+  public services costs £55bn but adds £50bn. Fix: one agreed scale for both. **Done, PR #94.**
 - **SR-10 Zero debt never grows** (finding 10, P3). Zero doubles as "debt not tracked". Fix: an
-  explicit tracking flag, so tracked zero still accumulates deficits.
+  explicit tracking flag, so tracked zero still accumulates deficits. **Done, PR #87.**
 - **SR-11 Undoing a relationship change doesn't restore trade** (finding 11, P3). +0.1 then
   −0.1 leaves EU→UK trade at 0.448875, not 0.45. Fix: derive exposure from a stored base weight
-  and the current relationship (unless hysteresis is meant, in which case model it openly).
+  and the current relationship (unless hysteresis is meant, in which case model it openly). **Done, PR #90.**
 - **SR-12 Legislating gives free output** (finding 12, high gameplay priority). `legislate`
   gets the same output push as `spend` but no fiscal cost. Fix: legislation authorises
   specific mechanisms with delays and capacity limits; add a legislation bot to the balance
-  test.
+  test. **Done, PR #93.**
 
 ### Owner: "Offline interpretation safety" thread
 
 - **SR-3 Offline play acts on negated instructions** (finding 3, P1). "Do not increase public
   spending" becomes a spending rise, "Do not sack the Chancellor" sacks the Chancellor, and
   "Cut spending on furlough" becomes a rise. Fix: parse clauses with action, target, polarity,
-  amount and duration; ask for clarification when unclear.
+  amount and duration; ask for clarification when unclear. **Done, PR #89.**
 - **SR-4 Stored interpretations swap beneficiaries** (finding 4, P1). "Raise taxes on business
   and cut taxes on pensioners" matches its mirror image at similarity 1.0. Fix: reuse only on
-  exact normalised text until clause-by-clause action–target–direction tuples can be compared.
+  exact normalised text until clause-by-clause action–target–direction tuples can be compared. **Done, PR #92.**
 - **SR-9 Outcome reuse ignores duration and instrument direction** (finding 9, P2). A one-turn
   and a 24-turn pension rise share a signature, as do energy spending "raise" and "cut". Fix:
   add duration, instrument direction and policy identity to the signature, and check each
-  reused candidate on its own. Follows EB-13 (PR #72) and CR-12 (PR #84).
+  reused candidate on its own. Follows EB-13 (PR #72) and CR-12 (PR #84). **Done, PR #92.**
 
 ### Owner: "Forecast and explanation consistency" thread
 
 - **SR-2 The no-action baseline already contains the policy** (finding 2, P1). Forecasts use
   the policy's job cover for both the policy path and the baseline, so a subsidy's reported
   contribution is 0.000 where separate runs give −0.487. The two paths also use different
-  draws. Fix: separate cover for each path, paired draws, and clearly named comparisons.
+  draws. Fix: separate cover for each path, paired draws, and clearly named comparisons. **Done, PR #95.**
 - **SR-5 Forecast and resolution still differ** (finding 5, P2). PR #85 shared the propagation
   step, but resolution also settles institutions, updates loyalty, applies graph changes and
   moves approval. A whip forecast at +0.10 resolves at +0.08. Fix: one pure full-turn
-  transition with a projection mode, and equivalence tests over several turns.
+  transition with a projection mode, and equivalence tests over several turns. **Done, PR #95.**
 - **SR-7 Old proposals skip the current limits** (finding 7, P2). A proposal carries no turn
   or state version, and `commit()` doesn't recheck it. Fix: bind proposals to a turn and state
-  version, add an idempotency key, and revalidate at commit.
+  version, add an idempotency key, and revalidate at commit. **Done, PR #88.**
 - **SR-8 Explanations invent a market penalty** (finding 8, P2). "Why" simulates each action
   alone, so a funded tax cut is blamed for a confidence shock (−7.94) that the real package
   never had (sterling rose 3.22). Fix: an effect ledger recorded during resolution, and
-  remove-one-action attribution with interactions reported openly.
+  remove-one-action attribution with interactions reported openly. **Done, PR #91.**
 
 ## Design items (held until the defects land)
 
