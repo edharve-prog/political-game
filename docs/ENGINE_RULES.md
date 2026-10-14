@@ -747,7 +747,11 @@ direction, whether the tax or spending itself went up or down, how long it runs 
 So a small spend never reuses outcomes written for a huge one, a one-off payment never reuses
 outcomes written for a policy that runs all parliament, and cutting a bill subsidy never reuses
 outcomes written for raising it. Outcomes from a turn that sacked someone are reused only on a
-turn that sacks the same people, since their stories may mention it. Each stored outcome keeps
+turn that sacks the same people, since their stories may mention it. Likewise they are reused
+only on a turn delivered the same way (who was consulted, imposed or phased), breaking the same
+pledges, with the same measures blocked or forced through; outcomes stored before this check
+are reused only on a plain turn (no consultation, imposed at once, nothing broken or blocked).
+Each stored outcome keeps
 the numbers it claimed, so its story still matches them, and is re-scored against today's
 forecast; only those that fit it (consistency at least 0.2) are offered.
 
