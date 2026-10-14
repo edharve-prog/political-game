@@ -106,7 +106,7 @@ def test_high_deficit_costs_every_group(world) -> None:
 
 
 def test_stacked_events_are_capped() -> None:
-    """However many boosts pile up, together they move a target by at most EVENT_CAP (EB-6)."""
+    """However many boosts pile up, together they move a target by less than EVENT_CAP (EB-6)."""
     from hog_sim.core.models import ApprovalEvent
     from hog_sim.population.popularity import EVENT_CAP, target_approval
 
@@ -115,9 +115,9 @@ def test_stacked_events_are_capped() -> None:
     world.events = [
         ApprovalEvent(name=f"boost {i}", group_effects={"group:pensioners": 0.1}) for i in range(6)
     ]
-    assert target_approval(world, toy_world())["group:pensioners"] == pytest.approx(
-        lean + EVENT_CAP
-    )
+    moved = target_approval(world, toy_world())["group:pensioners"] - lean
+    assert moved < EVENT_CAP
+    assert moved == pytest.approx(EVENT_CAP, abs=1e-3)
 
 
 @pytest.mark.parametrize("turns", [1, 3, 12])
@@ -157,3 +157,36 @@ def test_baselines_only_track_what_groups_feel(world) -> None:
     assert "indicator:inflation" in new.baselines
     assert all(n.startswith(("indicator:", "sector:")) for n in new.baselines)
     assert new.baselines["indicator:inflation"] == world.indicators["indicator:inflation"].value
+
+
+def _pensioners_target(effects: list[float]) -> float:
+    from hog_sim.core.models import ApprovalEvent
+
+    world = toy_world()
+    world.events = [
+        ApprovalEvent(name=f"event {i}", group_effects={"group:pensioners": e})
+        for i, e in enumerate(effects)
+    ]
+    return target_approval(world, toy_world())["group:pensioners"]
+
+
+def test_good_news_does_not_absorb_a_broken_pledge() -> None:
+    """E8: with +0.25 of good news, a -0.05 broken-pledge hit used to leave the target where it
+    was, because the total was still above the cap."""
+    assert _pensioners_target([0.25, -0.05]) < _pensioners_target([0.25]) - 0.04
+
+
+@pytest.mark.parametrize(
+    "before", [[], [0.05], [0.25], [0.1, 0.1, 0.1], [-0.1], [-0.3], [0.4, -0.2]]
+)
+@pytest.mark.parametrize("hit", [-0.01, -0.05, -0.2])
+def test_a_negative_event_always_lowers_the_target(before: list[float], hit: float) -> None:
+    """Adding bad news lowers a group's target, whatever else is active, unless it is at 0."""
+    without = _pensioners_target(before)
+    assert _pensioners_target([*before, hit]) < without or without == 0.0
+
+
+@pytest.mark.parametrize("before", [[], [-0.25], [0.3]])
+def test_a_positive_event_always_raises_the_target(before: list[float]) -> None:
+    without = _pensioners_target(before)
+    assert _pensioners_target([*before, 0.05]) > without or without == 1.0

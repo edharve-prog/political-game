@@ -163,8 +163,9 @@ def change_draft(change: GraphChange) -> GraphChangeDraft:
 def candidates(engine, changes=(CHINA_COOLS,)):
     expected = engine.nodes["indicator:inflation"].mean[2]
 
-    def draft(title, p):
+    def draft(title, p, slot):
         return CandidateDraft(
+            slot=slot,
             title=title,
             narrative=f"{title} after the windfall tax.",
             indicator_shifts=[Shift(node="indicator:inflation", change=expected)],
@@ -176,7 +177,9 @@ def candidates(engine, changes=(CHINA_COOLS,)):
             self_probability=p,
         )
 
-    return CandidateSet(candidates=[draft("Tax lands", 0.5), draft("Firms grumble", 0.5)])
+    return CandidateSet(
+        candidates=[draft("Tax lands", 0.5, "p50"), draft("Firms grumble", 0.5, "wildcard")]
+    )
 
 
 SCENARIO = ScenarioDraft(

@@ -63,7 +63,9 @@ def cap_shocks(shocks: list[Shock], cap: float = MAX_OUTCOME_STEPS) -> list[Shoc
 
 
 def outcome_shocks(outcome: Outcome, state: WorldState) -> list[Shock]:
-    """Everything an outcome pushes: its own shocks and its event tags', capped per node."""
-    known = set(state.node_ids())
+    """Everything an outcome pushes: its own shocks and its event tags', capped per node.
+    Shocks on population groups are dropped: an outcome moves a group through its approval
+    events (``group_effects``), which the event cap governs (E13)."""
+    known = set(state.node_ids()) - set(state.groups)
     own = [s for s in outcome.shocks if s.node in known]
     return cap_shocks(own + event_shocks(outcome.events, state))

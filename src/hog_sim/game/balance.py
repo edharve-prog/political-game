@@ -40,10 +40,13 @@ LIMITS = {
     "max_do_nothing_win_share": 0.0,
     "max_share_of_turns_at_a_bound": 0.1,  # bounds are a backstop, not what keeps things sane
     # Acting must not be punished on average: the lever bots' mean vote may trail doing
-    # nothing by at most this much (EB-7). 0.75 points since O4: the Bank now leans against
-    # the inflation fiscal stimulus brings (more than one for one), and gilts price borrowing,
-    # so stimulus bots trail doing nothing by about 0.6 points instead of 0.4.
-    "max_acting_penalty": 0.0075,
+    # nothing by at most this much (EB-7). It was 0.005 until the fuller electorate (O8): with
+    # every voter counted, pensioners are 23% of the vote rather than 38%, and the levers that
+    # buy one group with borrowing now cost more voters than they win, so the gap is about 0.8
+    # points. Group effects are retuned on top of the fuller electorate (review 2026-10-13, E6),
+    # which should bring this back down. The Bank's rule and gilt yields (O4) also lean against
+    # fiscal stimulus.
+    "max_acting_penalty": 0.012,
     # A package that costs nothing in deficit, enacted on turn 0 within one turn's capital,
     # may beat doing nothing at the election by at most this share of the vote (D4).
     "max_free_package_gain": 0.005,
