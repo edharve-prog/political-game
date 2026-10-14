@@ -447,29 +447,32 @@ cfg = GameConfig(k_draws=1, horizon=6)
 quiet = Scenario(title="Quiet", briefing="", affected_nodes=[], urgency=0)
 outcome = Outcome(narrative="Quiet", probability=1)
 
-cut = PolicyAction(kind="spend", target="indicator:unemployment",
-                   magnitude=-1, instrument="cut", duration_turns=6)
-print("Cut fiscal cost:", fiscal_cost(cut, s))        # -1.25
-print("Cut job cover:", job_protection(s, [cut]))    # 0.8 for six turns
+cut = PolicyAction(
+    kind="spend", target="indicator:unemployment", magnitude=-1, instrument="cut", duration_turns=6
+)
+print("Cut fiscal cost:", fiscal_cost(cut, s))  # -1.25
+print("Cut job cover:", job_protection(s, [cut]))  # 0.8 for six turns
 
-slump = quiet.model_copy(update={"shocks": [
-    Shock(node="sector:manufacturing", delta=-2)
-]})
+slump = quiet.model_copy(update={"shocks": [Shock(node="sector:manufacturing", delta=-2)]})
 s1 = resolve(s, s, slump, [], outcome, cfg)
 subsidy = cut.model_copy(update={"instrument": "raise"})
 with_policy = forecast(s, s1, quiet, [subsidy], cfg)
 without_policy = forecast(s, s1, quiet, [], cfg)
 node = "indicator:unemployment"
 print("Reported contribution:", with_policy.response_at(2)[node])  # 0.0
-print("Separate-run contribution:",
-      with_policy.at(2)[node] - without_policy.at(2)[node])  # about -0.487
+print(
+    "Separate-run contribution:", with_policy.at(2)[node] - without_policy.at(2)[node]
+)  # about -0.487
 
 k = KeywordInterpreter()
 print(k.interpret("Do not increase public spending", s, quiet))
 k.interpret("Do not sack the Chancellor", s, quiet)
 print("Sackings:", k.last_sacked())  # ['person:chancellor']
-print("Opposite packages similarity:", same_request(
-    "raise taxes on business and cut taxes on pensioners",
-    "raise taxes on pensioners and cut taxes on business",
-))  # 1.0
+print(
+    "Opposite packages similarity:",
+    same_request(
+        "raise taxes on business and cut taxes on pensioners",
+        "raise taxes on pensioners and cut taxes on business",
+    ),
+)  # 1.0
 ```
