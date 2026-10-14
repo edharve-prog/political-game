@@ -6,11 +6,14 @@ Each turn every group's approval moves part of the way towards a target:
            + K * sum(CARES_ABOUT weight * indicator change in standard steps)
            + K * sum(EMPLOYS weight * sector output change in standard steps)
            + K * sum(INFLUENCES weight * institution support above or below 0.5, in steps)
-           + sum(active event effects, held for hold_turns then halving every half_life_turns),
-             capped at +-EVENT_CAP per group
+           + capped(gains from active events) - capped(losses from active events)
            - DEBT_PENALTY * (deficit above DEFICIT_TOLERANCE, in % of GDP)
 
-The last term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
+Events are held for hold_turns, then halve every half_life_turns. A group's gains and its
+losses are capped separately, each below ``EVENT_CAP`` (``cap_events``), so a pile of good news
+cannot absorb a later backlash: bad news always lowers the target (E8).
+
+The deficit term is a loss of fiscal credibility felt by every group: borrowing is tolerated up
 to a point, then each extra point of deficit costs approval across the board, so spending
 on everything cannot buy an election.
 
@@ -24,16 +27,26 @@ several turns rather than all at once, and approval drifts back to lean once it 
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Model, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.world.levers import (
+    LAW_HOLD,
+    RULE_KINDS,
+    delivers_for,
+    deregulation_losers,
+    law_counterparties,
+)
 from hog_sim.world.propagation import METRICS, action_factor, scale, unfunded_tax_cut
 
 K = 0.05  # approval per weighted standard step
 ADJUST = 0.5  # share of the gap to target closed each turn
 EVENT_FLOOR = 1e-3  # events weaker than this are dropped
-EVENT_CAP = 0.15  # most that all active events together can move a group's target (EB-6)
+EVENT_CAP = 0.15  # most that a group's active gains, or its losses, move its target (EB-6)
+EVENT_KNEE = 0.10  # gains or losses up to this count in full; beyond it they taper to the cap
 DEFICIT_ID = "indicator:deficit"
 DEFICIT_TOLERANCE = 5.0  # % of GDP voters accept before credibility suffers
 DEBT_PENALTY = 0.03  # approval lost per point of deficit above the tolerance
@@ -89,6 +102,10 @@ CONFIDENCE_APPROVAL = 0.12
 # A policy aimed straight at a group (a pension rise, a tax on landlords) moves that group's
 # target approval by this much per standard step, for as long as the policy runs.
 GROUP_STEP = 0.05
+# Fairness (E6): money handed to one group (spending on it, a tax cut for it) costs every
+# other group this share of what it wins, for as long as it runs: the others see someone
+# else's pension rise or tax break, not their own.
+FAIRNESS = 0.25
 
 
 def policy_events(
@@ -98,7 +115,11 @@ def policy_events(
 
     The effect holds at full strength for the action's duration, then fades with the usual
     half-life, so a lasting benefit keeps its voters for as long as it is paid for. Given the
-    state, an unfunded tax cut that spooks markets also costs every group approval.
+    state, money handed to one group costs the others ``FAIRNESS`` of what it wins. A law for
+    a group also costs its counterparty, and holds only ``LAW_HOLD`` turns unless the package
+    puts money behind the group; deregulating a sector costs the workers whose protections it
+    loosens (``world.levers``). An unfunded tax cut that spooks markets costs every group
+    approval.
     """
     events = []
     loss = unfunded_tax_cut(actions, state)
@@ -111,20 +132,118 @@ def policy_events(
             )
         )
     for action in actions:
+        hold = action.duration_turns - 1
+        losers = deregulation_losers(action)
+        if losers:
+            events.append(
+                ApprovalEvent(
+                    name=f"{action.kind} {action.target}: protections loosened",
+                    group_effects={
+                        g: steps * action.magnitude * GROUP_STEP
+                        for g, steps in losers.items()
+                        if g in groups or state is None
+                    },
+                    hold_turns=hold,
+                )
+            )
         if not action.target.startswith("group:"):
             continue
         effect = action_factor(action) * action.magnitude * GROUP_STEP
-        if effect:
-            events.append(
-                ApprovalEvent(
-                    name=f"{action.kind} {action.target}",
-                    group_effects={action.target: effect},
-                    # Felt at full strength on the turn it starts and each turn after it
-                    # while it runs: duration_turns updates in all (EC-7).
-                    hold_turns=action.duration_turns - 1,
-                )
+        if not effect:
+            continue
+        effects = {action.target: effect}
+        if action.kind in ("tax", "spend") and effect > 0:
+            effects |= {g: -FAIRNESS * effect for g in groups if g != action.target}
+        if action.kind in RULE_KINDS:
+            # A law for one group has a losing side, and without money behind it its appeal
+            # wears thin (O2).
+            effects |= {
+                g: share * effect
+                for g, share in law_counterparties(action).items()
+                if g != action.target and (g in groups or state is None)
+            }
+            if not delivers_for(action.target, actions):
+                hold = min(hold, LAW_HOLD)
+        events.append(
+            ApprovalEvent(
+                name=f"{action.kind} {action.target}",
+                group_effects=effects,
+                # Felt at full strength on the turn it starts and each turn after it while it
+                # runs: duration_turns updates in all (EC-7).
+                hold_turns=hold,
             )
+        )
     return events
+
+
+def cap_events(total: float) -> float:
+    """``total`` gains (or, negated, losses) from events, as they move a target: in full up to
+    ``EVENT_KNEE``, then tapering so they approach ``EVENT_CAP`` but never reach it. Each extra
+    event still counts for something, so piling on news moves a group less and less, but the
+    cap never hides news of the other sign (E8)."""
+    sign = 1.0 if total >= 0 else -1.0
+    size = abs(total)
+    if size <= EVENT_KNEE:
+        return total
+    room = EVENT_CAP - EVENT_KNEE
+    return sign * (EVENT_KNEE + room * (1 - math.exp(-(size - EVENT_KNEE) / room)))
+
+
+@dataclass(slots=True)
+class Term:
+    """One part of a group's target approval (E20): ``kind`` is lean, cares, employs,
+    influences, debt or events, ``node`` the node it comes from (empty for lean and
+    events) and ``value`` its contribution in approval (0-1)."""
+
+    kind: str
+    value: float
+    node: str = ""
+    events: list[tuple[str, float]] = field(default_factory=list)  # kind "events": each one
+
+
+def approval_terms(
+    state: WorldState,
+    reference: WorldState,
+    baselines: Mapping[str, float] | None = None,
+) -> dict[str, list[Term]]:
+    """Each group's target approval split into its terms, before the 0-1 clamp. The terms
+    add up (in order) to what ``target_approval`` returns, so explanations name the real
+    causes: lean, each cared-about indicator, each employing sector, each institution, the
+    debt penalty and the capped events in force."""
+    terms = {gid: [Term(kind="lean", value=g.lean)] for gid, g in state.groups.items()}
+    for edge in state.edges:
+        if edge.kind == EdgeKind.CARES_ABOUT and edge.source in terms:
+            steps = _steps(state, reference, edge.target, baselines)
+            terms[edge.source].append(
+                Term(kind="cares", node=edge.target, value=K * edge.weight * steps)
+            )
+        elif edge.kind == EdgeKind.EMPLOYS and edge.target in terms:
+            steps = _steps(state, reference, edge.source, baselines)
+            terms[edge.target].append(
+                Term(kind="employs", node=edge.source, value=K * edge.weight * steps)
+            )
+        elif edge.kind == EdgeKind.INFLUENCES and edge.target in terms:
+            institution = state.institutions.get(edge.source)
+            if institution is not None:
+                value = K * edge.weight * (institution.support - 0.5) / 0.1
+                terms[edge.target].append(Term(kind="influences", node=edge.source, value=value))
+    deficit = state.indicators.get(DEFICIT_ID)
+    if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
+        penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
+        for group_terms in terms.values():
+            group_terms.append(Term(kind="debt", node=DEFICIT_ID, value=-penalty))
+    felt: dict[str, list[tuple[str, float]]] = {gid: [] for gid in terms}
+    for event in state.events:
+        w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
+        for gid, effect in event.group_effects.items():
+            if gid in felt:
+                felt[gid].append((event.name, effect * w))
+    for gid, events in felt.items():
+        gains = sum(e for _, e in events if e > 0)
+        losses = sum(e for _, e in events if e < 0)
+        capped = cap_events(gains) + cap_events(losses)
+        terms[gid].append(Term(kind="events", value=capped, events=events))
+    return terms
 
 
 def target_approval(
@@ -134,31 +253,13 @@ def target_approval(
 ) -> dict[str, float]:
     """Each group's target approval, with changes measured from ``baselines`` where given
     and from ``reference`` otherwise."""
-    targets = {gid: g.lean for gid, g in state.groups.items()}
-    for edge in state.edges:
-        if edge.kind == EdgeKind.CARES_ABOUT and edge.source in targets:
-            steps = _steps(state, reference, edge.target, baselines)
-            targets[edge.source] += K * edge.weight * steps
-        elif edge.kind == EdgeKind.EMPLOYS and edge.target in targets:
-            steps = _steps(state, reference, edge.source, baselines)
-            targets[edge.target] += K * edge.weight * steps
-        elif edge.kind == EdgeKind.INFLUENCES and edge.target in targets:
-            institution = state.institutions.get(edge.source)
-            if institution is not None:
-                targets[edge.target] += K * edge.weight * (institution.support - 0.5) / 0.1
-    deficit = state.indicators.get(DEFICIT_ID)
-    if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
-        penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)
-        targets = {gid: t - penalty for gid, t in targets.items()}
-    felt = {gid: 0.0 for gid in targets}
-    for event in state.events:
-        w = _event_weight(event.age_turns, event.half_life_turns, event.hold_turns)
-        for gid, effect in event.group_effects.items():
-            if gid in felt:
-                felt[gid] += effect * w
-    for gid, total in felt.items():
-        targets[gid] += max(-EVENT_CAP, min(EVENT_CAP, total))
-    return {gid: min(1.0, max(0.0, t)) for gid, t in targets.items()}
+    targets = {}
+    for gid, group_terms in approval_terms(state, reference, baselines).items():
+        total = 0.0
+        for term in group_terms:
+            total += term.value
+        targets[gid] = min(1.0, max(0.0, total))
+    return targets
 
 
 def step_approval(state: WorldState, reference: WorldState) -> WorldState:

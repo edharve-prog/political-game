@@ -23,10 +23,12 @@ Each candidate gets three scores, each in (0, 1]:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import Literal
 
-from hog_sim.core.models import Delivery, Model
+from hog_sim.core.models import Delivery, Model, PolicyAction
 from hog_sim.forecasting.base_rates import HISTORICAL, fit_base_rates
+from hog_sim.world.levers import risk_factor
 from hog_sim.world.propagation import DeltaDistribution
 
 EventTag = Literal[
@@ -175,15 +177,19 @@ TAG_CORRELATION = 0.7
 
 
 def tag_rate(
-    tag: str, delivery: Delivery | None = None, resistance: float = 0.0, urgency: float = 0.0
+    tag: str,
+    delivery: Delivery | None = None,
+    resistance: float = 0.0,
+    urgency: float = 0.0,
+    actions: Sequence[PolicyAction] = (),
 ) -> float:
-    """One tag's base rate, adjusted for delivery, resistance and, for a quiet outcome,
-    urgency."""
+    """One tag's base rate, adjusted for delivery, resistance, the risks the actions' levers
+    carry (``world.levers.risk_factor``) and, for a quiet outcome, urgency."""
     rate = FITTED_RATES.get(tag, 0.1) * delivery_factor(tag, delivery)
     if tag == "none":
         rate *= (1 - QUIET_URGENCY * urgency) * (1 - QUIET_RESISTANCE * resistance)
     else:
-        rate *= resistance_factor(tag, resistance)
+        rate *= resistance_factor(tag, resistance) * risk_factor(tag, actions)
     return min(1.0, rate)
 
 
@@ -192,16 +198,18 @@ def base_rate(
     delivery: Delivery | None = None,
     resistance: float = 0.0,
     urgency: float = 0.0,
+    actions: Sequence[PolicyAction] = (),
 ) -> float:
     """How common the tagged events are, adjusted for delivery, the resistance the actions
-    meet and the scenario's urgency; untagged counts as a quiet outcome.
+    meet, the risks their levers carry and the scenario's urgency; untagged counts as a quiet
+    outcome.
 
     The rarest tag bounds the chance (P(A and B) <= min), and each further tag lowers it by
     its own rate ** (1 - TAG_CORRELATION). Adding a tag can therefore never make an outcome
     look more common (EC-9).
     """
     tags = list(dict.fromkeys(t for t in tags if t != "none")) or ["none"]
-    rates = sorted(tag_rate(t, delivery, resistance, urgency) for t in tags)
+    rates = sorted(tag_rate(t, delivery, resistance, urgency, actions) for t in tags)
     chance = rates[0]
     for rate in rates[1:]:
         chance *= rate ** (1 - TAG_CORRELATION)
