@@ -30,7 +30,6 @@ from hog_sim.game.loop import resolve
 from hog_sim.game.records import TurnRecord
 from hog_sim.population.popularity import (
     DEFICIT_TOLERANCE,
-    EVENT_CAP,
     Term,
     approval_terms,
     target_approval,
@@ -285,7 +284,9 @@ def _approval_reasons(
     for term in terms:
         if term.kind == "lean":
             continue
-        capped = term.kind == "events" and abs(sum(e for _, e in term.events)) > EVENT_CAP
+        # The cap tapers rather than cuts off (E8), so the term is capped when it falls short
+        # of its events' sum.
+        capped = term.kind == "events" and abs(sum(e for _, e in term.events) - term.value) > 1e-9
         if term.kind == "events" and not capped:
             pushes += [(effect, f'"{name}"') for name, effect in term.events]
         else:

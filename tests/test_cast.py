@@ -16,10 +16,11 @@ from hog_sim.world.cast import (
     CONSULTED,
     CROSSED,
     DEPARTURE_COST,
+    FULL_EFFECT,
     IGNORED,
     RESIGN_BELOW,
     apply_cast,
-    push,
+    loyalty_change,
 )
 from hog_sim.world.seed.toy import toy_world
 
@@ -55,19 +56,44 @@ def act(kind, target, magnitude):
     return PolicyAction(kind=kind, target=target, magnitude=magnitude)
 
 
-@pytest.mark.parametrize(
-    ("action", "expected"),
-    [
-        (act("spend", "sector:public", 0.3), 1),
-        (act("spend", "sector:public", -0.3), -1),
-        (act("tax", "sector:finance", 0.3), -1),
-        (act("tax", "sector:finance", -0.3), 1),
-        (act("regulate", "indicator:energy_prices", -0.3), -1),
-        (act("do_nothing", "country:uk", 0), 0),
-    ],
-)
-def test_push_says_whether_an_action_helps_or_squeezes_its_target(action, expected) -> None:
-    assert push(action) == expected
+def loyalty_moves(actions: list[PolicyAction]) -> dict[str, float]:
+    state = toy_world()
+    new = apply_cast(state, 0, actions)
+    return {cid: new.characters[cid].loyalty - c.loyalty for cid, c in state.characters.items()}
+
+
+def test_the_chancellor_rewards_a_fiscal_consolidation() -> None:
+    """E14: a tax rise plus a pension cut left the Chancellor, who cares about the deficit,
+    where she was, since no action may aim at the deficit. Loyalty now follows effects (D5)."""
+    moves = loyalty_moves(
+        [act("tax", "group:business", 1.0), act("spend", "group:pensioners", -1.0)]
+    )
+    assert moves["person:chancellor"] == pytest.approx(BACKED)
+    assert moves["person:business_lobby"] == pytest.approx(CROSSED)
+    assert moves["person:editor"] == pytest.approx(CROSSED)
+
+
+def test_the_governor_rewards_lower_inflation() -> None:
+    moves = loyalty_moves([act("regulate", "indicator:energy_prices", -0.5)])
+    assert moves["person:governor"] > 0
+    assert moves["person:editor"] > 0
+
+
+def test_loyalty_moves_with_the_size_of_the_effect() -> None:
+    small = loyalty_moves([act("spend", "sector:housing", 0.1)])["person:housing_secretary"]
+    large = loyalty_moves([act("spend", "sector:housing", 0.3)])["person:housing_secretary"]
+    assert 0 < small < large == pytest.approx(BACKED)
+    assert loyalty_change(FULL_EFFECT / 2) == pytest.approx(BACKED / 2)
+    assert loyalty_change(-FULL_EFFECT * 3) == pytest.approx(CROSSED)
+    assert loyalty_change(0.01) == 0.0
+
+
+def test_an_action_that_names_a_node_but_does_not_move_it_backs_no_one() -> None:
+    """A spend on unemployment is a wage subsidy: in good times it moves nothing the union
+    or the Housing Secretary cares about, though it costs the Chancellor money."""
+    moves = loyalty_moves([act("spend", "indicator:unemployment", 0.5)])
+    assert moves["person:housing_secretary"] == 0.0
+    assert moves["person:chancellor"] < 0
 
 
 def test_spending_backs_the_union_and_crosses_the_chancellor() -> None:
