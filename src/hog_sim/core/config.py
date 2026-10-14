@@ -18,7 +18,9 @@ class GameConfig(Model):
     # any other value would claim a turn length the game does not play. It stays so saved
     # configs still load, and is fixed at 1 until the engine can scale time.
     turn_length_months: int = Field(1, ge=1, le=1)
-    selection_mode: Literal["argmax", "sample"] = "sample"
+    # Difficulty profile for picking the outcome: argmax, sample, fair or hard
+    # (forecasting/selection.py).
+    selection_mode: Literal["argmax", "sample", "fair", "hard"] = "sample"
     election_turn: int = Field(24, ge=1)
     horizon: int = Field(24, ge=1)  # turns the engine looks ahead
     k_draws: int = Field(100, ge=1)  # Monte Carlo draws per forecast
