@@ -322,14 +322,14 @@ def resolve(
     new.job_protection = {t: share for t, share in cover.items() if t > state.turn}
     new.events = [*new.events, *policy_events(actions, state), *outcome.approval_events]
     new = apply_pledges(new, state.turn, actions, pledges)
-    new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked)
+    new = apply_cast(new, state.turn, actions, delivery, scenario.characters, sacked, played=state)
     new = settle_sentiment(new)  # before this turn's changes, so a new mood is felt in full
     new = apply_graph_changes(new, action_changes(new, actions), trusted=True)
     new = apply_graph_changes(new, outcome.graph_changes)
     new = _settle_institutions(new, start)
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
-    new = advance_storylines(new, state.turn, scenario, outcome, actions)
+    new = advance_storylines(new, state.turn, scenario, outcome, actions, played=state)
     new = step_opposition(new, state.turn, config.seed)
     new.turn = state.turn + 1
     return new

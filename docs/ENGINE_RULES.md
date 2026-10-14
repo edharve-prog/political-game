@@ -571,11 +571,17 @@ leader, a backbench group chair and a business lobbyist. Each cares about a few 
 wants them helped or squeezed. The union leader wants the public sector helped; the
 Chancellor wants it squeezed and the deficit down.
 
-Each turn, an action that helps a node someone wants helped (or squeezes one they want
-squeezed) raises their loyalty by 0.08, and the opposite lowers it by 0.08. Consulting one of
-their nodes adds 0.04. Someone the scenario involved, whom the leader neither acted for nor
-consulted, loses 0.03. For a tax, regulation or military action a positive size squeezes the
-target; for an indicator the sign is the direction the leader wants it to move.
+Each turn, loyalty follows what the turn's actions do to the nodes each person cares about,
+not which nodes the actions name. The engine projects the actions alone over 4 turns (central
+edge weights, from a quiet world) and takes each node's average move in standard steps; a
+group's move is the approval the actions win or lose it directly. Each cared-for node's move
+counts the way the person wants it, and the sum is their score. A score of 0.5 steps or more
+raises loyalty by 0.08 (or lowers it by 0.08 when negative), a smaller one moves it in
+proportion, and one under 0.05 steps is not noticed. So the Chancellor rewards a tax rise or
+spending cut that brings the deficit down, and the Governor a price cap that brings inflation
+down, though no action may aim at either directly. Consulting one of their nodes adds 0.04.
+Someone the scenario involved, whom the leader neither helped nor crossed nor consulted,
+loses 0.03.
 
 The player can sack a minister. A minister whose loyalty falls below 0.25 resigns. Either way
 the Commons loses 0.05 support and a new minister with loyalty 0.6 takes over. Other people
@@ -707,13 +713,22 @@ changes it.
 ### With Claude
 
 1. Claude is shown the world, the scenario, the actions, the engine's forecast and any
-   precedents from the knowledge store, and proposes **4 candidate outcomes**.
+   precedents from the knowledge store, and proposes **4 candidate outcomes**, one per
+   **forecast slot**. Three slots are equally likely bands of the engine's forecast, ordered by
+   luck for the government (`p17`, `p50`, `p83`: the 17th, 50th and 83rd percentile of luck),
+   and each comes with the indicator values that define it. "Luck" reads each indicator on the
+   side the voters who care about it prefer: higher inflation is unlucky, because the groups
+   that care about it weigh it negatively. The fourth slot is a wildcard for what the engine
+   cannot see. Every slot must be filled exactly once, so the candidates cover the forecast and
+   differ by construction.
 2. A separate judge call estimates each candidate's probability.
 3. Each candidate gets three scores between 0 and 1:
    - **Consistency**: how well the indicator changes it claims (three turns out) fit the engine's
-     forecast. Each claim is scored by how many spreads it sits from the engine's average, and an
-     indicator the engine expects to move but the candidate leaves out counts as a claim of no
-     change.
+     forecast. Each claim is scored by how many spreads it sits from its slot's value (the
+     engine's average for the `p50` band and the wildcard), and an indicator the engine expects to
+     move but the candidate leaves out counts as a claim of no change. Since the bands are equally
+     likely, an unlucky or lucky candidate that stays on its band scores as well as the expected
+     one; the judge and base rates decide between them.
    - **Judge**: the judge's probability (or Claude's own estimate if the judge is off).
    - **Base rate**: how common its tagged events are in practice. Several tags all have to
      happen, so the rarest one sets the score.
@@ -799,9 +814,15 @@ Issues can run across turns:
 
 - the lead scenario opens a storyline or moves an existing one up a stage;
 - it closes only when the chosen outcome says it is resolved;
-- an in-tray item counts as acted on when an action targets one of its nodes, which moves it up
-  a stage. One left alone carries over, unless it was minor (urgency below 0.3), in which case
-  it fades away;
+- an in-tray item is judged by what the turn's actions do to its nodes, not by whether they
+  name one. The engine projects the actions alone over 4 turns (central edge weights) and
+  signs each node's average move by the way voters want it to go (from the groups that care
+  about it or work in it; output, growth and support are wanted up when no group feels them).
+  When that helps by 0.05 steps or more, the item eases: it loses 0.25 pressure without moving
+  up a stage, its idle clock restarts, and once its pressure is below 0.3 it is dealt with and
+  closes. When it hurts (a cut to the sector it is about), it moves up a stage and gains 0.15
+  pressure. One left alone carries over, unless it was minor (urgency below 0.3), in which
+  case it fades away. So acting on an item never keeps it open longer than ignoring it;
 - any open storyline nobody has touched for **3 turns** escalates a stage and gains 0.15
   pressure, so ignoring an issue never makes it quietly go away.
 

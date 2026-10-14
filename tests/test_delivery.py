@@ -39,8 +39,9 @@ def engine(world):
 def candidates(engine) -> CandidateSet:
     expected = engine.nodes["indicator:inflation"].mean[2]
 
-    def draft(title, tags):
+    def draft(title, tags, slot):
         return CandidateDraft(
+            slot=slot,
             title=title,
             narrative=f"{title}.",
             indicator_shifts=[Shift(node="indicator:inflation", change=expected)],
@@ -52,7 +53,12 @@ def candidates(engine) -> CandidateSet:
             self_probability=0.5,
         )
 
-    return CandidateSet(candidates=[draft("Quiet passage", ["none"]), draft("Strike", ["strike"])])
+    return CandidateSet(
+        candidates=[
+            draft("Quiet passage", ["none"], "p50"),
+            draft("Strike", ["strike"], "wildcard"),
+        ]
+    )
 
 
 def strike_probability(world, engine, delivery: Delivery) -> tuple[float, str]:

@@ -37,7 +37,7 @@ from hog_sim.world.calendar import upcoming
 from hog_sim.world.cast import active_cast
 from hog_sim.world.opposition import opposition_line
 from hog_sim.world.seed.toy import toy_world
-from hog_sim.world.storylines import addressed
+from hog_sim.world.storylines import addressed, harmed
 
 
 def _width() -> int:
@@ -690,15 +690,21 @@ def _briefing(game: Game) -> str:
     return "\n".join(lines)
 
 
-def _left_alone(record: TurnRecord) -> str:
-    items = [i for i in record.scenario.secondary if not addressed(i, record.actions)]
+def _left_alone(record: TurnRecord, played: WorldState) -> str:
+    """The in-tray items this turn's decisions did not help (``played``: the world the turn
+    was played in), and what became of them."""
+    items = [i for i in record.scenario.secondary if not addressed(i, record.actions, played)]
     if not items:
         return ""
     stories = record.state_after.storylines
 
     def fate(item: SideIssue) -> str:
         story = stories.get(item.storyline or "")
-        return "faded away" if story is not None and not story.open else "carries over"
+        if story is not None and not story.open:
+            return "faded away"
+        if harmed(item, record.actions, played):
+            return "made worse, carries over"
+        return "carries over"
 
     parts = [f"{i.title} ({fate(i)})" for i in items]
     return "\n" + _wrap("Left in your in-tray: " + "; ".join(parts), "", "  ")
@@ -883,7 +889,7 @@ def _main(argv: list[str] | None) -> None:
                     game_id, record, state_before, _provenance(client, calls_before)
                 )
             print(_report(record))
-            left = _left_alone(record)
+            left = _left_alone(record, state_before)
             if left:
                 print(left)
             print(EXPLAIN_HINT)
