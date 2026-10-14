@@ -296,13 +296,14 @@ def _approval_reasons(
 
 
 def alternatives(record: TurnRecord) -> list[str]:
-    """The candidate outcomes, chosen one marked, with probability and score breakdown."""
-    lines = ["The outcomes that were in play this turn:"]
+    """The candidate outcomes, chosen one marked, with relative likelihood and score
+    breakdown. Likelihoods are relative until the base rates are calibrated (D7)."""
+    lines = ["The outcomes that were in play this turn (relative likelihood, not calibrated):"]
     for i, outcome in enumerate(record.candidates):
         mark = "chosen" if i == record.chosen else "      "
         scores = ", ".join(f"{k} {v:.2f}" for k, v in outcome.scores.items() if k != "probability")
         first = outcome.narrative.split(". ")[0].rstrip(".")
-        lines.append(f"  [{mark}] p={outcome.probability:.2f}  {first}.")
+        lines.append(f"  [{mark}] likelihood {outcome.probability:.2f}  {first}.")
         if scores:
             lines.append(f"           ({scores})")
     return lines

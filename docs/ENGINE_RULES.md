@@ -712,8 +712,13 @@ changes it.
      likely, an unlucky or lucky candidate that stays on its band scores as well as the expected
      one; the judge and base rates decide between them.
    - **Judge**: the judge's probability (or Claude's own estimate if the judge is off).
-   - **Base rate**: how common its tagged events are in practice. Several tags all have to
-     happen, so the rarest one sets the score.
+   - **Base rate**: how common its tagged events are in practice. The rates start from
+     hand-set guesses and are fitted to 23 UK policy episodes and what followed them
+     (`forecasting/base_rates.py`); `hog-sim base-rates` prints both, with how often each event
+     came up in your saved games. Several tags all have to happen: the rarest sets the ceiling
+     and each further tag lowers it a little (by its own rate to the power 0.3), because events
+     cluster but don't always come together. A quiet outcome is rarer when the scenario is
+     urgent (×(1 − 0.5 × urgency)) or the actions meet resistance (×(1 − 0.5 × resistance)).
 4. The scores are blended (consistency 40%, judge 40%, base rate 20%, on a log scale) and turned
    into probabilities that add up to 1.
 
@@ -724,6 +729,14 @@ How the response was delivered shifts the base rates:
 | Stakeholders consulted | strikes, protests and rebellions 0.6×, legal challenges 0.7× |
 | Imposed without consultation | strikes and protests 1.3×, rebellions 1.2×, media backlash 1.1× |
 | Phased in | market sell-offs and capital flight 0.75× |
+
+Consulting only counts for an event when the people consulted could start it: a group or
+sector for a strike, a group for a protest, the Commons for a rebellion, a group or institution
+for a legal challenge. Consulting the central bank does nothing for strike risk, and a strike is
+still "imposed" on the workers. For other events, consulting anyone counts.
+
+Outcome probabilities are shown as **relative likelihood** until the base rates are checked
+against held-out episodes.
 
 Resistance (section 4) multiplies the base rate of a backbench rebellion by 1 + 2 × resistance,
 so a spending bill with the Commons at 0.6 support (resistance 0.32) is 1.64 times as likely to

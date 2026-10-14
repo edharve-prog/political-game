@@ -518,6 +518,42 @@ def packages_main(argv: list[str]) -> None:
         store.close()
 
 
+def base_rates_main(argv: list[str]) -> None:
+    """``hog-sim base-rates``: the event base rates, from placeholder to fitted, against how
+    often each event happened in history and in the outcomes chosen in saved games (D7)."""
+    from hog_sim.forecasting.base_rates import HISTORICAL, Observation, tag_frequencies
+    from hog_sim.forecasting.scoring import BASE_RATES, FITTED_RATES
+
+    parser = argparse.ArgumentParser(
+        prog="hog-sim base-rates",
+        description="Event base rates: placeholders, fitted to history, and saved games",
+    )
+    parser.add_argument("--save", default="saves/game.db", help="the save file")
+    args = parser.parse_args(argv)
+    played: list[Observation] = []
+    if Path(args.save).exists():
+        store = SaveStore(args.save)
+        try:
+            for (game_id,) in store.conn.execute("SELECT game_id FROM games").fetchall():
+                for record in store.load(game_id)[2]:
+                    played.append(Observation(episode=game_id, tags=record.outcome.events))
+        finally:
+            store.close()
+    history, games = tag_frequencies(HISTORICAL), tag_frequencies(played)
+    print(f"{'event':<22}{'placeholder':>12}{'fitted':>8}{'history':>9}{'games':>8}")
+    for tag, prior in BASE_RATES.items():
+        seen = f"{games.get(tag, 0.0):.2f}" if played else "-"
+        print(
+            f"{tag:<22}{prior:>12.2f}{FITTED_RATES[tag]:>8.2f}"
+            f"{history.get(tag, 0.0):>9.2f}{seen:>8}"
+        )
+    print(
+        f"\nHistory: {len(HISTORICAL)} UK episodes. Games: {len(played)} turns in {args.save}."
+        "\nGames are not fitted (their outcomes are the model's own guesses); a large gap"
+        " between games and fitted shows where the model's outcomes drift from history."
+    )
+
+
 def knowledge_main(argv: list[str]) -> None:
     """``hog-sim knowledge stats|export|import|export-scenarios``."""
     from hog_sim.knowledge.store import KnowledgeStore
@@ -771,6 +807,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if argv[:1] == ["packages"]:
         packages_main(argv[1:])
+        return
+    if argv[:1] == ["base-rates"]:
+        base_rates_main(argv[1:])
         return
     try:
         _main(argv)
