@@ -12,7 +12,8 @@ subsidies are held to the schemes actually running (``fit_job_cuts``):
    credibility it spends (E12).
 3. **Political capital**: a turn's package costs the sum of its magnitudes (speeches cost a
    quarter, but whipping the legislature costs in full, and a measure forced through without a
-   majority costs ``FORCE_CAPITAL`` times as much, EB-14), times each measure's lifetime
+   majority costs ``FORCE_CAPITAL`` times as much, EB-14, and a tax or spending change outside
+   the Budget costs ``OFF_BUDGET_SURCHARGE`` more per unit, O6), times each measure's lifetime
    (``lifetime_factor``): every turn a measure runs after its first adds ``UPKEEP`` of its
    first turn's cost, charged when it is decided, so a longer measure is never free (E1,
    O1). Above ``capital`` a turn, every measure is scaled down to fit.
@@ -47,6 +48,11 @@ from hog_sim.policy.feasibility import (
     LEGISLATURE_ID,
     Role,
     check_feasibility,
+)
+from hog_sim.policy.fiscal_events import (
+    OFF_BUDGET_SURCHARGE,
+    off_budget,
+    off_budget_note,
 )
 from hog_sim.world.propagation import (
     FISCAL_NODE,
@@ -128,6 +134,8 @@ def capital_cost(
         unit = 1.0 if action.target == LEGISLATURE_ID else CAPITAL_COST.get(action.kind, 1.0)
         if is_u_turn(action, past_actions):
             unit += UTURN_CAPITAL
+        if state is not None and off_budget(action, state):
+            unit += OFF_BUDGET_SURCHARGE
         unit *= FORCE_CAPITAL if force else 1.0
         total += unit * abs(action.magnitude) * lifetime_factor(action)
     return total
@@ -231,6 +239,9 @@ def constrain(
         for c in report.checks
         if c.forced
     ]
+    note = off_budget_note(kept, state)
+    if note:
+        notes.append(note)
     used = capital_cost(kept, state, role, past_actions)
     if used > capital:
         share = capital / used

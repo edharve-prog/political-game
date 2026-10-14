@@ -71,7 +71,10 @@ def test_a_paid_for_tax_cut_is_not_blamed_for_a_market_penalty_that_never_came()
     """Review of 361a0ff, finding 8: with a tax rise paying for it, a national tax cut set off
     no market penalty and the pound rose, yet the explanation blamed the cut for a fall of
     about 8 points, re-running it on its own as if unpaid for."""
-    game = new_game()
+    # Capital for the off-Budget surcharge (O6), so the package is scaled to 0.75 as before.
+    config = GameConfig(seed=0, election_turn=6, k_draws=20, capital_per_turn=2.25)
+    plugins = (CannedScenarios(0, calendar=False), KeywordInterpreter(), EngineForecaster())
+    game = Game(config, toy_world(), *plugins)
     before = game.state
     package = [
         PolicyAction(kind="tax", target="group:business", magnitude=-1),

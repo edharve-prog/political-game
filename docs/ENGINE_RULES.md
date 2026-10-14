@@ -380,9 +380,14 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    (communicate) at a quarter, whips at full price, measures forced through at double and do
    nothing free, times each measure's **lifetime**: every turn a measure runs after its first
    adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
-   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. The
-   budget is **1.5 a turn**. Above it, every measure is scaled down by the same share to fit.
-   The review screen shows each measure's capital and deficit cost over its life.
+   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most.
+   Outside a Budget turn, a tax or spending change costs **0.5 more per unit** (before the
+   lifetime factor): the Budget is the turn to plan fiscal moves for, and the note says when
+   the next one falls. The budget is **1.5 a turn**. Above it, every measure is scaled down by
+   the same share to fit. The review screen shows each measure's capital and deficit cost over
+   its life, and an **independent scorecard** for the package's taxes and spending: what each
+   adds to the deficit a turn, for how many turns, in all, and whether the package adds to
+   borrowing, cuts it or is paid for.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP, on any
    turn the package's costs run. Only the borrowing measures are scaled down to fit, and tax
@@ -860,7 +865,8 @@ Each event comes round every 12 turns. With Claude, Claude writes the event's br
 the rest of the in-tray, but the event sets the category and the options. Offline, the
 event's own briefing is used. A calendar lead opens no storyline, and the rule that a new
 storyline must lead every third turn skips calendar turns. Prompts and the dashboard show
-what is coming in the next six turns.
+what is coming in the next six turns. On a Budget turn, taxes and spending carry no
+off-Budget capital surcharge (section 4).
 
 ## 10. Key numbers in one place
 
@@ -869,6 +875,7 @@ what is coming in the next six turns.
 | Turns before the election | 24 | `core/config.py` |
 | Forecast horizon, random draws | 24 turns, 100 draws | `core/config.py` |
 | Political capital a turn | 1.5 | `core/config.py` |
+| Off-Budget surcharge | +0.5 capital per unit for tax or spending outside a Budget turn | `policy/fiscal_events.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |
