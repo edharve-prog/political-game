@@ -325,7 +325,7 @@ def resolve(
     new = _settle_institutions(new, start)
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
-    new = advance_storylines(new, state.turn, scenario, outcome, actions)
+    new = advance_storylines(new, state.turn, scenario, outcome, actions, played=state)
     new.turn = state.turn + 1
     return new
 
