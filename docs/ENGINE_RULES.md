@@ -446,7 +446,7 @@ slump. No other link moves Bank Rate: the Bank is independent. Higher Bank Rate 
 prices (0.1, three turns later) and inflation (0.4, six turns later), raises unemployment (0.2,
 six turns later), and lifts the 10-year gilt yield in the same turn (0.7), since markets price
 the path they expect. A higher deficit raises the gilt yield's risk premium (0.2, a turn later),
-and higher gilt yields lower house prices a turn later (0.1), through fixed-rate mortgages. More
+and higher gilt yields lower house prices a turn later (0.12), through fixed-rate mortgages. More
 output from finance raises house prices a turn later (0.4): credit. A higher deficit also raises
 inflation (0.1, two turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
 0.5), and slower growth raises unemployment a turn later (0.4) and widens the deficit (0.5): tax

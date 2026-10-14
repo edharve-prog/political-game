@@ -218,7 +218,7 @@ def toy_world() -> WorldState:
         # Gilts: markets price the Bank Rate path they expect, and fixed-rate mortgages are
         # priced off the same market, so a jump in yields reaches house prices (2022).
         _edge("indicator:interest_rate", "indicator:gilt_yield", E.DRIVES, 0.7),
-        _edge("indicator:gilt_yield", "indicator:house_prices", E.DRIVES, -0.1, lag=1),
+        _edge("indicator:gilt_yield", "indicator:house_prices", E.DRIVES, -0.12, lag=1),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
         _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
         # Okun's law: slower growth costs jobs a turn later (CA-3).
