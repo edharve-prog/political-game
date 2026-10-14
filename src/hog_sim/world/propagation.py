@@ -66,13 +66,16 @@ METRICS = {
     NodeKind.INDICATOR: "value",
 }
 
-# Share of a node's own push kept each turn (half-lives: indicators ~4 turns, sectors and
-# institutions ~6.5, countries ~3). Groups keep theirs: approval drift is Project 4's job.
+# Share of a node's own push kept each turn (half-lives: indicators ~4 turns, sectors ~6.5,
+# countries ~3, institutions ~2). Groups keep theirs: approval drift is Project 4's job.
+# Institutions fade at the rate they used to reach by fading 0.9 here and then settling 20% of
+# the way home in ``game.loop``; settling now moves only what the engine does not carry, so
+# the engine's fade is the only reversion its deviation gets (E7).
 PERSISTENCE = {
     NodeKind.COUNTRY: 0.8,
     NodeKind.SECTOR: 0.9,
     NodeKind.GROUP: 1.0,
-    NodeKind.INSTITUTION: 0.9,
+    NodeKind.INSTITUTION: 0.72,
     NodeKind.INDICATOR: 0.85,
 }
 
@@ -219,11 +222,18 @@ CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
     """Steps of deficit a turn from this turn's tax cuts that nothing else this turn pays for,
-    or 0 when that is under ``CONFIDENCE_THRESHOLD``."""
-    costs = [fiscal_cost(a, state) for a in actions]
-    cuts = sum(c for a, c in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0)
-    savings = sum(-c for c in costs if c < 0)
-    unfunded = cuts - savings
+    or 0 when that is under ``CONFIDENCE_THRESHOLD``.
+
+    Cuts and savings are compared over their lives (cost a turn times ``fiscal_turns``), so a
+    one-turn tax rise pays for only its own share of a cut that runs for two years (E5). With
+    every measure running as long, that is the cuts a turn less the savings a turn."""
+    costs = [(fiscal_cost(a, state), fiscal_turns(a, state)) for a in actions]
+    cuts = [(c, n) for a, (c, n) in zip(actions, costs, strict=True) if a.kind == "tax" and c > 0]
+    cut_life = sum(c * n for c, n in cuts)
+    if cut_life <= 0:
+        return 0.0
+    saved_life = sum(-c * n for c, n in costs if c < 0)
+    unfunded = sum(c for c, _ in cuts) * max(0.0, 1 - saved_life / cut_life)
     return unfunded if unfunded >= CONFIDENCE_THRESHOLD else 0.0
 
 
@@ -403,6 +413,15 @@ def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float
     return output / gdp * 100 / scale(state, FISCAL_NODE)
 
 
+def fiscal_turns(action: PolicyAction, state: WorldState | None = None) -> int:
+    """Turns the action's deficit cost runs: its duration, and at least ``MIN_FISCAL_TURNS``
+    for a one-off; a cut to wage subsidies saves only for as long as the cover it removes
+    would have run."""
+    if state is not None and cuts_jobs_cover(action):
+        return job_cut(action, state)[1]
+    return max(action.duration_turns, MIN_FISCAL_TURNS)
+
+
 def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
     """Standard steps a turn that the action adds to the deficit while it runs (negative
     when it takes them off). Actions aimed at the deficit itself have no separate cost."""
@@ -422,7 +441,8 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
 def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = None) -> list[Shock]:
     """Map interpreted actions to engine shocks.
 
-    Each action holds its push on the target for its duration. Actions aimed at a population
+    Each action holds its push on the target for its duration, except on the player's own
+    country, whose growth no action sets directly. Actions aimed at a population
     group are not shocks: they become approval events (``population.popularity.policy_events``).
     When ``state`` is given and has a deficit indicator, spending and tax also hold a cost on
     the deficit, so nothing is free and a longer programme costs more.
@@ -435,7 +455,10 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
             continue
-        push = 0.0 if protects_jobs(action) else action_factor(action) * action.magnitude
+        # Nothing pushes the player's own growth rate directly (E3): a speech to the nation
+        # moves no output, and growth comes from what the sectors do.
+        home = state is not None and action.target == state.player_country
+        push = 0.0 if protects_jobs(action) or home else action_factor(action) * action.magnitude
         if push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
@@ -459,7 +482,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
             continue
         cost = fiscal_cost(action, state)
         if fiscal and cost:
-            paid = max(turns, MIN_FISCAL_TURNS)
+            paid = fiscal_turns(action, state)
             shocks.append(Shock(node=FISCAL_NODE, delta=cost, duration_turns=paid, hold=True))
     loss = unfunded_tax_cut(actions, state)
     if state is not None and loss:
@@ -545,9 +568,10 @@ def pushes_for(shocks: list[Shock], state: WorldState, turn: int | None = None) 
 # Makes, for one projected path, a function called once per turn after the first with the
 # projected values (native units by node id) that returns the background pushes due that turn.
 Outlook = Callable[[], Callable[[dict[str, float]], list[Shock]]]
-# Called after each projected turn's step with the absolute turn and the projected values
-# (updated in place): the rules resolve applies to the world after the engine moves it.
-Settle = Callable[[int, dict[str, float]], None]
+# Called after each projected turn's step with the absolute turn, the projected values
+# (updated in place) and the engine's deviation per node that turn (standard steps): the rules
+# resolve applies to the world after the engine moves it.
+Settle = Callable[[int, dict[str, float], dict[str, float]], None]
 
 
 @dataclass
@@ -863,14 +887,14 @@ def _path(
         model = first if t == state.turn else later_model
         if later is not None and t > state.turn:
             engine.pushes += pushes_for(later(values), state, t)
-        model.step(engine, t, course.protection.get(t, 0.0), values)
+        level, _ = model.step(engine, t, course.protection.get(t, 0.0), values)
         for n, queued in state.pending.get(t, {}).items():
             low, high = model.bounds[n]
             v = values[n] + queued
             v = min(high, v) if high is not None else v
             values[n] = max(low, v) if low is not None else v
         if course.settle is not None:
-            course.settle(t, values)
+            course.settle(t, values, level)
         for n in start:
             path[n].append(values[n] - start[n])
     return path
