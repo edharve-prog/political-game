@@ -29,7 +29,8 @@ def graph(world: WorldState):
 def test_toy_world_meets_plan_size(world: WorldState) -> None:
     assert len(world.countries) == 3  # player + 2 foreign
     assert len(world.sectors) == 5
-    assert len(world.groups) == 4
+    assert len(world.groups) == 7
+    assert sum(g.population_share for g in world.groups.values()) == pytest.approx(1.0)
 
 
 def test_graph_has_every_node_and_edge(world: WorldState, graph) -> None:
@@ -56,6 +57,8 @@ def test_query_helpers(graph) -> None:
     assert set(groups_caring_about(graph, "indicator:house_prices")) == {
         "group:pensioners",
         "group:young_renters",
+        "group:homeowners",
+        "group:students",
     }
 
 
@@ -65,6 +68,7 @@ def test_energy_shock_reaches_inflation_and_its_groups(graph) -> None:
     assert downstream(graph, "sector:energy", max_depth=1) == {
         "indicator:energy_prices",
         "sector:manufacturing",
+        "group:private_workers",
     }
     exposed = exposed_groups(graph, "sector:energy")
     assert {"group:pensioners", "group:public_workers"} <= exposed

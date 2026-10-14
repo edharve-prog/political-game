@@ -170,8 +170,9 @@ def candidates(engine, changes=(CHINA_COOLS,)):
         if node.startswith("indicator:") and abs(mean) > _spread(mean, f.p10[2], f.p90[2]):
             claims[node] = mean
 
-    def draft(title, p):
+    def draft(title, p, slot):
         return CandidateDraft(
+            slot=slot,
             title=title,
             narrative=f"{title} after the windfall tax.",
             indicator_shifts=[Shift(node=n, change=c) for n, c in claims.items()],
@@ -183,7 +184,9 @@ def candidates(engine, changes=(CHINA_COOLS,)):
             self_probability=p,
         )
 
-    return CandidateSet(candidates=[draft("Tax lands", 0.5), draft("Firms grumble", 0.5)])
+    return CandidateSet(
+        candidates=[draft("Tax lands", 0.5, "p50"), draft("Firms grumble", 0.5, "wildcard")]
+    )
 
 
 SCENARIO = ScenarioDraft(

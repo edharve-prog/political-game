@@ -52,6 +52,7 @@ def test_outcome_prompt_lists_blocked_measures() -> None:
     world = hung_commons()
     engine = propagate(world, actions_to_shocks([]), horizon=6, k_draws=10)
     quiet = CandidateDraft(
+        slot="p50",
         title="Commons defeat",
         narrative="The Commons voted the plan down.",
         indicator_shifts=[],
@@ -62,7 +63,13 @@ def test_outcome_prompt_lists_blocked_measures() -> None:
         resolves_storyline=False,
         self_probability=0.5,
     )
-    client = FakeClient([CandidateSet(candidates=[quiet, quiet.model_copy(update={"title": "x"})])])
+    client = FakeClient(
+        [
+            CandidateSet(
+                candidates=[quiet, quiet.model_copy(update={"title": "x", "slot": "wildcard"})]
+            )
+        ]
+    )
     forecaster = LLMForecaster(client, config=ForecastConfig(n_candidates=2, use_judge=False))
     note = "Blocked: spend group:pensioners (House of Commons support is 0.40, short of a majority)"
     scenario = CannedScenarios().next_scenario(world, [])

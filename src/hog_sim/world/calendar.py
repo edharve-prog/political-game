@@ -10,6 +10,9 @@ Turns are months. In a 24-turn game the Budget falls on turns 3 and 15, the summ
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any, Protocol
+
 from pydantic import Field
 
 from hog_sim.core.models import Category, Model, Scenario
@@ -151,3 +154,29 @@ def scheduled_scenario(event: CalendarEvent, state: WorldState) -> Scenario:
 
 def calendar_lines(turn: int) -> list[str]:
     return [f"Turn {t}: {e.title} (in {t - turn} turns)" for t, e in upcoming(turn)]
+
+
+class _Source(Protocol):
+    def next_scenario(self, state: WorldState, history: Sequence[Any]) -> Scenario: ...
+
+
+class OnCalendar:
+    """Any scenario source, with the calendar event as the lead on calendar turns (E19).
+
+    Offline sources such as the scenario library know nothing of the calendar, so without
+    this the dashboard announces a Budget that never comes. Every other turn goes to
+    ``source``."""
+
+    def __init__(self, source: _Source) -> None:
+        self.source = source
+
+    def next_scenario(self, state: WorldState, history: Sequence[Any]) -> Scenario:
+        event = calendar_event(state.turn)
+        if event is not None:
+            return scheduled_scenario(event, state)
+        return self.source.next_scenario(state, history)
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "source":
+            raise AttributeError(name)
+        return getattr(self.source, name)

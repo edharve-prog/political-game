@@ -15,12 +15,13 @@ them from the store), these reuse Claude's work on it:
   each turn, never from storage.
 * ``StoredForecaster``: the stored candidate outcomes for the same kind of response
   (same action kinds, targets, directions, tax or spending direction, duration and size)
-  on a turn that sacked the same people, re-scored against today's engine forecast,
-  delivery and resistance, with every graph change re-validated. Each candidate keeps the
-  indicator changes it claimed, so its narrative and numbers still agree. Only candidates
-  that fit today's engine (consistency at least ``REUSE_MIN_FIT``) are reused; a stored set
-  with none was written for a different world, so an older set is tried, otherwise the
-  fallback.
+  on a turn that sacked the same people, was delivered the same way, broke the same pledges
+  and had the same measures blocked or forced through (E23), re-scored against today's
+  engine forecast, delivery and resistance, with every graph change re-validated. Each
+  candidate keeps the indicator changes it claimed, so its narrative and numbers still
+  agree. Only candidates that fit today's engine (consistency at least ``REUSE_MIN_FIT``)
+  are reused; a stored set with none was written for a different world, so an older set is
+  tried, otherwise the fallback.
 
 Both satisfy the game loop's protocols and make no LLM calls.
 """
@@ -40,9 +41,15 @@ from hog_sim.forecasting.scoring import (
     consistency,
 )
 from hog_sim.game.interfaces import Forecaster, Interpreter
-from hog_sim.knowledge.entries import action_signature, normalise_text, scenario_id
+from hog_sim.knowledge.entries import (
+    action_signature,
+    normalise_text,
+    reuse_context,
+    scenario_id,
+)
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.policy.feasibility import Role, check_feasibility
+from hog_sim.policy.pledges import broken_by
 from hog_sim.world.changes import action_changes, apply_graph_changes, validate_graph_changes
 from hog_sim.world.propagation import DeltaDistribution
 
@@ -241,10 +248,13 @@ class StoredForecaster:
     ) -> list[Outcome]:
         signature = action_signature(actions)
         sacked_now = sorted(sacked or [])
+        context = reuse_context(delivery, [p.text for p in broken_by(state, actions)], limits)
         matches = [
             e
             for e in self.store.outcomes(scenario_id(scenario))
-            if action_signature(e.actions) == signature and sorted(e.sacked) == sacked_now
+            if action_signature(e.actions) == signature
+            and sorted(e.sacked) == sacked_now
+            and e.fits(context)
         ]
         known = set(state.node_ids())
         # Graph changes are checked against the world as resolve() meets it, after the
@@ -258,7 +268,7 @@ class StoredForecaster:
                 CandidateScores(
                     consistency=consistency(c.indicator_deltas, engine, turn),
                     judge=c.scores.get("judge", c.probability),
-                    base_rate=base_rate(c.events, delivery, resistance, actions),
+                    base_rate=base_rate(c.events, delivery, resistance, scenario.urgency, actions),
                     self_reported=c.scores.get("self_reported", c.probability),
                 )
                 for c in candidates

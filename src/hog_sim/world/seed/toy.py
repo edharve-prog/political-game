@@ -82,6 +82,31 @@ def toy_world() -> WorldState:
             lean=0.45,
         ),
         Group(id="group:business", name="Business owners", population_share=0.08, turnout=0.75),
+        # The rest of the electorate (O8): with these the shares sum to 1.
+        Group(
+            id="group:private_workers",
+            name="Private sector workers",
+            population_share=0.22,
+            turnout=0.62,
+            approval=0.48,
+            lean=0.48,
+        ),
+        Group(
+            id="group:homeowners",
+            name="Mortgaged homeowners",
+            population_share=0.13,
+            turnout=0.72,
+            approval=0.54,
+            lean=0.54,
+        ),
+        Group(
+            id="group:students",
+            name="Students",
+            population_share=0.06,
+            turnout=0.45,
+            approval=0.32,
+            lean=0.32,
+        ),
     ]
     institutions = [
         Institution(id="institution:legislature", name="House of Commons", support=0.6, power=0.8),
@@ -233,6 +258,10 @@ def toy_world() -> WorldState:
         _edge("sector:finance", "group:business", E.EMPLOYS, 0.2, unc=0.0),
         _edge("sector:manufacturing", "group:business", E.EMPLOYS, 0.2, unc=0.0),
         _edge("sector:housing", "group:young_renters", E.EMPLOYS, 0.1, unc=0.0),
+        _edge("sector:manufacturing", "group:private_workers", E.EMPLOYS, 0.4, unc=0.0),
+        _edge("sector:finance", "group:private_workers", E.EMPLOYS, 0.2, unc=0.0),
+        _edge("sector:housing", "group:private_workers", E.EMPLOYS, 0.2, unc=0.0),
+        _edge("sector:energy", "group:private_workers", E.EMPLOYS, 0.1, unc=0.0),
         # What each group cares about (negative weight: a rise lowers approval)
         _edge("group:pensioners", "indicator:inflation", E.CARES_ABOUT, -0.4, unc=0.05),
         _edge("group:pensioners", "indicator:energy_prices", E.CARES_ABOUT, -0.3, unc=0.05),
@@ -244,6 +273,13 @@ def toy_world() -> WorldState:
         _edge("group:public_workers", "indicator:deficit", E.CARES_ABOUT, 0.1, unc=0.05),
         _edge("group:business", "indicator:interest_rate", E.CARES_ABOUT, -0.3, unc=0.05),
         _edge("group:business", "indicator:deficit", E.CARES_ABOUT, -0.3, unc=0.05),
+        _edge("group:private_workers", "indicator:inflation", E.CARES_ABOUT, -0.3, unc=0.05),
+        _edge("group:private_workers", "indicator:unemployment", E.CARES_ABOUT, -0.3, unc=0.05),
+        _edge("group:homeowners", "indicator:interest_rate", E.CARES_ABOUT, -0.4, unc=0.05),
+        _edge("group:homeowners", "indicator:house_prices", E.CARES_ABOUT, 0.2, unc=0.05),
+        _edge("group:homeowners", "indicator:inflation", E.CARES_ABOUT, -0.2, unc=0.05),
+        _edge("group:students", "indicator:unemployment", E.CARES_ABOUT, -0.2, unc=0.05),
+        _edge("group:students", "indicator:house_prices", E.CARES_ABOUT, -0.2, unc=0.05),
         # Institutions
         _edge("institution:legislature", "group:public_workers", E.INFLUENCES, 0.1),
     ]
