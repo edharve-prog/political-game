@@ -20,9 +20,10 @@ from hog_sim.core.models import PolicyAction, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
-from hog_sim.game.loop import Game, Proposal
+from hog_sim.game.loop import Game, Proposal, StaleProposal
 from hog_sim.game.packages import PolicyLibrary
 from hog_sim.game.persistence import SaveStore
+from hog_sim.game.preview import preview, preview_lines
 from hog_sim.game.records import TurnRecord
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
 from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
@@ -33,11 +34,11 @@ from hog_sim.policy.limits import lifetime_cost
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
-from hog_sim.world.calendar import upcoming
+from hog_sim.world.calendar import OnCalendar, upcoming
 from hog_sim.world.cast import active_cast
 from hog_sim.world.propagation import world_surprises
 from hog_sim.world.seed.toy import toy_world
-from hog_sim.world.storylines import addressed
+from hog_sim.world.storylines import addressed, harmed
 
 
 def _width() -> int:
@@ -217,7 +218,7 @@ def _lifetime(action: PolicyAction, state: WorldState | None) -> str:
     return f"  [over its life: {cost.capital:.2f} capital{deficit}]"
 
 
-def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
+def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
         lines += [
@@ -225,7 +226,7 @@ def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | N
         ]
     else:
         lines.append("  (no actions: this turn the government does nothing)")
-    notes = [f"Not possible: {line}" for line in dropped]
+    notes = [f"Not possible: {line}" for line in proposal.unmapped]
     notes += [f"Note: {n}" for n in proposal.notes]
     notes.append(f"Delivery: {proposal.delivery.describe()}")
     notes += [f'New pledge: "{p.text}"' for p in proposal.pledges]
@@ -243,15 +244,78 @@ def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | N
     return "\n".join(lines)
 
 
+def _preview_text(game: Game, proposal: Proposal) -> str:
+    """The decision preview (D2): this package against doing nothing, to the election."""
+    result = preview(
+        game.start,
+        game.state,
+        game.scenario,
+        proposal.actions,
+        game.config,
+        proposal.pledges,
+        proposal.delivery,
+        proposal.sacked,
+        game.config.role,
+    )
+    lines = [_section("Looking ahead to the election"), ""]
+    lines += preview_lines(result, describe)
+    return "\n".join(lines)
+
+
+MODEL_FAILED_PROMPT = (
+    "Type r to try the model again, or o to use the offline reading for this turn.\n> "
+)
+
+
+def _retry_or_offline(what: str, err: Exception) -> str:
+    """After a model failure, ask whether to try again (``"retry"``) or play this step
+    offline (``"offline"``). Ctrl-D still saves and quits."""
+    print("\n" + _wrap(f"The model failed while {what}: {err}", "", "  "))
+    while True:
+        choice = input(MODEL_FAILED_PROMPT).strip().lower()
+        if choice in ("r", "retry", ""):
+            return "retry"
+        if choice in ("o", "offline"):
+            return "offline"
+
+
+def _guarded(game: Game, part: str, what: str, call, offline=None):
+    """``call()``, and when the model fails (E22) ask to retry or to run it once with
+    ``game.<part>`` (scenarios, interpreter or forecaster) swapped for ``offline``. Without
+    an offline stand-in the error is raised as before."""
+    from hog_sim.llm.client import LLMError
+
+    while True:
+        try:
+            return call()
+        except LLMError as err:
+            if offline is None:
+                raise
+            if _retry_or_offline(what, err) == "offline":
+                original = getattr(game, part)
+                setattr(game, part, offline)
+                try:
+                    return call()
+                finally:
+                    setattr(game, part, original)
+
+
 def _ask_for_turn(
-    game: Game, advisers: Advisers | None = None, library: PolicyLibrary | None = None
+    game: Game,
+    advisers: Advisers | None = None,
+    library: PolicyLibrary | None = None,
+    offline: tuple | None = None,
+    pending: Proposal | None = None,
 ) -> Proposal | None:
     """Build, review and confirm this turn's actions. ``None`` means start the response again.
 
     ``advise <question>`` asks the advisers for more options instead (Claude mode only).
     With a ``library``, ``use <name>`` loads a saved package, ``packages`` lists them and
-    ``save <name>`` at the review step saves the actions (story RB-5)."""
-    while True:
+    ``save <name>`` at the review step saves the actions (story RB-5). ``offline`` are the
+    offline plugins to fall back on when the model fails (E22); ``pending`` is a proposal
+    confirmed before the game stopped, offered again for review."""
+    proposal = pending
+    while proposal is None:
         raw = input(RESPONSE_PROMPT)
         words = raw.strip().lower().split()
         if words[:1] == ["advise"]:
@@ -273,15 +337,21 @@ def _ask_for_turn(
         options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
-            proposal = game.propose(response)
+            proposal = _guarded(
+                game,
+                "interpreter",
+                "reading your response",
+                partial(game.propose, response),
+                offline[1] if offline else None,
+            )
             break
         except ValueError as err:
             print(f"  {err}")
         except NeedsClarification as ask:
             print("\n" + _wrap(f"Your advisers ask: {ask.question}", "", "  "))
-    dropped = getattr(game.interpreter, "dropped", lambda: [])()
     while True:
-        print(_proposal_text(proposal, dropped, game.state))
+        print(_proposal_text(proposal, game.state))
+        print(_preview_text(game, proposal))
         command = input(REVIEW_PROMPT).strip()
         if command.lower() in ("", "y", "yes", "ok"):
             return proposal
@@ -297,7 +367,6 @@ def _ask_for_turn(
             continue
         try:
             proposal = game.revise(proposal, edit_actions(proposal.actions, command))
-            dropped = []
         except ValueError as err:
             print(f"  {err}")
 
@@ -482,6 +551,42 @@ def packages_main(argv: list[str]) -> None:
             print(f"Imported {count} packages into game {game_id}.")
     finally:
         store.close()
+
+
+def base_rates_main(argv: list[str]) -> None:
+    """``hog-sim base-rates``: the event base rates, from placeholder to fitted, against how
+    often each event happened in history and in the outcomes chosen in saved games (D7)."""
+    from hog_sim.forecasting.base_rates import HISTORICAL, Observation, tag_frequencies
+    from hog_sim.forecasting.scoring import BASE_RATES, FITTED_RATES
+
+    parser = argparse.ArgumentParser(
+        prog="hog-sim base-rates",
+        description="Event base rates: placeholders, fitted to history, and saved games",
+    )
+    parser.add_argument("--save", default="saves/game.db", help="the save file")
+    args = parser.parse_args(argv)
+    played: list[Observation] = []
+    if Path(args.save).exists():
+        store = SaveStore(args.save)
+        try:
+            for (game_id,) in store.conn.execute("SELECT game_id FROM games").fetchall():
+                for record in store.load(game_id)[2]:
+                    played.append(Observation(episode=game_id, tags=record.outcome.events))
+        finally:
+            store.close()
+    history, games = tag_frequencies(HISTORICAL), tag_frequencies(played)
+    print(f"{'event':<22}{'placeholder':>12}{'fitted':>8}{'history':>9}{'games':>8}")
+    for tag, prior in BASE_RATES.items():
+        seen = f"{games.get(tag, 0.0):.2f}" if played else "-"
+        print(
+            f"{tag:<22}{prior:>12.2f}{FITTED_RATES[tag]:>8.2f}"
+            f"{history.get(tag, 0.0):>9.2f}{seen:>8}"
+        )
+    print(
+        f"\nHistory: {len(HISTORICAL)} UK episodes. Games: {len(played)} turns in {args.save}."
+        "\nGames are not fitted (their outcomes are the model's own guesses); a large gap"
+        " between games and fitted shows where the model's outcomes drift from history."
+    )
 
 
 def knowledge_main(argv: list[str]) -> None:
@@ -703,15 +808,21 @@ def _briefing(game: Game) -> str:
     return "\n".join(lines)
 
 
-def _left_alone(record: TurnRecord) -> str:
-    items = [i for i in record.scenario.secondary if not addressed(i, record.actions)]
+def _left_alone(record: TurnRecord, played: WorldState) -> str:
+    """The in-tray items this turn's decisions did not help (``played``: the world the turn
+    was played in), and what became of them."""
+    items = [i for i in record.scenario.secondary if not addressed(i, record.actions, played)]
     if not items:
         return ""
     stories = record.state_after.storylines
 
     def fate(item: SideIssue) -> str:
         story = stories.get(item.storyline or "")
-        return "faded away" if story is not None and not story.open else "carries over"
+        if story is not None and not story.open:
+            return "faded away"
+        if harmed(item, record.actions, played):
+            return "made worse, carries over"
+        return "carries over"
 
     parts = [f"{i.title} ({fate(i)})" for i in items]
     return "\n" + _wrap("Left in your in-tray: " + "; ".join(parts), "", "  ")
@@ -731,6 +842,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if argv[:1] == ["packages"]:
         packages_main(argv[1:])
+        return
+    if argv[:1] == ["base-rates"]:
+        base_rates_main(argv[1:])
         return
     try:
         _main(argv)
@@ -847,7 +961,7 @@ def _main(argv: list[str] | None) -> None:
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
         plugins = (
-            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
+            OnCalendar(ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed)),
             StoredInterpreter(knowledge, KeywordInterpreter()),
             StoredForecaster(knowledge, EngineForecaster()),
         )
@@ -886,26 +1000,59 @@ def _main(argv: list[str] | None) -> None:
 
     _log_turns(client, game_id, lambda: game.state.turn)
     library = PolicyLibrary(store.conn, game_id)
+    # Offline stand-ins for one step when the model fails (E22); none in offline play.
+    fallback = (
+        (
+            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
+            StoredInterpreter(knowledge, KeywordInterpreter()),
+            StoredForecaster(knowledge, EngineForecaster()),
+        )
+        if client
+        else None
+    )
+    pending = store.pending_proposal(game_id, game.state.turn)
+    if pending is not None:
+        try:
+            game.check(pending)
+            print("Your confirmed response from last time is waiting; review it to play it.")
+        except StaleProposal:
+            pending = None
     try:
         if game.over:  # resumed after the election
             print(_finished(game, args.save))
             return
         while not game.over:
             print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
-            print(_briefing(game))
             calls_before = len(client.usage.records) if client else 0
+            _guarded(
+                game,
+                "scenarios",
+                "writing this turn's scenario",
+                lambda: game.scenario,
+                fallback[0] if fallback else None,
+            )
+            print(_briefing(game))
             state_before = game.state
             proposal = None
             while proposal is None:
-                proposal = _ask_for_turn(game, advisers, library)
-            record = game.commit(proposal)
+                proposal = _ask_for_turn(game, advisers, library, fallback, pending)
+                pending = None
+            # Saved before the outcome is asked for, so a failure or a quit keeps it.
+            store.save_proposal(game_id, proposal)
+            record = _guarded(
+                game,
+                "forecaster",
+                "writing what happened",
+                partial(game.commit, proposal),
+                fallback[2] if fallback else None,
+            )
             store.save_turn(game_id, record)
             if client:
                 knowledge.harvest_turn(
                     game_id, record, state_before, _provenance(client, calls_before)
                 )
             print(_report(record))
-            left = _left_alone(record)
+            left = _left_alone(record, state_before)
             if left:
                 print(left)
             print(EXPLAIN_HINT)

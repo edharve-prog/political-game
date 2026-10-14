@@ -128,7 +128,8 @@ def test_a_cut_removes_the_cover_it_saves_on() -> None:
     assert trimmed.duration_turns == 5
     assert job_protection(state, [trimmed]) == {}
     [saving] = [s for s in actions_to_shocks([trimmed], state) if s.node == FISCAL_NODE]
-    [cost] = [s for s in actions_to_shocks([furlough(turns=6)], state) if s.node == FISCAL_NODE]
+    fresh = toy_world()  # what the scheme cost when it started, with nothing else running
+    [cost] = [s for s in actions_to_shocks([furlough(turns=6)], fresh) if s.node == FISCAL_NODE]
     assert saving.delta == pytest.approx(-cost.delta)
     assert saving.duration_turns == 5
 
@@ -139,7 +140,7 @@ def test_a_partial_cut_leaves_the_rest_of_the_scheme() -> None:
     cover = job_protection(state, [half])
     assert cover[1] == pytest.approx(0.5 * JOB_PROTECTION)
     assert cover[3] == pytest.approx(JOB_PROTECTION)
-    assert fiscal_cost(half, state) == pytest.approx(-0.5 * fiscal_cost(furlough(), state))
+    assert fiscal_cost(half, state) == pytest.approx(-0.5 * fiscal_cost(furlough(), toy_world()))
 
 
 def test_a_cut_cannot_save_more_than_the_scheme_costs() -> None:
@@ -147,3 +148,47 @@ def test_a_cut_cannot_save_more_than_the_scheme_costs() -> None:
     [trimmed] = constrain([cut()], state, []).actions
     huge = cut(-1.0).model_copy(update={"duration_turns": 24})
     assert fiscal_cost(huge, state) == pytest.approx(fiscal_cost(trimmed, state))
+
+
+def paid(shocks: list[Shock]) -> float:
+    """Steps of deficit the shocks add over their lives."""
+    return sum(s.delta * s.duration_turns for s in shocks if s.node == FISCAL_NODE)
+
+
+def test_a_top_up_pays_only_for_the_cover_it_adds() -> None:
+    """Review of 13 October, E9: a 0.5 top-up on a running full-size scheme used to cost 0.625
+    points a turn and leave cover at 0.80. Schemes now add up, to at most all of a rise, and a
+    top-up pays for the cover it adds."""
+    state = running(turns=12)  # 0.8 cover on turns 1..11
+    top_up = furlough(-0.5, turns=6)
+    cover = job_protection(state, [top_up])
+    assert cover[1] == pytest.approx(1.0)
+    added = 1.0 - JOB_PROTECTION
+    full = fiscal_cost(furlough(-1.0), toy_world())
+    assert fiscal_cost(top_up, state) == pytest.approx(full * added / JOB_PROTECTION)
+    assert paid(actions_to_shocks([top_up], state)) == pytest.approx(6 * full * added / 0.8)
+
+
+def test_a_top_up_that_outlasts_the_scheme_pays_more_once_it_ends() -> None:
+    state = running(turns=6)  # 0.8 cover on turns 1..5
+    top_up = furlough(-0.5, turns=10)
+    cover = job_protection(state, [top_up])
+    assert [round(cover[t], 6) for t in range(1, 11)] == [1.0] * 5 + [0.4] * 5
+    shocks = [s for s in actions_to_shocks([top_up], state) if s.node == FISCAL_NODE]
+    unit = fiscal_cost(furlough(-1.0), toy_world())
+    assert [(s.start_turn, s.duration_turns) for s in shocks] == [(0, 5), (5, 5)]
+    assert shocks[0].delta == pytest.approx(unit * 0.2 / JOB_PROTECTION)
+    assert shocks[1].delta == pytest.approx(unit * 0.4 / JOB_PROTECTION)
+
+
+def test_a_cut_saves_turn_by_turn_what_it_removes() -> None:
+    """E9's related edge: a cut across a scheme that steps down later used to book this
+    turn's larger saving for every turn."""
+    state = toy_world()
+    state.job_protection = {0: 0.8, 1: 0.8, 2: 0.4, 3: 0.4}
+    whole = cut(-1.0, turns=4)
+    assert job_protection(state, [whole]) == {}
+    unit = fiscal_cost(furlough(-1.0), toy_world())
+    saved = (0.8 + 0.8 + 0.4 + 0.4) / JOB_PROTECTION * unit
+    assert paid(actions_to_shocks([whole], state)) == pytest.approx(-saved)
+    assert fiscal_cost(whole, state) == pytest.approx(-saved / 4)
