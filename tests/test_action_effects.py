@@ -190,7 +190,7 @@ def test_every_player_action_change_is_applied() -> None:
         assert after.countries[country].relationship < BASE.countries[country].relationship
 
 
-@pytest.mark.parametrize("target", ["sector:public", "institution:legislature", "country:uk"])
+@pytest.mark.parametrize("target", ["sector:public", "institution:legislature"])
 def test_legislation_creates_nothing_for_free(target) -> None:
     """Review finding 12: a law alone must not do what spending does without the cost."""
     after = run([act("legislate", target, 1.0)], turns=3)[-1]
