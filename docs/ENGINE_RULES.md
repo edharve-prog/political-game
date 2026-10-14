@@ -571,11 +571,17 @@ leader, a backbench group chair and a business lobbyist. Each cares about a few 
 wants them helped or squeezed. The union leader wants the public sector helped; the
 Chancellor wants it squeezed and the deficit down.
 
-Each turn, an action that helps a node someone wants helped (or squeezes one they want
-squeezed) raises their loyalty by 0.08, and the opposite lowers it by 0.08. Consulting one of
-their nodes adds 0.04. Someone the scenario involved, whom the leader neither acted for nor
-consulted, loses 0.03. For a tax, regulation or military action a positive size squeezes the
-target; for an indicator the sign is the direction the leader wants it to move.
+Each turn, loyalty follows what the turn's actions do to the nodes each person cares about,
+not which nodes the actions name. The engine projects the actions alone over 4 turns (central
+edge weights, from a quiet world) and takes each node's average move in standard steps; a
+group's move is the approval the actions win or lose it directly. Each cared-for node's move
+counts the way the person wants it, and the sum is their score. A score of 0.5 steps or more
+raises loyalty by 0.08 (or lowers it by 0.08 when negative), a smaller one moves it in
+proportion, and one under 0.05 steps is not noticed. So the Chancellor rewards a tax rise or
+spending cut that brings the deficit down, and the Governor a price cap that brings inflation
+down, though no action may aim at either directly. Consulting one of their nodes adds 0.04.
+Someone the scenario involved, whom the leader neither helped nor crossed nor consulted,
+loses 0.03.
 
 The player can sack a minister. A minister whose loyalty falls below 0.25 resigns. Either way
 the Commons loses 0.05 support and a new minister with loyalty 0.6 takes over. Other people

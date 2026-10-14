@@ -3,7 +3,12 @@
 Each character cares about a few nodes and wants them helped (+1) or squeezed (-1). In
 ``resolve()``, after the turn's actions:
 
-- an action on a node they care about backs them (loyalty up) or crosses them (down);
+- what the actions do to the nodes they care about backs them (loyalty up) or crosses them
+  (down), by up to ``BACKED`` or ``CROSSED``, scaled by the size of the effect (D5). The
+  effect is the engine's projection of the actions alone (``world/effects.py``), so the
+  Chancellor, who cares about the deficit, rewards a tax rise that cuts it, and the
+  Governor rewards a price cap that brings inflation down, though no action may aim at
+  either indicator directly (E14). An effect below ``NOTICED`` steps counts as none;
 - consulting one of their nodes counts in their favour;
 - a character the scenario involved, whom the leader neither acted for nor consulted, feels
   ignored;
@@ -20,9 +25,12 @@ from collections.abc import Sequence
 
 from hog_sim.core.models import Character, Delivery, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.world.effects import decision_effects
 
-BACKED = 0.08
-CROSSED = -0.08
+BACKED = 0.08  # most a character's loyalty rises in a turn from what the actions do
+CROSSED = -0.08  # ... or falls
+FULL_EFFECT = 0.5  # weighted standard steps on their nodes that move loyalty the whole way
+NOTICED = 0.05  # weighted standard steps below which a character sees no effect
 CONSULTED = 0.04
 IGNORED = -0.03
 RESIGN_BELOW = 0.25
@@ -30,21 +38,20 @@ DEPARTURE_COST = 0.05  # Commons support lost when a minister is sacked or resig
 MEMORY = 5
 LEGISLATURE = "institution:legislature"
 
-# Action kinds whose positive magnitude hurts the target rather than helping it.
-_HARMFUL = {"tax", "regulate", "military"}
+
+def effect_score(character: Character, effects: dict[str, float]) -> float:
+    """How far the actions go the way ``character`` wants: each cared-for node's move in
+    standard steps (``decision_effects``) times the way they want it pushed, summed."""
+    return sum(way * effects.get(node, 0.0) for node, way in character.cares.items())
 
 
-def push(action: PolicyAction) -> int:
-    """+1 when the action helps its target, -1 when it squeezes it, 0 when neither.
-
-    On an indicator the sign is the direction the leader wants it to move, whatever the kind.
-    """
-    if action.kind == "do_nothing" or action.magnitude == 0:
-        return 0
-    sign = 1 if action.magnitude > 0 else -1
-    if action.kind in _HARMFUL and not action.target.startswith("indicator:"):
-        sign = -sign
-    return sign
+def loyalty_change(score: float) -> float:
+    """Loyalty gained (or lost) for an effect ``score``: in proportion up to
+    ``FULL_EFFECT``, and nothing below ``NOTICED``."""
+    if abs(score) < NOTICED:
+        return 0.0
+    share = min(1.0, abs(score) / FULL_EFFECT)
+    return BACKED * share if score > 0 else CROSSED * share
 
 
 def active_cast(state: WorldState) -> list[Character]:
@@ -92,28 +99,30 @@ def apply_cast(
     delivery: Delivery | None = None,
     involved: Sequence[str] = (),
     sacked: Sequence[str] = (),
+    played: WorldState | None = None,
 ) -> WorldState:
-    """Move the cast's loyalty for one turn and handle departures. Deterministic."""
+    """Move the cast's loyalty for one turn and handle departures. Deterministic.
+
+    ``played`` is the world the turn was played in (default ``state``): what the actions do
+    is judged there."""
+    played = state if played is None else played
     new = state.snapshot()
     consulted = set(delivery.consulted) if delivery else set()
+    cared = [node for c in active_cast(new) for node in c.cares]
+    effects = decision_effects(played, actions, cared)
     for character in active_cast(new):
         if character.id in sacked and character.minister:
             _leave(new, character, "sacked", turn)
             continue
-        score = sum(
-            push(a) * character.cares[a.target] for a in actions if a.target in character.cares
-        )
-        change = 0.0
-        if score > 0:
-            change += BACKED
+        change = loyalty_change(effect_score(character, effects))
+        if change > 0:
             _remember(character, f"backed on turn {turn}")
-        elif score < 0:
-            change += CROSSED
+        elif change < 0:
             _remember(character, f"crossed on turn {turn}")
         if consulted & character.cares.keys():
             change += CONSULTED
             _remember(character, f"consulted on turn {turn}")
-        elif score == 0 and character.id in involved:
+        elif change == 0 and character.id in involved:
             change += IGNORED
             _remember(character, f"ignored on turn {turn}")
         character.loyalty = min(1.0, max(0.0, character.loyalty + change))
