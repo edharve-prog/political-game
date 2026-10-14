@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
-from hog_sim.core.models import SideIssue
+from hog_sim.core.models import PolicyAction, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
@@ -29,6 +29,7 @@ from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
+from hog_sim.policy.limits import lifetime_cost
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
 from hog_sim.ui.builder import compose_response, describe, edit_actions
@@ -188,10 +189,25 @@ REVIEW_PROMPT = (
 )
 
 
+def _lifetime(action: PolicyAction, state: WorldState | None) -> str:
+    """What a measure costs over its whole life, for the review screen (O1)."""
+    if state is None or action.kind == "do_nothing":
+        return ""
+    cost = lifetime_cost(action, state)
+    deficit = (
+        f", deficit {cost.deficit:+.2f} pts of GDP for {cost.deficit_turns} turns"
+        if cost.deficit
+        else ""
+    )
+    return f"  [over its life: {cost.capital:.2f} capital{deficit}]"
+
+
 def _proposal_text(proposal: Proposal, dropped: list[str], state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
-        lines += [f"  {i}. {describe(a)}" for i, a in enumerate(proposal.actions, 1)]
+        lines += [
+            f"  {i}. {describe(a)}{_lifetime(a, state)}" for i, a in enumerate(proposal.actions, 1)
+        ]
     else:
         lines.append("  (no actions: this turn the government does nothing)")
     notes = [f"Not possible: {line}" for line in dropped]
@@ -753,6 +769,14 @@ def _main(argv: list[str] | None) -> None:
         "Read it with: hog-sim logs",
     )
     parser.add_argument(
+        "--luck",
+        choices=["sample", "fair", "argmax", "hard"],
+        default="sample",
+        help="how each turn's outcome is picked (new games only): sample draws by probability "
+        "(the default), fair also draws but spreads bad luck out so it can't cluster, argmax "
+        "always takes the most likely, hard takes the worse of the two likeliest",
+    )
+    parser.add_argument(
         "--check-llm",
         action="store_true",
         help="make one small call to the model to confirm the connection works, then exit",
@@ -835,7 +859,7 @@ def _main(argv: list[str] | None) -> None:
         )
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
-        config, start = GameConfig(seed=args.seed), toy_world()
+        config, start = GameConfig(seed=args.seed, selection_mode=args.luck), toy_world()
         game_id = store.new_game(config, start)
         recaller.game_id = game_id
         _log_turns(client, game_id, lambda: start.turn)
