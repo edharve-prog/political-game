@@ -11,7 +11,7 @@ from hog_sim.world.changes import (
 )
 from hog_sim.world.seed.toy import toy_world
 
-EU, UK = "country:eu", "country:uk"
+EU, UK = "country:eu", "indicator:output_gap"  # EU demand reaches UK output (O3)
 
 
 def eu_trade(state):

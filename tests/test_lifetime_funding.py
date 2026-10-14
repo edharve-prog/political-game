@@ -30,7 +30,9 @@ def cut(turns: int) -> PolicyAction:
 
 
 def rise(turns: int) -> PolicyAction:
-    return act("tax", "sector:finance", 1.0, turns)
+    # Half of a bank tax comes out of profits, not output, so it raises twice the output it
+    # removes (O3's SECTOR_PASS_THROUGH): 0.5 raises what 1.0 used to.
+    return act("tax", "sector:finance", 0.5, turns)
 
 
 def test_a_one_turn_rise_does_not_fund_a_two_year_cut() -> None:

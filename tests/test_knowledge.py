@@ -17,6 +17,7 @@ from hog_sim.forecasting.candidates import (
     Shift,
     Verdict,
 )
+from hog_sim.forecasting.scoring import _spread
 from hog_sim.game.llm_plugins import llm_plugins
 from hog_sim.game.loop import Game, replay
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
@@ -161,13 +162,19 @@ def change_draft(change: GraphChange) -> GraphChangeDraft:
 
 
 def candidates(engine, changes=(CHINA_COOLS,)):
-    expected = engine.nodes["indicator:inflation"].mean[2]
+    # Claude claims what the engine moves: inflation always, and every other indicator the
+    # engine moves by more than its spread, so the claims fit the engine they were written for.
+    claims = {"indicator:inflation": engine.nodes["indicator:inflation"].mean[2]}
+    for node, f in engine.nodes.items():
+        mean = f.mean[2]
+        if node.startswith("indicator:") and abs(mean) > _spread(mean, f.p10[2], f.p90[2]):
+            claims[node] = mean
 
     def draft(title, p):
         return CandidateDraft(
             title=title,
             narrative=f"{title} after the windfall tax.",
-            indicator_shifts=[Shift(node="indicator:inflation", change=expected)],
+            indicator_shifts=[Shift(node=n, change=c) for n, c in claims.items()],
             group_effects=[],
             new_shocks=[],
             graph_changes=[change_draft(c) for c in changes],

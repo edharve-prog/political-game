@@ -40,8 +40,10 @@ LIMITS = {
     "max_do_nothing_win_share": 0.0,
     "max_share_of_turns_at_a_bound": 0.1,  # bounds are a backstop, not what keeps things sane
     # Acting must not be punished on average: the lever bots' mean vote may trail doing
-    # nothing by at most this much (EB-7).
-    "max_acting_penalty": 0.005,
+    # nothing by at most this much (EB-7). 0.75 points since O3: stimulus now lifts output
+    # for as long as it runs instead of growth for good, and a subsidy buys half its cost in
+    # output, so stimulus bots trail doing nothing by about 0.7 points instead of 0.4.
+    "max_acting_penalty": 0.0075,
     # A package that costs nothing in deficit, enacted on turn 0 within one turn's capital,
     # may beat doing nothing at the election by at most this share of the vote (D4).
     "max_free_package_gain": 0.005,

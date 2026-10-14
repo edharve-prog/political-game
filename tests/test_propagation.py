@@ -10,6 +10,7 @@ from hog_sim.world.propagation import (
     apply_deltas,
     fiscal_cost,
     lag0_gain,
+    pass_through,
     propagate,
     scale,
     simulate,
@@ -187,7 +188,8 @@ def test_graph_changes_cannot_destabilise_the_loops(world) -> None:
 @pytest.mark.parametrize("first", [1.0, -1.0])
 def test_sector_spending_costs_what_it_adds_after_a_boom_or_slump(first) -> None:
     """Review finding 6: once a sector carries a deviation, a step of spending still costs
-    the output it adds, not 5% of today's boosted or depressed output."""
+    what buys the output it adds (public services are bought outright, O3), not 5% of
+    today's boosted or depressed output."""
     world = toy_world()
     moved = [Shock(node="sector:public", delta=2 * first, duration_turns=3, hold=True)]
     engine, moves = step(world, moved)
@@ -202,4 +204,4 @@ def test_sector_spending_costs_what_it_adds_after_a_boom_or_slump(first) -> None
     gdp = state.countries[state.player_country].gdp_bn
     cost = fiscal_cost(spend, state) * scale(state, "indicator:deficit") / 100 * gdp
     assert added == pytest.approx(50.0)
-    assert cost == pytest.approx(added)
+    assert cost * pass_through("sector:public") == pytest.approx(added) == pytest.approx(cost)
