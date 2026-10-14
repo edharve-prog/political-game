@@ -287,9 +287,15 @@ way when it starts, and when it ends the jobs it was holding up are lost
 after all if the economy has not recovered. In good times it only costs money. In 2020 output
 fell by a fifth but unemployment rose only from 4% to about 5%.
 
+Schemes running at the same time add up, to at most all of a rise, and each pays only for the
+cover it adds, turn by turn. Topping up a running full-size scheme with a half-size one takes cover
+from 80% to 100% and costs a quarter of a full scheme a turn while both run; once the first scheme
+ends, the top-up's own 40% costs its full half.
+
 Cutting a wage subsidy (spending on unemployment with the instrument "cut") winds down a scheme
 that is running: it takes off that much cover for as long as the cut lasts, and saves only what
-that cover cost for the turns it would have run. With no scheme running there is nothing to cut,
+that cover cost, turn by turn, for the turns it would have run (so a cut across a scheme that
+steps down later saves less in its later turns). With no scheme running there is nothing to cut,
 so the cut is blocked; a cut bigger or longer than the scheme is trimmed to it.
 
 **Debt and its interest bill.** The UK starts with public debt of **100% of GDP** at an average
