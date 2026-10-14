@@ -32,6 +32,9 @@ class TurnRecord(Model):
         default_factory=list, description="Promises the player made this turn (SD-5)"
     )
     sacked: list[str] = Field(default_factory=list, description="Cast ids sacked this turn (SD-4)")
+    unmapped: list[str] = Field(
+        default_factory=list, description="Measures that could not be mapped (E21)"
+    )
 
     @property
     def outcome(self) -> Outcome:
