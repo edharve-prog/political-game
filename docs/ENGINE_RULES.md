@@ -259,16 +259,20 @@ world can leave debt untracked (a country with no debt figure); once tracked, de
 *Source: `world/propagation.py` (`foreign_shocks`), `world/changes.py` (`action_changes`)*
 
 - **Diplomatic** action towards a country improves (or, with negative magnitude, worsens) the
-  relationship by 0.1 per unit. If the two countries trade, it also moves the partner's growth by
-  0.5 steps per unit, held for the action's duration (a trade deal or sanctions).
+  relationship by 0.1 per unit. If the two countries trade, it is a trade deal or sanctions: it
+  changes the UK's access to that market, not the size of the partner's economy (M3). Each UK
+  node the partner feeds (UK growth through trade, and UK sectors it buys from or supplies, such
+  as EU demand for UK manufacturing) is held 0.5 × that link's weight steps higher per unit (or
+  lower, for sanctions) for the action's duration. A full-size deal with the EU lifts UK growth
+  0.23 steps and manufacturing 0.15 steps while it runs.
 - **Military** escalation (positive magnitude) worsens the relationship by 0.15 per unit, cuts
   the country's stability by 0.05 per unit and knocks 1 step per unit off its growth, which
   reaches the UK through trade. De-escalation (negative magnitude) only mends the relationship.
-- A relationship change also scales the trade between the two countries (section 7), so
-  diplomacy deepens trade for good and a row thins it.
-- **Communicate** aimed at a foreign country follows the general rule above and nudges that
-  country's growth by 0.4 steps per unit. This is a side effect of the general rule rather
-  than a deliberate design choice.
+- A relationship change also scales the trade between the two countries, and the partner's
+  supply links into UK sectors (section 7), so diplomacy deepens trade for good and a row thins
+  it.
+- **Communicate** aimed at a foreign country moves only the relationship, by 0.02 per unit. It
+  no longer touches that country's growth.
 
 ---
 

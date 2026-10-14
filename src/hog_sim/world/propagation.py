@@ -159,6 +159,8 @@ class DeltaDistribution(Model):
 # it to go ("cap bills" is energy prices, negative), so only the size of the factor is used.
 # Diplomatic and military actions do not push their target's growth this way: they move its
 # standing (``world/changes.action_changes``) and, where it makes sense, trade (``FOREIGN``).
+# Nor does a speech to a foreign country: it moves the relationship a little, not its economy
+# (M3).
 # Legislation does not push its target either: passing a law creates no output by itself, and
 # a law that funds, taxes or regulates something is that tax, spend or regulation, with its
 # cost. Aimed at a population group (rights for renters) it wins that group over by
@@ -296,13 +298,38 @@ def _held(node_id: str, push: float, share: float) -> float:
 REGULATION_OUTPUT_COST = 0.25
 
 
-# Foreign policy towards another country, in standard steps of its growth per unit of
-# magnitude. A deal or sanctions move trade only with a trading partner, in the direction of
-# the magnitude. Military escalation disrupts the target's economy (and, through trade, the
-# player's); de-escalation moves only the relationship.
+# Foreign policy towards another country, per unit of magnitude. A deal or sanctions with a
+# trading partner change the player's access to its market, not the size of its economy (M3):
+# each node of the player's that the partner feeds (its economy, through trade, and the sectors
+# the partner buys from or supplies) is held DIPLOMATIC_TRADE_STEPS times that link's weight
+# higher (a deal) or lower (sanctions) for the action's duration. Military escalation disrupts
+# the target's economy, in standard steps of its growth (and, through trade, the player's);
+# de-escalation moves only the relationship.
 FOREIGN = {"diplomatic", "military"}
 DIPLOMATIC_TRADE_STEPS = 0.5
 MILITARY_DISRUPTION_STEPS = 1.0
+ACCESS_EDGES = {EdgeKind.TRADES_WITH, EdgeKind.SUPPLIES}
+
+
+def foreign_country(action: PolicyAction, state: WorldState | None) -> bool:
+    """Whether the action is aimed at a country other than the player's."""
+    return (
+        state is not None
+        and action.target in state.countries
+        and action.target != state.player_country
+    )
+
+
+def access_links(state: WorldState, partner: str) -> list[Edge]:
+    """The partner's links into the player's economy: its trade with the player's country and
+    its supply links into the player's sectors."""
+    return [
+        e
+        for e in state.edges
+        if e.source == partner
+        and e.kind in ACCESS_EDGES
+        and (e.target == state.player_country or e.target in state.sectors)
+    ]
 
 
 def _trades(state: WorldState, a: str, b: str) -> bool:
@@ -313,19 +340,23 @@ def _trades(state: WorldState, a: str, b: str) -> bool:
 
 def foreign_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
     """Economic shocks from a diplomatic or military action towards a foreign country."""
-    if (
-        state is None
-        or action.target not in state.countries
-        or action.target == state.player_country
-    ):
+    if not foreign_country(action, state):
         return []
+    turns = action.duration_turns
     if action.kind == "diplomatic" and _trades(state, state.player_country, action.target):
-        delta = DIPLOMATIC_TRADE_STEPS * action.magnitude
-    elif action.kind == "military" and action.magnitude > 0:
+        return [
+            Shock(
+                node=e.target,
+                delta=DIPLOMATIC_TRADE_STEPS * action.magnitude * e.weight,
+                duration_turns=turns,
+                hold=True,
+            )
+            for e in access_links(state, action.target)
+        ]
+    if action.kind == "military" and action.magnitude > 0:
         delta = -MILITARY_DISRUPTION_STEPS * action.magnitude
-    else:
-        return []
-    return [Shock(node=action.target, delta=delta, duration_turns=action.duration_turns, hold=True)]
+        return [Shock(node=action.target, delta=delta, duration_turns=turns, hold=True)]
+    return []
 
 
 def fiscal_size(action: PolicyAction) -> float:
@@ -377,7 +408,8 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         if action.kind in FOREIGN:
             shocks += foreign_shocks(action, state)
             continue
-        push = 0.0 if protects_jobs(action) else action_factor(action) * action.magnitude
+        abroad = action.kind == "communicate" and foreign_country(action, state)
+        push = 0.0 if protects_jobs(action) or abroad else action_factor(action) * action.magnitude
         if push and not action.target.startswith("group:"):
             shocks.append(Shock(node=action.target, delta=push, duration_turns=turns, hold=True))
             if (
