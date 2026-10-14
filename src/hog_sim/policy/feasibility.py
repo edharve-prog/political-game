@@ -17,7 +17,8 @@ Rules for the MVP:
 - Independent institutions (independence >= 0.7) cannot be directed, and nor can the
   indicators only they drive (Bank Rate). Communicating with them is always allowed.
 - Each kind of action fits only some kinds of target (``COMPATIBLE``): diplomacy and military
-  action need a foreign country, appointments an institution. An indicator can be acted on
+  action need a foreign country, appointments an institution, and the player's own country
+  takes only a speech to the nation (``OWN_COUNTRY``). An indicator can be acted on
   directly only by the interventions it declares (``Indicator.interventions``, such as a
   price cap on energy bills); everything else has to work through a sector, group or
   institution, so the world graph carries the trade-offs.
@@ -53,8 +54,11 @@ DEFICIT_ID = "indicator:deficit"
 
 
 # Action kinds each kind of target accepts (``do_nothing`` fits anything). Indicators take
-# only their own ``interventions``; the player's own country takes domestic policy only.
+# only their own ``interventions``. The player's own country takes only a speech to the
+# nation (E3): its growth is the sum of what its sectors do, so tax, spending and rules work
+# through the sectors and groups they reach, with their costs, not on the growth rate itself.
 _DOMESTIC = {"tax", "spend", "regulate", "deregulate", "legislate", "communicate"}
+OWN_COUNTRY = {"communicate"}
 COMPATIBLE: dict[NodeKind, set[str]] = {
     NodeKind.COUNTRY: {"diplomatic", "military", "communicate"},
     NodeKind.SECTOR: _DOMESTIC,
@@ -83,10 +87,13 @@ def compatibility_problem(action: PolicyAction, state: WorldState) -> str | None
             "institution that drives it"
         )
     if action.target == state.player_country:
-        allowed = _DOMESTIC
-    else:
-        allowed = COMPATIBLE[node.kind]
-    if action.kind in allowed:
+        if action.kind in OWN_COUNTRY:
+            return None
+        return (
+            f"{action.kind} cannot be aimed at {node.name} as a whole; aim it at the sectors "
+            "or groups it reaches"
+        )
+    if action.kind in COMPATIBLE[node.kind]:
         return None
     return f"{action.kind} does not apply to {node.name}"
 

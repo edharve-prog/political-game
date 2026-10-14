@@ -128,6 +128,12 @@ not the cut blamed for a penalty that never came. Whatever is left after the sha
 that only act together, limits they share) is reported as "how this turn's causes combined"
 rather than spread among them.
 
+For the three biggest approval moves it shows where each group's approval is heading and why,
+using the same terms the approval rules add up (section on approval below): the group's lean,
+then the largest pushes away from it, in points. A push is an indicator the group cares about,
+the sector it works in, an institution's standing, the penalty for a deficit above 5% of GDP,
+or an approval event (or all events together, when they hit the cap).
+
 ---
 
 ## 3. Actions: what the player can do
@@ -147,7 +153,7 @@ Every response becomes one or more **actions**. An action has:
 
 | Target | Allowed kinds |
 |---|---|
-| The player's own country | tax, spend, regulate, deregulate, legislate, communicate |
+| The player's own country | communicate only (a speech to the nation) |
 | A foreign country | diplomatic, military, communicate |
 | A sector | tax, spend, regulate, deregulate, legislate, communicate |
 | A population group | tax, spend, regulate, deregulate, legislate, communicate |
@@ -156,6 +162,13 @@ Every response becomes one or more **actions**. An action has:
 
 "Do nothing" fits anything. Any other indicator can only be moved indirectly, by acting on
 something that drives it, so the world graph carries the trade-offs.
+
+The player's own country's growth comes from what its sectors do, so tax, spending and rules
+for "the country" have to be aimed at the sectors or groups they reach, where they carry their
+costs. No action pushes the player's own growth rate directly, so a speech to the nation moves
+no output. (Until 13 October 2026 national tax, spending and deregulation pushed UK growth 2
+steps a unit; the extra growth cut the deficit and swelled GDP, so spending on the country paid
+for itself and left debt lower than doing nothing.)
 
 ### How hard each kind pushes
 
@@ -211,8 +224,8 @@ Spending and tax also move `indicator:deficit`, as a flow, for as long as the po
 for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) is the
 output the action adds (or removes), as a share of GDP: a full-size rise in public spending
 adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while the same rise
-for the smaller housing sector costs 0.56 points. Aimed at anything else (the country as a
-whole, a group, an indicator), each unit of spending or tax cut keeps the deficit **1.25
+for the smaller housing sector costs 0.56 points. Aimed at anything else (a group, an
+indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
 taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
 (`instrument`), since the size's sign there is the way the player wants the indicator to move:
@@ -222,7 +235,7 @@ reads as a rise. Actions aimed at the deficit itself have no separate cost.
 
 **Markets and unfunded tax cuts.** A tax cut that the same turn's other decisions (tax rises,
 spending cuts) do not pay for spooks the markets if it adds at least 0.75 points a turn to the
-deficit (a tax cut of magnitude 0.6 or more on the whole country). Cuts and the savings that pay
+deficit (a tax cut of magnitude 0.6 or more on a group). Cuts and the savings that pay
 for them are compared over their lives (cost a turn times the turns it is paid, at least 6), so a
 one-turn tax rise pays for only a quarter of a cut that runs for two years. For each point of
 unfunded cut, Bank Rate jumps 0.4
@@ -305,6 +318,11 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    turn, so a rebellion costs the majority for a few turns rather than the whole game. The
    Commons settles toward its starting support **plus half the change in national approval**
    since the start: when the polls fall 10 points, backbenchers drift 0.05 less supportive.
+   Settling moves only the part of support the engine does not carry (a direct edit, a
+   minister leaving, the polls' drift). What the engine carries (a whip, a rebellion's shock)
+   fades at the engine's own rate, 72% kept a turn (section 5), and nothing else pulls it back,
+   so a whip never ends below never whipping and a rebellion never recovers past the quiet
+   path.
 
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
@@ -361,7 +379,8 @@ A node's own push fades once nothing sustains it. Each turn it keeps a share of 
 | Node | Kept each turn | Roughly halves in |
 |---|---|---|
 | Country | 80% | 3 turns |
-| Sector, institution | 90% | 6.5 turns |
+| Sector | 90% | 6.5 turns |
+| Institution | 72% | 2 turns |
 | Indicator | 85% (unless it sets its own) | 4 turns |
 | Deficit (its own setting) | 50% | 1 turn |
 
@@ -673,9 +692,18 @@ wrote that turn, whichever reading is used.
 
 ### Picking one
 
-The default (`sample`) draws an outcome at random by probability, so the game can't be solved.
-`argmax` always takes the most likely, which makes it a difficulty setting. The draw is seeded,
-so replays match.
+The way an outcome is picked is a difficulty profile (`--luck` when starting a game):
+
+- `sample` (the default) draws an outcome at random by probability, so the game can't be solved.
+- `fair` also draws by probability, but spreads the luck out. Outcomes are ranked best first for
+  the government (by the turnout-weighted approval their events bring), and every block of four
+  turns takes exactly one draw from each quarter of the luck range, in a seeded order. Bad
+  outcomes therefore can't cluster: four aligned turns hold at most one draw from the unluckiest
+  quarter.
+- `argmax` always takes the most likely.
+- `hard` takes the worse, for the government, of the two likeliest outcomes.
+
+Every draw is seeded, so replays match.
 
 ---
 
@@ -741,7 +769,7 @@ what is coming in the next six turns.
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
 | Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
-| Institutions settle back, Commons follows polls | 20% of the gap a turn; 0.5 support per point of approval | `game/loop.py` |
+| Institutions settle back, Commons follows polls | 20% of the gap a turn (the part the engine does not carry); 0.5 support per point of approval | `game/loop.py` |
 | Rebellion odds per unit of resistance | +200% | `forecasting/scoring.py` (`RESISTANCE_FACTOR`) |
 | Independence threshold | 0.7 | `policy/feasibility.py` |
 | Approval per weighted step | 0.05 | `population/popularity.py` (`K`) |
