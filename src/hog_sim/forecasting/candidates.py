@@ -308,7 +308,7 @@ class LLMForecaster:
                         {s.node: s.change for s in d.indicator_shifts}, engine, turn
                     ),
                     judge=judged[i] if judged else d.self_probability,
-                    base_rate=base_rate(list(d.event_tags), delivery, resistance),
+                    base_rate=base_rate(list(d.event_tags), delivery, resistance, actions),
                     self_reported=d.self_probability,
                 )
                 for i, d in enumerate(drafts)
