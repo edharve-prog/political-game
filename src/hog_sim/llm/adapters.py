@@ -11,10 +11,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from hog_sim.core.models import Delivery, Pledge, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Pledge, PolicyAction, Reading, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.llm.client import LLMClient, ModelConfig
-from hog_sim.llm.interpreter import Interpretation, interpret
+from hog_sim.llm.interpreter import Interpretation, interpret, readings
 from hog_sim.llm.scenario_gen import GeneratedScenario, generate_scenario
 from hog_sim.llm.summary import summarise_state
 from hog_sim.policy.feasibility import Role
@@ -105,6 +105,10 @@ class LLMInterpreter:
         result = interpret(text, summary, self.client, scenario=scenario, config=self.config)
         self.last_interpretation = result
         return list(result.actions)
+
+    def last_readings(self) -> list[Reading]:
+        """The words each action came from and how sure the model was (D6)."""
+        return readings(self.last_interpretation) if self.last_interpretation else []
 
     def last_delivery(self) -> Delivery | None:
         """How the last response was delivered (story RB-4), or None before any call."""

@@ -84,7 +84,11 @@ A game is 24 turns of one month each, with a general election after the last one
    furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
-   confirming.
+   confirming. Under each action the review screen quotes the words it was read from and
+   flags it to check when the interpreter guessed: Claude gives each action a confidence from
+   0 to 1, and anything below 0.6 is flagged. Offline, keyword matching rates a target it had
+   to guess from the scenario 0.4 (and says so), a speech nobody asked for 0.5, and anything
+   else 0.8; a reading reused from an earlier game rates its match score.
 4. The engine runs its **forecast**: 100 random draws of the next 24 turns, starting from
    everything already in flight and adding this turn's actions, the scenario's shocks and the
    background pushes resolve will apply (section 5).

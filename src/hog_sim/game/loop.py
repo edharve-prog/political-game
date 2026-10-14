@@ -52,6 +52,7 @@ from hog_sim.core.models import (
     Outcome,
     Pledge,
     PolicyAction,
+    Reading,
     Scenario,
     Shock,
 )
@@ -337,6 +338,24 @@ class Proposal(Model):
     delivery: Delivery = Field(default_factory=Delivery)
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     sacked: list[str] = Field(default_factory=list, description="Cast ids sacked (SD-4)")
+    readings: list[Reading] = Field(
+        default_factory=list, description="How each requested action was read (D6)"
+    )
+
+    def reading(self, index: int) -> Reading | None:
+        """The reading for ``actions[index]``: the first unused one of the same kind and
+        target, or None (the player edited it, or the interpreter gave none)."""
+        used: set[int] = set()
+        for i, action in enumerate(self.actions):
+            j = next(
+                (j for j, r in enumerate(self.readings) if j not in used and r.fits(action)),
+                None,
+            )
+            if i == index:
+                return self.readings[j] if j is not None else None
+            if j is not None:
+                used.add(j)
+        return None
 
 
 class Game:
@@ -433,7 +452,11 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
-        return self._limit(response, requested, delivery=delivery, pledges=pledges, sacked=sacked)
+        readings = getattr(self.interpreter, "last_readings", lambda: [])()
+        proposal = self._limit(
+            response, requested, delivery=delivery, pledges=pledges, sacked=sacked
+        )
+        return proposal.model_copy(update={"readings": list(readings)})
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -444,7 +467,7 @@ class Game:
 
     def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits."""
-        return self._limit(
+        revised = self._limit(
             proposal.response,
             actions,
             proposal.requested,
@@ -452,6 +475,7 @@ class Game:
             proposal.pledges,
             proposal.sacked,
         )
+        return revised.model_copy(update={"readings": proposal.readings})
 
     def _limit(
         self,

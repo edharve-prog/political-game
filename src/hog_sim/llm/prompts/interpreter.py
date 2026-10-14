@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-7"
+VERSION = "interpret-8"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -93,7 +93,15 @@ consulting or snubbing a person is not a sacking: record it through the actions 
 delivery as usual.
 """
 
-SYSTEM += DELIVERY + PLEDGES + PEOPLE
+READINGS = """
+For each action, add an entry to readings so the leader can check how you read them:
+- action: the action's index in actions (0 for the first)
+- span: the words of the response it comes from, copied exactly, a few words to a sentence
+- confidence: 0 to 1, how sure you are that this is the kind, target and direction they meant; \
+below 0.6 when you had to guess the target or the measure is ambiguous
+"""
+
+SYSTEM += DELIVERY + PLEDGES + PEOPLE + READINGS
 
 
 def render(summary_prompt: str, scenario_text: str | None, player_text: str) -> str:

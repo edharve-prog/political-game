@@ -15,6 +15,7 @@ from hog_sim.core.models import (
     Outcome,
     Pledge,
     PolicyAction,
+    Reading,
     Scenario,
     Shock,
 )
@@ -114,9 +115,13 @@ class KeywordInterpreter:
         self._delivery: Delivery | None = None
         self._pledges: list[Pledge] = []
         self._sacked: list[str] = []
+        self._readings: list[Reading] = []
 
     def last_delivery(self) -> Delivery | None:
         return self._delivery
+
+    def last_readings(self) -> list[Reading]:
+        return list(self._readings)
 
     def last_pledges(self) -> list[Pledge]:
         return list(self._pledges)
@@ -140,9 +145,11 @@ class KeywordInterpreter:
         unsupported(text)
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
-            return self._one(text, state, scenario)
-        actions = [a for part in parts for a in self._one(part, state, scenario)]
-        return [a for a in actions if a.kind != "do_nothing"] or actions[:1]
+            parts = [text]
+        read = [(part, a) for part in parts for a in self._one(part, state, scenario)]
+        read = [(p, a) for p, a in read if a.kind != "do_nothing"] or read[:1]
+        self._readings = [keyword_reading(part, action) for part, action in read]
+        return [action for _, action in read]
 
     def _one(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         t = text.lower()
@@ -194,6 +201,36 @@ class KeywordInterpreter:
         else:
             kind = "communicate"
         return [PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")]
+
+
+# Words that say a speech was meant; without one, "communicate" is only the default.
+_SPEECH = (
+    r"speech|announce|campaign|statement|reassur|explain|tell|communicat|talk|negotiat|rally|"
+    r"reach out|whip|address|appeal|promise|condemn|warn|praise|back\b"
+)
+
+
+def keyword_reading(part: str, action: PolicyAction) -> Reading:
+    """How sure keyword matching is of ``action``, read from ``part`` (review D6). A target
+    no keyword named was guessed from the scenario; a speech no word asked for is only the
+    fallback kind."""
+    span = re.sub(r"^\s*(?:Option|Also):\s*", "", part).strip()
+    t = span.lower()
+    named = any(re.search(pat, t) for pat, _ in _TARGETS)
+    fallback = action.kind != "do_nothing" and not named
+    if fallback:
+        confidence = 0.4
+    elif action.kind == "communicate" and not re.search(_SPEECH, t):
+        confidence = 0.5
+    else:
+        confidence = 0.8
+    return Reading(
+        kind=action.kind,
+        target=action.target,
+        span=span,
+        confidence=confidence,
+        fallback=fallback,
+    )
 
 
 # Who "consulting X" means, for the keyword interpreter's delivery (story RB-4).

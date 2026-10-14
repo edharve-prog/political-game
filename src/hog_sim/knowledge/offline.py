@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import re
 
-from hog_sim.core.models import Delivery, Outcome, Pledge, PolicyAction, Scenario
+from hog_sim.core.models import Delivery, Outcome, Pledge, PolicyAction, Reading, Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.candidates import CLAIM_TURN
 from hog_sim.forecasting.scoring import (
@@ -170,6 +170,7 @@ class StoredInterpreter:
         self._delivery: Delivery | None = None
         self._pledges: list[Pledge] = []
         self._sacked: list[str] = []
+        self._readings: list[Reading] = []
         self._used_fallback = False
 
     # Delivery, pledges and sackings are read from the player's own words each turn, never
@@ -191,6 +192,13 @@ class StoredInterpreter:
             return list(getattr(self.fallback, "last_sacked", lambda: [])())
         return list(self._sacked)
 
+    def last_readings(self) -> list[Reading]:
+        """The fallback's readings, or for a stored interpretation the whole response with
+        the match score as confidence (D6)."""
+        if self._used_fallback:
+            return list(getattr(self.fallback, "last_readings", lambda: [])())
+        return list(self._readings)
+
     def _read_metadata(self, text: str, state: WorldState) -> None:
         def read(name: str, *args: object) -> object:
             reader = getattr(self.fallback, name, None)
@@ -202,6 +210,7 @@ class StoredInterpreter:
 
     def interpret(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
         self._used_fallback = False
+        self._readings = []
         self._read_metadata(text, state)
         entries = self.store.interpretations(scenario_id(scenario))
         best, best_score = None, 0.0
@@ -214,6 +223,15 @@ class StoredInterpreter:
             actions = [a for a in best.actions if a.target in known]
             if actions:
                 self.last_source = "stored"
+                self._readings = [
+                    Reading(
+                        kind=a.kind,
+                        target=a.target,
+                        span=text.strip(),
+                        confidence=round(min(best_score, 1.0), 2),
+                    )
+                    for a in actions
+                ]
                 return [a.model_copy(deep=True) for a in actions]
         self.last_source = "fallback"
         self._used_fallback = True
