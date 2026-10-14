@@ -55,8 +55,10 @@ weight -0.4, so higher inflation lowers their approval.
 ### The starting world
 
 The only world today is the hand-built UK in `world/seed/toy.py`: the UK, the EU and China; five
-sectors (energy, finance, manufacturing, housing, public); four groups (pensioners, young
-renters, public sector workers, business owners); the House of Commons and the Bank of England;
+sectors (energy, finance, manufacturing, housing, public); seven groups that together make up
+the whole electorate (pensioners 19%, young renters 15%, public sector workers 17%, business
+owners 8%, private sector workers 22%, mortgaged homeowners 13%, students 6%); the House of
+Commons and the Bank of England;
 and seven indicators (inflation, unemployment, Bank Rate, energy prices, house prices, deficit,
 and the pound's exchange rate).
 Its numbers are illustrative round figures, not sourced data.
@@ -614,7 +616,9 @@ defend the leader.
 
 - **National approval** is each group's approval weighted by population share.
 - **Vote share** weights each group by population share × turnout, so high-turnout groups like
-  pensioners count for more.
+  pensioners count for more. Turnout rises with feeling, either way: a group's turnout is
+  multiplied by 1 + 2 × |approval − lean| (at most 95%), so an angry group and an enthusiastic
+  one both turn out more than a content one.
 - **Seats** follow the two-party cube law: seat share = v³ / (v³ + (1 - v)³), out of 650 seats.
   A small lead in votes becomes a large lead in seats.
 - The player **wins** with a majority: more than 325 seats.
