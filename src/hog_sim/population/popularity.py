@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 
 from hog_sim.core.models import ApprovalEvent, EdgeKind, Group, Model, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.policy.credibility import approval_shift
 from hog_sim.world.levers import (
     LAW_HOLD,
     RULE_KINDS,
@@ -199,8 +200,8 @@ def cap_events(total: float) -> float:
 @dataclass(slots=True)
 class Term:
     """One part of a group's target approval (E20): ``kind`` is lean, cares, employs,
-    influences, debt or events, ``node`` the node it comes from (empty for lean and
-    events) and ``value`` its contribution in approval (0-1)."""
+    influences, credibility (D9), debt or events, ``node`` the node it comes from (empty
+    for lean, credibility and events) and ``value`` its contribution in approval (0-1)."""
 
     kind: str
     value: float
@@ -216,7 +217,7 @@ def approval_terms(
     """Each group's target approval split into its terms, before the 0-1 clamp. The terms
     add up (in order) to what ``target_approval`` returns, so explanations name the real
     causes: lean, each cared-about indicator, each employing sector, each institution, the
-    debt penalty and the capped events in force."""
+    government's credibility, the debt penalty and the capped events in force."""
     terms = {gid: [Term(kind="lean", value=g.lean)] for gid, g in state.groups.items()}
     for edge in state.edges:
         if edge.kind == EdgeKind.CARES_ABOUT and edge.source in terms:
@@ -234,6 +235,10 @@ def approval_terms(
             if institution is not None:
                 value = K * edge.weight * (institution.support - 0.5) / 0.1
                 terms[edge.target].append(Term(kind="influences", node=edge.source, value=value))
+    shift = approval_shift(state.credibility)
+    if shift:
+        for group_terms in terms.values():
+            group_terms.append(Term(kind="credibility", value=shift))
     deficit = state.indicators.get(DEFICIT_ID)
     if deficit is not None and deficit.value > DEFICIT_TOLERANCE:
         penalty = DEBT_PENALTY * (deficit.value - DEFICIT_TOLERANCE)

@@ -34,6 +34,10 @@ doesn't end: you can try the model again or play that step offline (the library'
 keyword reading, or the engine's own outcomes). A response you have confirmed is saved before
 the outcome is written, so if you quit there `--resume` offers it again for review.
 
+Each turn may make at most 25 model calls (retries included) before the game stops to ask: try
+again to allow another 25, or play that step offline. Change the cap with `--call-budget N` or
+`HOG_SIM_CALL_BUDGET`; 0 means no cap.
+
 ## What the game keeps from Claude
 
 Every Claude turn is also filed in a knowledge store inside the save file: the scenario, how

@@ -207,6 +207,28 @@ class Shock(Model):
     )
 
 
+LOW_CONFIDENCE = 0.6  # readings below this are flagged on the review screen (D6)
+
+
+class Reading(Model):
+    """How the interpreter read one action (review D6): the words it came from, how sure the
+    interpreter is, and whether the target was guessed rather than named. Matched to an
+    action by kind and target, so an action the player edits loses its reading."""
+
+    kind: ActionKind
+    target: str
+    span: str = Field("", description="The words of the response this action comes from")
+    confidence: float = Field(1.0, ge=0, le=1)
+    fallback: bool = Field(False, description="The target was guessed, not named")
+
+    def fits(self, action: PolicyAction) -> bool:
+        return action.kind == self.kind and action.target == self.target
+
+    @property
+    def doubtful(self) -> bool:
+        return self.fallback or self.confidence < LOW_CONFIDENCE
+
+
 class Delivery(Model):
     """How the leader carries out a response, beside what they do (backlog story RB-4)."""
 

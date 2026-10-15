@@ -58,6 +58,7 @@ from hog_sim.core.models import (
     Outcome,
     Pledge,
     PolicyAction,
+    Reading,
     Scenario,
     Shock,
 )
@@ -65,8 +66,21 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
+from hog_sim.policy.capital import available, next_capital
+from hog_sim.policy.credibility import (
+    CredibilityChange,
+    is_crisis,
+    meets_crisis,
+    step_credibility,
+)
 from hog_sim.policy.feasibility import LEGISLATURE_ID, forcing_shocks
-from hog_sim.policy.limits import Constrained, constrain
+from hog_sim.policy.limits import (
+    Constrained,
+    capital_cost,
+    constrain,
+    reverses,
+    still_running,
+)
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import (
     national_approval,
@@ -335,8 +349,29 @@ def resolve(
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions, played=state)
+    new.credibility = step_credibility(
+        state.credibility, credibility_change(new, state, scenario, actions)
+    )
+    new.measures = still_running(state.measures, actions)
     new.turn = state.turn + 1
+    unspent = available(state, config) - capital_cost(
+        actions, state, config.role, running=state.measures
+    )
+    new.capital = next_capital(new, unspent, config)
     return new
+
+
+def credibility_change(
+    new: WorldState, state: WorldState, scenario: Scenario, actions: Sequence[PolicyAction]
+) -> CredibilityChange:
+    """What moved credibility on ``state``'s turn (D9): its U-turns, the pledges it broke,
+    and whether a crisis was met with a real measure."""
+    return CredibilityChange(
+        u_turns=sum(reverses(a, state.measures) for a in actions),
+        broken_pledges=sum(p.broken_turn == state.turn for p in new.pledges),
+        crisis=is_crisis(scenario),
+        handled=meets_crisis(scenario, actions),
+    )
 
 
 def not_possible(unmapped: Sequence[str]) -> list[str]:
@@ -378,6 +413,24 @@ class Proposal(Model):
     unmapped: list[str] = Field(
         default_factory=list, description="Measures the interpreter could not map (E21)"
     )
+    readings: list[Reading] = Field(
+        default_factory=list, description="How each requested action was read (D6)"
+    )
+
+    def reading(self, index: int) -> Reading | None:
+        """The reading for ``actions[index]``: the first unused one of the same kind and
+        target, or None (the player edited it, or the interpreter gave none)."""
+        used: set[int] = set()
+        for i, action in enumerate(self.actions):
+            j = next(
+                (j for j, r in enumerate(self.readings) if j not in used and r.fits(action)),
+                None,
+            )
+            if i == index:
+                return self.readings[j] if j is not None else None
+            if j is not None:
+                used.add(j)
+        return None
 
 
 class Game:
@@ -474,8 +527,9 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
+        readings = getattr(self.interpreter, "last_readings", lambda: [])()
         unmapped = getattr(self.interpreter, "last_unmapped", lambda: [])()
-        return self._limit(
+        proposal = self._limit(
             response,
             requested,
             delivery=delivery,
@@ -483,6 +537,7 @@ class Game:
             sacked=sacked,
             unmapped=unmapped,
         )
+        return proposal.model_copy(update={"readings": list(readings)})
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -499,7 +554,7 @@ class Game:
     ) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits.
         ``sacked`` replaces its sackings, so the player can call one off (E18)."""
-        return self._limit(
+        revised = self._limit(
             proposal.response,
             actions,
             proposal.requested,
@@ -508,6 +563,7 @@ class Game:
             proposal.sacked if sacked is None else sacked,
             proposal.unmapped,
         )
+        return revised.model_copy(update={"readings": proposal.readings})
 
     def _limit(
         self,
@@ -541,7 +597,7 @@ class Game:
             self.state,
             [r.actions for r in self.history],
             cfg.role,
-            cfg.capital_per_turn,
+            available(self.state, cfg),
         )
 
     def check(self, proposal: Proposal) -> None:
