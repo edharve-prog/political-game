@@ -123,6 +123,19 @@ def _dashboard(
                 f"{(now - begin) * 100:+.1f}",
             )
         )
+    lines += ["", f"{'STANDING':<29}{'now':<15}{columns}".rstrip()]
+    if state.capital is not None:
+        # Capital is a stock (O5): what this turn may spend, refilled and partly banked.
+        last = "" if previous.capital is None else f"{state.capital - previous.capital:+.2f}"
+        lines.append(row("Political capital", f"{state.capital:.2f}", last, ""))
+    lines.append(
+        row(
+            "Credibility",
+            f"{state.credibility * 100:.0f}%",
+            f"{(state.credibility - previous.credibility) * 100:+.0f}",
+            f"{(state.credibility - start.credibility) * 100:+.0f}",
+        )
+    )
     cast = active_cast(state)
     if cast:
         lines += ["", f"{'PEOPLE':<24}{'loyalty':<12}role"]

@@ -18,6 +18,7 @@ from hog_sim.core.models import (
     Model,
     NodeKind,
     Pledge,
+    PolicyAction,
     Sector,
     Storyline,
 )
@@ -80,6 +81,21 @@ class WorldState(Model):
     pledges: list[Pledge] = Field(default_factory=list, description="Promises made (SD-5)")
     characters: dict[str, Character] = Field(
         default_factory=dict, description="The cast, by id (SD-4)"
+    )
+    capital: float | None = Field(
+        None,
+        ge=0,
+        description="Political capital this turn's package may spend (O5): what refilled at the "
+        "end of last turn plus what was banked. None before the first turn is played, when the "
+        "refill alone is available",
+    )
+    credibility: float = Field(
+        0.5, ge=0, le=1, description="The government's credibility, 0 to 1 (D9)"
+    )
+    measures: list[PolicyAction] = Field(
+        default_factory=list,
+        description="Measures still running, each with duration_turns set to the turns it has "
+        "left, so U-turns can be told from the state alone (D9)",
     )
 
     @model_validator(mode="after")

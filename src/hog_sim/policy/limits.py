@@ -15,7 +15,9 @@ subsidies are held to the schemes actually running (``fit_job_cuts``):
    majority costs ``FORCE_CAPITAL`` times as much, EB-14), times each measure's lifetime
    (``lifetime_factor``): every turn a measure runs after its first adds ``UPKEEP`` of its
    first turn's cost, charged when it is decided, so a longer measure is never free (E1,
-   O1). Above ``capital`` a turn, every measure is scaled down to fit.
+   O1). Above the ``capital`` the state holds this turn (a stock that refills with approval,
+   majority and the electoral cycle, ``policy.capital``, O5), every measure is scaled down
+   to fit.
 4. **Deficit ceiling**: the deficit this package would leave (today's, plus what is
    already landing this turn, plus every tax and spending move in the package) may not pass
    ``DEFICIT_LIMIT``, and once past it the package may not add to it. Borrowing measures
@@ -24,7 +26,8 @@ subsidies are held to the schemes actually running (``fit_job_cuts``):
    only blocks borrowing there when nothing in the package pays for it to the end).
 
 Before any of them, durations are held to ``MAX_TURNS`` for their kind: a speech is news
-for a few turns, not a policy that runs for two years.
+for a few turns, not a policy that runs for two years. A speech also carries only as much of
+its stated size as the government's credibility allows (``policy.credibility``, D9).
 
 The game is the only place these run: interpreters report what the player asked for.
 
@@ -41,6 +44,7 @@ from pydantic import Field
 
 from hog_sim.core.models import Model, PolicyAction
 from hog_sim.core.state import WorldState
+from hog_sim.policy.credibility import speech_weight
 from hog_sim.policy.feasibility import (
     DEFICIT_LIMIT,
     FORCE_CAPITAL,
@@ -102,11 +106,30 @@ def _running(past_actions: Sequence[Sequence[PolicyAction]]) -> list[PolicyActio
 def is_u_turn(action: PolicyAction, past_actions: Sequence[Sequence[PolicyAction]]) -> bool:
     """Whether ``action`` goes the other way on a measure of the same kind and target that
     is still running (E12)."""
+    return reverses(action, _running(past_actions))
+
+
+def reverses(action: PolicyAction, running: Sequence[PolicyAction]) -> bool:
+    """Whether ``action`` goes the other way on one of the ``running`` measures."""
     way = _direction(action)
     return bool(way) and any(
         a.kind == action.kind and a.target == action.target and _direction(a) == -way
-        for a in _running(past_actions)
+        for a in running
     )
+
+
+def still_running(
+    running: Sequence[PolicyAction], actions: Sequence[PolicyAction]
+) -> list[PolicyAction]:
+    """The measures running next turn, each with the turns it has left: last turn's
+    ``running`` one turn shorter, plus this turn's ``actions`` (D9)."""
+    later = [a.model_copy(update={"duration_turns": a.duration_turns - 1}) for a in running]
+    later += [
+        a.model_copy(update={"duration_turns": a.duration_turns - 1})
+        for a in actions
+        if a.kind != "do_nothing"
+    ]
+    return [a for a in later if a.duration_turns > 0]
 
 
 def capital_cost(
@@ -114,10 +137,13 @@ def capital_cost(
     state: WorldState | None = None,
     role: Role = "prime_minister",
     past_actions: Sequence[Sequence[PolicyAction]] = (),
+    running: Sequence[PolicyAction] | None = None,
 ) -> float:
     """Political capital the package uses over the life of its measures. Whipping the
     legislature is hard graft, not a speech; given the state, measures forced through
-    without a majority cost more; given earlier turns' actions, so do U-turns."""
+    without a majority cost more; given earlier turns' actions (or the measures still
+    ``running``), so do U-turns."""
+    running = _running(past_actions) if running is None else running
     forced = (
         [c.forced for c in check_feasibility(list(actions), state, role).checks]
         if state is not None
@@ -126,7 +152,7 @@ def capital_cost(
     total = 0.0
     for action, force in zip(actions, forced, strict=True):
         unit = 1.0 if action.target == LEGISLATURE_ID else CAPITAL_COST.get(action.kind, 1.0)
-        if is_u_turn(action, past_actions):
+        if reverses(action, running):
             unit += UTURN_CAPITAL
         unit *= FORCE_CAPITAL if force else 1.0
         total += unit * abs(action.magnitude) * lifetime_factor(action)
@@ -202,6 +228,7 @@ def constrain(
         for a in turn
         if a.kind != "do_nothing"
     )
+    weight = speech_weight(state.credibility)
     kept = []
     for action in report.feasible_actions:
         # Whipping the legislature is routine graft that has to be kept up, so it does not
@@ -216,6 +243,12 @@ def constrain(
             notes.append(
                 f"U-turn: {action.kind} {action.target} reverses a measure still running, which "
                 "costs credibility and extra political capital"
+            )
+        if action.kind == "communicate" and not whip and weight != 1:
+            action = action.model_copy(update={"magnitude": action.magnitude * weight})
+            notes.append(
+                f"Credibility: {action.kind} {action.target} carries {weight:.0%} of its stated "
+                f"size, at credibility {state.credibility:.0%}"
             )
         if uses:
             factor = REPEAT_DECAY**uses
