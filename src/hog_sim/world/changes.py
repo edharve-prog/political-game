@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from hog_sim.core.models import Edge, EdgeKind, GraphChange, NodeKind, PolicyAction
 from hog_sim.core.state import WorldState
-from hog_sim.world.propagation import MAX_LAG0_GAIN, PROPAGATING, lag0_gain
+from hog_sim.world.propagation import GAP_NODE, MAX_LAG0_GAIN, PROPAGATING, home, lag0_gain
 
 MAX_CHANGES = 3
 MAX_ATTR_DELTA = 0.2
@@ -62,6 +62,12 @@ def _find_edge(state: WorldState, change: GraphChange) -> int | None:
     return None
 
 
+def _accounting(state: WorldState, change: GraphChange) -> bool:
+    """The output gap's sums (O3): sectors adding up to output, and growth as its change."""
+    into_gap = change.target == GAP_NODE and change.source in state.sectors
+    return into_gap or (change.source == GAP_NODE and change.target == state.player_country)
+
+
 def max_weight_step(weight: float) -> float:
     return max(MAX_WEIGHT_STEP, MAX_WEIGHT_STEP_FRACTION * abs(weight))
 
@@ -95,6 +101,8 @@ def check_graph_change(state: WorldState, change: GraphChange) -> list[str]:
             return [f"no edge {label}; use add_edge to create one"]
         if change.edge_kind in IDENTITY_KINDS or change.target.startswith("group:"):
             return [f"{label}: edges that define a population group cannot change"]
+        if _accounting(state, change):
+            return [f"{label}: output adds up from its sectors and growth is its change; fixed"]
         weight = state.edges[existing].weight
         if abs(change.delta) > max_weight_step(weight):
             return [f"{label}: weight may move by at most {max_weight_step(weight):.2f}"]
@@ -241,7 +249,10 @@ def _scale_trade(state: WorldState, country: str, old: float, new: float) -> Non
     trade = [
         e
         for e in state.edges
-        if (e.kind == EdgeKind.TRADES_WITH and {e.source, e.target} == pair)
+        if (
+            e.kind == EdgeKind.TRADES_WITH
+            and {home(state, e.source), home(state, e.target)} == pair
+        )
         or (e.kind == EdgeKind.SUPPLIES and e.source == country and e.target in state.sectors)
     ]
     if not trade or old == new:
