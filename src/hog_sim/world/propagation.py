@@ -26,6 +26,12 @@ The engine is a linear dynamic system on the graph:
 
 Monte Carlo draws perturb each edge weight by its ``uncertainty`` (a normal std dev) once
 per draw, seeded from the game seed so results reproduce exactly.
+
+A hidden true world (D1): with ``GameConfig.hidden_world`` on, resolve plays every turn on
+edge weights drawn once per game from the same uncertainty (``true_weights``), while the
+forecast keeps drawing around the central weights. The player sees the prior; the world
+behaves as one draw from it, so games differ and a forecast can be checked against what
+happened.
 """
 
 from __future__ import annotations
@@ -822,19 +828,73 @@ class _Carry:
         return EngineState(own=self.own, levels=self.levels, pushes=self.pushes)
 
 
+# A hidden world's weights stay within this many standard deviations of the central weight,
+# the range ``lag0_gain`` already guards, so a drawn world is always stable.
+TRUE_WORLD_SIGMAS = GAIN_SIGMAS
+
+
+def _edge_keys(edges: list[Edge]) -> list[str]:
+    """A name for each edge that does not depend on its place in the list or its weight, so
+    an edge keeps its draw when others are added or it is reweighted."""
+    seen: dict[str, int] = defaultdict(int)
+    keys = []
+    for e in edges:
+        key = f"{e.source}>{e.target}:{e.kind}:{e.lag}"
+        keys.append(f"{key}#{seen[key]}")
+        seen[key] += 1
+    return keys
+
+
+def true_draws(state: WorldState, seed: int) -> dict[str, float]:
+    """The hidden world's draw for each propagating edge, in standard deviations from its
+    central weight: fixed for the game (by ``seed``) and within ``TRUE_WORLD_SIGMAS``."""
+    draws = {}
+    for key in _edge_keys(_propagating_edges(state)):
+        z = make_rng(seed, 0, f"world:{key}").gauss(0.0, 1.0)
+        draws[key] = max(-TRUE_WORLD_SIGMAS, min(TRUE_WORLD_SIGMAS, z))
+    return draws
+
+
+def true_weights(state: WorldState, seed: int) -> dict[int, float]:
+    """Edge weights of the game's hidden true world (D1), by index into the propagating edge
+    list: each edge's current weight moved by its fixed draw times its uncertainty. A lasting
+    change to an edge (a trade deal) moves the central weight, and the draw goes with it."""
+    edges = _propagating_edges(state)
+    draws = true_draws(state, seed)
+    return {
+        i: e.weight + draws[key] * e.uncertainty
+        for i, (e, key) in enumerate(zip(edges, _edge_keys(edges), strict=True))
+    }
+
+
+def world_surprises(state: WorldState, seed: int, n: int = 5) -> list[tuple[Edge, float]]:
+    """The ``n`` links where the hidden world differs most from the central guess, with each
+    one's true weight: what a player could have learned about this economy."""
+    edges = _propagating_edges(state)
+    truth = true_weights(state, seed)
+    ranked = sorted(range(len(edges)), key=lambda i: -abs(truth[i] - edges[i].weight))
+    return [(edges[i], truth[i]) for i in ranked[:n] if truth[i] != edges[i].weight]
+
+
 def step(
-    state: WorldState, shocks: list[Shock], protection: dict[int, float] | None = None
+    state: WorldState,
+    shocks: list[Shock],
+    protection: dict[int, float] | None = None,
+    weights: dict[int, float] | None = None,
 ) -> tuple[EngineState, dict[str, float]]:
     """One turn of the engine from what ``state`` carries, plus this turn's ``shocks``.
 
     Returns the engine to carry into the next turn and this turn's change to each node's
     primary metric, in native units, within its bounds. ``protection`` is the job protection
-    in force by absolute turn (see ``job_protection``); None uses the state's own."""
+    in force by absolute turn (see ``job_protection``); None uses the state's own.
+    ``weights`` overrides edge weights by index (``true_weights``); None uses the central
+    ones."""
     if protection is None:
         protection = state.job_protection
     engine = _Carry(state.engine, pushes_for(shocks, state))
     values = {n: _value(state, n) for n in state.node_ids()}
-    _, moves = _Engine(state).step(engine, state.turn, protection.get(state.turn, 0.0), values)
+    model = _Engine(state, weights)
+    _, moves = model.step(engine, state.turn, protection.get(state.turn, 0.0), values)
     return engine.freeze(), moves
 
 
