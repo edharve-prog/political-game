@@ -96,7 +96,9 @@ A game is 24 turns of one month each, with a general election after the last one
    of the sentence is still read; the review step can call a sacking off with `drop sacking`.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
-   confirming.
+   confirming: change a measure's size, turns, kind or target, drop it, or add one. Offline,
+   `build` skips keyword matching altogether: the player picks each measure's kind, target
+   (only those the kind can be aimed at), size and turns from menus.
 4. The engine runs its **forecast**: 100 random draws of the next 24 turns, starting from
    everything already in flight and adding this turn's actions, the scenario's shocks and the
    background pushes resolve will apply (section 5).
