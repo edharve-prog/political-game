@@ -18,6 +18,7 @@ from hog_sim.world.calendar import calendar_lines
 from hog_sim.world.cast import active_cast, cast_line
 from hog_sim.world.debt import debt_line
 from hog_sim.world.graph import build_graph, edges_of
+from hog_sim.world.opposition import opposition_line
 from hog_sim.world.propagation import scale
 
 ROLE_TITLES = {"prime_minister": "Prime Minister", "president": "President"}
@@ -84,6 +85,7 @@ class StateSummary(Model):
         default_factory=list, description="Scheduled events coming up (SD-6)"
     )
     debt: str = Field("", description="Public debt and its interest bill (EB-9)")
+    opposition: str = Field("", description="The opposition's line and by-elections (O9)")
     cast: dict[str, str] = Field(
         default_factory=dict, description="Active cast member id -> one-line profile (SD-4)"
     )
@@ -130,6 +132,8 @@ class StateSummary(Model):
         if self.recent_events:
             lines += ["", "Recent events (most recent last):"]
             lines += [f"- {e}" for e in self.recent_events]
+        if self.opposition:
+            lines += ["", f"Opposition: {self.opposition}"]
         if self.calendar:
             lines += ["", "Coming up on the political calendar:"]
             lines += [f"- {c}" for c in self.calendar]
@@ -239,6 +243,7 @@ def summarise_state(
         pledges=[pledge_line(p) for p in state.pledges],
         cast={c.id: cast_line(c) for c in active_cast(state)},
         calendar=calendar_lines(state.turn),
+        opposition=opposition_line(state),
         catalogue={node.id: node.name for node in state.nodes()},
     )
 

@@ -714,6 +714,32 @@ stay, and their loyalty shows up only in the story: prompts list everyone with t
 and recent dealings, so a disloyal union leader may call a ballot and a loyal editor may
 defend the leader.
 
+### The opposition
+
+*Source: `world/opposition.py`*
+
+Every quarter (after turns 2, 5, 8 and so on) the opposition picks a line aimed at some groups,
+and pulls those groups' lean (where their approval drifts when nothing happens) towards itself.
+It goes after votes: the line whose pull wins the most voters (each group's pull times its
+population share and turnout), with a group counting for more the further its approval sits
+below its own lean (twice as much at 5 points below). A small grievance doesn't move it, so
+angering a small group can't lure it away from a bigger one; a deep one does. When it changes
+line, the old pull is taken back, so only one acts at a time. On a tie it keeps its line.
+
+| Line | Pull on lean |
+|---|---|
+| Cost of living | pensioners and private sector workers −0.015 |
+| Housing and youth | young renters and students −0.02 |
+| Public services | public sector workers and pensioners −0.02 |
+| Sound money | business owners −0.02, mortgaged homeowners −0.015 |
+
+Each quarter there is also an even chance of a by-election. The government holds the seat with
+a chance of 50% at 45% of the vote, rising 4 points for each point of vote intention (between
+5% and 95%). A loss costs 0.03 Commons support and a hold adds 0.01; the Commons then settles
+as usual. At the general election every seat is fought again, so by-elections change the
+Commons, not the final count. The dashboard and every prompt show the opposition's line and
+by-election record. The draws are seeded, so replays match.
+
 ### The election
 
 *Runs after turn 24 (`GameConfig.election_turn`).*

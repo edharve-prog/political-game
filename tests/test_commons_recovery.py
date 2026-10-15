@@ -2,6 +2,7 @@
 
 import pytest
 
+import hog_sim.world.opposition as opposition
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import GraphChange, Outcome, PolicyAction, Scenario
 from hog_sim.game.loop import INSTITUTION_SETTLE, resolve
@@ -35,7 +36,10 @@ def play(outcomes: list[Outcome]) -> list[float]:
     return seen
 
 
-def test_support_recovers_a_majority_after_two_rebellions() -> None:
+def test_support_recovers_a_majority_after_two_rebellions(monkeypatch) -> None:
+    # By-elections are lost while the polls are down after a rebellion; this test is about
+    # how the Commons settles, so it holds them off (O9).
+    monkeypatch.setattr(opposition, "BYELECTION_CHANCE", 0.0)
     seen = play([REBELLION, REBELLION, *[QUIET] * 10])
     assert min(seen) < 0.5  # the rebellions do cost the majority
     lost = next(i for i, s in enumerate(seen) if s < 0.5)

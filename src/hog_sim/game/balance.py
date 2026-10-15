@@ -46,7 +46,9 @@ LIMITS = {
     # buy one group with borrowing now cost more voters than they win, so the gap is about 0.8
     # points. Group effects are retuned on top of the fuller electorate (review 2026-10-13, E6),
     # which should bring this back down. The Bank's rule and gilt yields (O4) also lean against
-    # fiscal stimulus, and the output gap (O3) ends stimulus buying growth for good.
+    # fiscal stimulus, the output gap (O3) ends stimulus buying growth for good, and the
+    # opposition (O9), which goes after the groups a lever leaves disaffected, widens the gap
+    # a little (0.47 to 0.55 points on its own).
     "max_acting_penalty": 0.012,
     # A package that costs nothing in deficit, enacted on turn 0 within one turn's capital,
     # may beat doing nothing at the election by at most this share of the vote (D4).
