@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-VERSION = "interpret-8"
+VERSION = "interpret-9"
 
 SYSTEM = """\
 You translate what a head of government says they will do into structured policy actions \
@@ -46,6 +46,11 @@ itself goes "raise" or "cut"; null otherwise. Required for a tax on an indicator
 stamp duty to lift house prices is tax on house prices, magnitude > 0, instrument "cut"; \
 raising it to cool them is magnitude < 0, instrument "raise". A subsidy on bills is spend on \
 energy prices, magnitude < 0, instrument "raise".
+- borne_by: who carries the cost; null unless one of these fits. A tax on a sector: \
+"profits" (a windfall or excess profits tax), "consumers" (VAT or a duty on what it sells) or \
+"output" (a levy on each unit made, the default). A cap on a price (regulate on an \
+indicator): "suppliers" (they sell below cost, the default) or "treasury" (the state pays \
+them the difference, as the 2022 Energy Price Guarantee did).
 - duration_turns: how many monthly turns it lasts (1 for one-offs; 12 for a year)
 - requires: leave empty unless the player names a requirement; the engine works out what \
 each action needs

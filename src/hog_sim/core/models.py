@@ -197,6 +197,25 @@ class PolicyAction(Model):
         "indicator to move, which says nothing about the budget (cutting stamp duty to lift "
         "house prices is a tax cut). Unset, it reads as raise.",
     )
+    borne_by: Literal["profits", "consumers", "output", "suppliers", "treasury"] | None = Field(
+        None,
+        description="Who carries the cost (M4). A tax aimed at a sector falls on its profits "
+        "(a windfall tax), on its customers (VAT or a duty on what it sells) or on its output "
+        "(a levy on each unit made, the default). A price cap (regulate on an indicator) is "
+        "carried by the suppliers, who sell below cost and cut back (the default), or by the "
+        "Treasury, which pays them the difference. Ignored anywhere else.",
+    )
+
+    @property
+    def incidence(self) -> str | None:
+        """Who carries a sector tax or a cap on an indicator (``borne_by`` or its default);
+        None for any other action, or a choice that does not fit it."""
+        if self.kind == "tax" and self.target.startswith("sector:"):
+            fits = self.borne_by in ("profits", "consumers", "output")
+            return self.borne_by if fits else "output"
+        if self.kind == "regulate" and self.target.startswith("indicator:"):
+            return self.borne_by if self.borne_by in ("suppliers", "treasury") else "suppliers"
+        return None
 
     @property
     def instrument_sign(self) -> float:
