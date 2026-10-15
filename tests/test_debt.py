@@ -7,6 +7,7 @@ from hog_sim.core.models import Outcome, Scenario, Shock
 from hog_sim.game.loop import resolve
 from hog_sim.world.debt import (
     REPRICE_HALF_LIFE,
+    RESERVES_SHARE,
     debt_line,
     debt_rate,
     interest_bill,
@@ -46,10 +47,19 @@ def test_borrowing_compounds() -> None:
 
 def test_rate_rise_reprices_debt_with_a_half_life() -> None:
     state = toy_world()
+    state.indicators["indicator:gilt_yield"].value = 5.0
     state.indicators["indicator:interest_rate"].value = 5.0
     for _ in range(REPRICE_HALF_LIFE):
         state = step_debt(state)
     assert debt_rate(state) == pytest.approx(4.5, abs=0.02)
+
+
+def test_bank_rate_alone_reprices_only_the_reserves() -> None:
+    state = toy_world()
+    state.indicators["indicator:interest_rate"].value = 5.0
+    for _ in range(REPRICE_HALF_LIFE):
+        state = step_debt(state)
+    assert debt_rate(state) == pytest.approx(4.0 + 0.5 * RESERVES_SHARE, abs=0.02)
 
 
 def test_higher_rates_raise_the_deficit() -> None:

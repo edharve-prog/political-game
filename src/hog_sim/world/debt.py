@@ -5,15 +5,17 @@ rate on it (``Country.debt_rate_pct``). Each turn (a month):
 
 * the debt grows by a twelfth of the deficit and is worn down by a twelfth of nominal growth
   (real growth plus inflation) times the debt, so borrowing compounds;
-* the average rate closes ``REPRICE`` of the gap to Bank Rate, as old debt matures and is
-  refinanced (and as reserves created by quantitative easing pay Bank Rate), so that half of a
-  rate rise reaches the debt in ``REPRICE_HALF_LIFE`` turns;
+* the average rate closes ``REPRICE`` of the gap to the market rate on new borrowing, as old
+  debt matures and is refinanced, so that half of a rate rise reaches the debt in
+  ``REPRICE_HALF_LIFE`` turns. That market rate is the gilt yield, blended with Bank Rate for
+  the ``RESERVES_SHARE`` of the debt that is reserves created by quantitative easing (O4); a
+  world with no gilt yield uses Bank Rate alone;
 * the interest bill, debt × average rate, adds to the deficit whatever it has risen since
   the game began. The start's own bill is already in the starting deficit, so the starting
   world is unchanged; higher rates or a bigger debt cost money, and lower ones save it.
 
 The extra bill reaches the deficit as a push that keeps the deficit that much higher for as
-long as the bill stays up, so it also feeds Bank Rate and the pound through the usual links.
+long as the bill stays up, so it also feeds gilt yields and the pound through the usual links.
 """
 
 from __future__ import annotations
@@ -23,9 +25,11 @@ from hog_sim.core.state import WorldState
 from hog_sim.world.propagation import FISCAL_NODE, persistence, scale
 
 RATE_NODE = "indicator:interest_rate"
+GILT_NODE = "indicator:gilt_yield"
+RESERVES_SHARE = 0.25  # of the debt, paying Bank Rate rather than a gilt yield
 INFLATION_NODE = "indicator:inflation"
 TURNS_PER_YEAR = 12
-REPRICE_HALF_LIFE = 24  # turns for half of a change in Bank Rate to reach the debt
+REPRICE_HALF_LIFE = 24  # turns for half of a change in the market rate to reach the debt
 REPRICE = 1 - 0.5 ** (1 / REPRICE_HALF_LIFE)
 
 
@@ -39,12 +43,25 @@ def _tracks(state: WorldState) -> bool:
 
 
 def debt_rate(state: WorldState, start: WorldState | None = None) -> float:
-    """Average rate paid on the player's debt. Until set, it is Bank Rate at the start
+    """Average rate paid on the player's debt. Until set, it is the market rate at the start
     (``start``, or ``state`` itself when that is the start)."""
     country = state.countries[state.player_country]
     if country.debt_rate_pct is not None:
         return country.debt_rate_pct
-    return _value(start if start is not None else state, RATE_NODE)
+    return market_rate(_rates(start if start is not None else state))
+
+
+def market_rate(values: dict[str, float]) -> float:
+    """The rate new borrowing pays, from native values by node id: gilts, plus Bank Rate on
+    the reserves share; Bank Rate alone when the world has no gilt yield."""
+    bank = values.get(RATE_NODE, 0.0)
+    if GILT_NODE not in values:
+        return bank
+    return (1 - RESERVES_SHARE) * values[GILT_NODE] + RESERVES_SHARE * bank
+
+
+def _rates(state: WorldState) -> dict[str, float]:
+    return {n: state.indicators[n].value for n in (RATE_NODE, GILT_NODE) if n in state.indicators}
 
 
 def interest_bill(state: WorldState, start: WorldState | None = None) -> float:
@@ -82,11 +99,11 @@ def _interest_push(state: WorldState, extra: float) -> list[Shock]:
 
 
 def _next_debt(
-    debt: float, rate: float, deficit: float, nominal: float, bank_rate: float
+    debt: float, rate: float, deficit: float, nominal: float, market: float
 ) -> tuple[float, float]:
     """The debt stock and its average rate a turn later."""
     debt = max(0.0, debt + (deficit - debt * nominal / 100) / TURNS_PER_YEAR)
-    return debt, rate + REPRICE * (bank_rate - rate)
+    return debt, rate + REPRICE * (market - rate)
 
 
 class DebtOutlook:
@@ -109,7 +126,7 @@ class DebtOutlook:
             self.rate,
             values.get(FISCAL_NODE, 0.0),
             values[self.state.player_country] + values.get(INFLATION_NODE, 0.0),
-            values.get(RATE_NODE, 0.0),
+            market_rate(values),
         )
         return _interest_push(self.state, self.debt * self.rate / 100 - self.start_bill)
 
@@ -128,6 +145,6 @@ def step_debt(state: WorldState, start: WorldState | None = None) -> WorldState:
         debt_rate(state, start),
         _value(state, FISCAL_NODE),
         home.growth_pct + _value(state, INFLATION_NODE),
-        _value(state, RATE_NODE),
+        market_rate(_rates(state)),
     )
     return new
