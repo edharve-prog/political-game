@@ -36,6 +36,7 @@ from hog_sim.population.popularity import ElectionResult, national_approval, vot
 from hog_sim.ui.builder import compose_response, describe, edit_actions
 from hog_sim.world.calendar import OnCalendar, upcoming
 from hog_sim.world.cast import active_cast
+from hog_sim.world.propagation import world_surprises
 from hog_sim.world.seed.toy import toy_world
 from hog_sim.world.storylines import addressed, harmed
 
@@ -173,12 +174,26 @@ def _election_line(e: ElectionResult) -> str:
     )
 
 
+def _surprises(state: WorldState, seed: int) -> str:
+    """After the election: where this game's economy differed most from the forecast's
+    central guess (D1)."""
+    lines = [_section("How this economy differed from your advisers' guess"), ""]
+    for edge, truth in world_surprises(state, seed):
+        source, target = state.node(edge.source).name, state.node(edge.target).name
+        lines.append(f"  {source} -> {target}: guessed {edge.weight:+.2f}, really {truth:+.2f}")
+    if len(lines) == 2:
+        lines.append("  Nowhere: this economy behaved exactly as guessed.")
+    return "\n".join(lines)
+
+
 def _finished(game: Game, save: str) -> str:
     """What to show when ``--resume`` opens a game whose election has already been held."""
     election = game.history[-1].election if game.history else None
     lines = ["This game is over."]
     if election is not None:
         lines.append(_election_line(election))
+    if game.config.hidden_world:
+        lines.append(_surprises(game.state, game.config.seed))
     lines.append(f"Start a new game with: hog-sim --save {save}")
     return "\n".join(lines)
 
@@ -848,6 +863,12 @@ def _main(argv: list[str] | None) -> None:
     parser.add_argument("--save", default="saves/game.db")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--central-world",
+        action="store_true",
+        help="new games only: the economy behaves exactly as the forecast's central guess, "
+        "instead of as a hidden world drawn from the forecast's uncertainty",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--llm",
@@ -967,7 +988,10 @@ def _main(argv: list[str] | None) -> None:
         )
         print(f"Resumed game {game_id} at turn {game.state.turn}.")
     else:
-        config, start = GameConfig(seed=args.seed, selection_mode=args.luck), toy_world()
+        config = GameConfig(
+            seed=args.seed, selection_mode=args.luck, hidden_world=not args.central_world
+        )
+        start = toy_world()
         game_id = store.new_game(config, start)
         recaller.game_id = game_id
         _log_turns(client, game_id, lambda: start.turn)
@@ -1035,6 +1059,8 @@ def _main(argv: list[str] | None) -> None:
             if client:
                 print(_usage_line(client, calls_before))
         print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
+        if game.config.hidden_world:
+            print(_surprises(game.state, game.config.seed))
     except (EOFError, KeyboardInterrupt):
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")
     finally:

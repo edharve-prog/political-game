@@ -488,7 +488,21 @@ the next turn on. So with the central weights and no outcome, the forecast is ex
 resolve does for every indicator, sector, country and institution. It reports the average change
 and the 10th and 90th percentiles for every node, within bounds. The draws are seeded from the
 game seed and turn, so they reproduce exactly. Resolving the turn then uses one run with the
-central weights.
+central weights, unless the game has a hidden world.
+
+### A hidden world per game
+
+New games from the command line have a **hidden true world** (D1, `GameConfig.hidden_world`;
+`--central-world` turns it off). When the game starts, every edge weight is drawn once from its
+uncertainty (a normal draw, kept within 3 standard deviations, the range the stability guard
+already allows), seeded from the game seed, and every turn is resolved on those weights. The
+forecast still draws around the central weights, so it shows the government's best guess and its
+spread, and the world plays out as one draw from it. The forecast says so in its list of what it
+does not project. Each edge keeps its draw for the whole game; when a lasting change moves an
+edge's weight (a trade deal), the draw moves with it. After the election the game shows the five
+links where this world differed most from the guess. With it off (the default in code, so the
+backtests, the stability check and older saves), the world behaves exactly as the central
+forecast says.
 
 The forecast lists what it does not project: group approval (shown as no change), crises abroad
 in later turns (drawn turn by turn), the Commons' drift with the polls after this turn (approval
