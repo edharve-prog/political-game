@@ -491,15 +491,21 @@ class Game:
             raise RuntimeError("the game is over")
         return self._limit(response, actions)
 
-    def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
-        """The same proposal with the player's edited actions, re-checked against the limits."""
+    def revise(
+        self,
+        proposal: Proposal,
+        actions: list[PolicyAction],
+        sacked: Sequence[str] | None = None,
+    ) -> Proposal:
+        """The same proposal with the player's edited actions, re-checked against the limits.
+        ``sacked`` replaces its sackings, so the player can call one off (E18)."""
         return self._limit(
             proposal.response,
             actions,
             proposal.requested,
             proposal.delivery,
             proposal.pledges,
-            proposal.sacked,
+            proposal.sacked if sacked is None else sacked,
             proposal.unmapped,
         )
 

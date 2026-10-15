@@ -23,7 +23,14 @@ from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.records import TurnRecord
 from hog_sim.policy.pledges import broken_by
 from hog_sim.population.popularity import policy_events, target_approval
-from hog_sim.world.calendar import calendar_event, scheduled_scenario
+from hog_sim.world.calendar import (
+    ECONOMY,
+    HOUSEHOLDS,
+    calendar_event,
+    fill,
+    scheduled_scenario,
+    spread,
+)
 from hog_sim.world.cast import active_cast
 from hog_sim.world.graph import build_graph, exposed_groups
 from hog_sim.world.propagation import DeltaDistribution, apply_deltas
@@ -90,18 +97,27 @@ class CannedScenarios:
         return make_rng(self.seed, state.turn, "scenario").choice(options).model_copy(deep=True)
 
 
-# Keyword -> node id. Checked in order; first match wins.
+# Keyword -> node id. Checked in order; first match wins. ``HOUSEHOLDS`` and ``ECONOMY`` stand
+# for the whole population and the whole economy: a speech goes to the nation, anything else
+# is shared out over the groups or sectors (``spread``), since tax and spending reach the
+# country through them. Parliament or the Commons on their own are only a fallback target:
+# "announce in Parliament a pay rise" is about the pay rise (E17); whip, backbench or vote
+# language aims at the legislature.
 _TARGETS = [
-    (r"\bwhip|backbench|\bmps\b|\bcommons\b|parliament", "institution:legislature"),
+    (r"\bwhip|backbench|\bmps\b|\brebel|\bvotes?\b", "institution:legislature"),
     (r"furlough|job retention|wage subsid", "indicator:unemployment"),
     (r"\bbills?\b|price cap|\bcap\b", "indicator:energy_prices"),
     (r"energy|gas|electric", "sector:energy"),
     (r"bank|financ|city", "sector:finance"),
     (r"manufactur|industr|factor|export", "sector:manufacturing"),
+    (r"household|families", HOUSEHOLDS),
     (r"hous|home|rent|planning|build", "sector:housing"),
-    (r"public|nhs|hospital|school|pay|union|wages?", "sector:public"),
+    (r"public|nhs|hospital|school|pay|union|wages?|nurse|teacher", "sector:public"),
     (r"china", "country:china"),
     (r"\beu\b|europe", "country:eu"),
+    (r"business|\bfirms?\b|employer|compan|enterprise", "group:business"),
+    (r"growth|econom|the country", ECONOMY),
+    (r"parliament|\bcommons\b", "institution:legislature"),
 ]
 _SIZE = [(r"huge|major|big|massive", 0.9), (r"small|modest|slight", 0.25)]
 
@@ -145,16 +161,51 @@ class KeywordInterpreter:
         return [a for a in actions if a.kind != "do_nothing"] or actions[:1]
 
     def _one(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
-        t = text.lower()
-        if not t.strip() or re.search(r"nothing|wait|hold firm", t):
+        package = calendar_package(text, state, scenario)
+        if package is not None:
+            return package
+        t = _VENUE.sub(" ", re.sub(r"^\s*(?:option|also):\s*", "", text.lower())).strip()
+        if not t.strip(" .;,!?") or _DO_NOTHING.search(t) or _STEADY.search(t):
             return [PolicyAction(kind="do_nothing", target=state.player_country, magnitude=0)]
-        target = next((node for pat, node in _TARGETS if re.search(pat, t)), None)
+        # "Raise taxes to fund schools": the verb and target come from the instruction, not
+        # from its purpose ("cut" in "spend to cut waiting lists" is not a spending cut).
+        main, purpose = _split_purpose(t)
+        if purpose and _FUNDS.match(purpose):
+            broad = HOUSEHOLDS if re.search(r"\btax", main) else None  # a broad tax rise
+            first = self._read(main, text, state, scenario, fallback=broad)
+            if (
+                first.kind == "tax"
+                and first.magnitude > 0
+                or (first.kind == "spend" and first.magnitude < 0 and first.instrument is None)
+            ):
+                spend = self._read(_FUNDS.sub("", purpose), text, state, scenario, kind="spend")
+                spend = spend.model_copy(update={"magnitude": abs(first.magnitude)})
+                return [*spread(first, state), *spread(spend, state)]
+        return spread(self._read(main, text, state, scenario, purpose=purpose), state)
+
+    def _read(
+        self,
+        t: str,
+        text: str,
+        state: WorldState,
+        scenario: Scenario,
+        purpose: str = "",
+        fallback: str | None = None,
+        kind: str | None = None,
+    ) -> PolicyAction:
+        target = _target(t) or _target(purpose)
         if target is None:
-            target = next(
-                (n for n in scenario.affected_nodes if not n.startswith("indicator:")),
-                state.player_country,
+            # A spend for a purpose with no target of its own stays at home.
+            skip = ("indicator:", "country:") if kind == "spend" else ("indicator:",)
+            target = fallback or next(
+                (n for n in scenario.affected_nodes if not n.startswith(skip)),
+                ECONOMY if kind == "spend" else state.player_country,
             )
         size = next((m for pat, m in _SIZE if re.search(pat, t)), 0.5)
+        if kind is not None:
+            return PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")
+        if not _has_verb(t) and purpose:
+            t = f"{t} {purpose}"
 
         if target.startswith("indicator:"):
             # Aimed at a price itself: the player wants it down unless they say otherwise.
@@ -166,34 +217,97 @@ class KeywordInterpreter:
                 # spending's own way, not the indicator's: cutting it lets the indicator rise.
                 kind = "spend"
                 if re.search(_CUT_SPENDING, t):
-                    return [
-                        PolicyAction(
-                            kind=kind,
-                            target=target,
-                            magnitude=size,
-                            instrument="cut",
-                            rationale=f"from: {text}",
-                        )
-                    ]
+                    return PolicyAction(
+                        kind=kind,
+                        target=target,
+                        magnitude=size,
+                        instrument="cut",
+                        rationale=f"from: {text}",
+                    )
                 size = -size
-        elif target.startswith("country:"):
+        elif target.startswith("country:") and target != state.player_country:
             kind = "diplomatic"
             size = -size if re.search(r"retaliat|sanction|tariff", t) else size
-        elif re.search(r"\bcut\w*\b.*\btax|\btax\w*\b.*\bcut", t):
+        elif re.search(r"\bcut\w*\b.*\b(?:tax|levy|duty)|\b(?:tax|levy|duty)\w*\b.*\bcut", t):
             kind, size = "tax", -size
         elif re.search(r"tax|levy|windfall", t):
             kind = "tax"
         elif re.search(r"deregulat|scrap rules|relax", t):
             kind = "deregulate"
-        elif re.search(r"regulat|cap\b|ban|limit", t):
+        elif re.search(
+            r"regulat|cap\b|ban|limit|tighten|(?:new|tough\w*|strict\w*|safety) rules?", t
+        ):
             kind = "regulate"
         elif re.search(r"\bcut|austerity|squeeze", t):
             kind, size = "spend", -size
-        elif re.search(r"spend|invest|fund|subsid|support|build|pay rise", t):
+        elif re.search(r"spend|invest|fund|subsid|support|build|pay rise|\bhelp", t):
             kind = "spend"
         else:
             kind = "communicate"
-        return [PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")]
+        return PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")
+
+
+# A clause that asks for nothing: "do nothing", "wait it out", "hold firm". Only at the start
+# of the clause (except holding firm), so "cut waiting lists" or "nothing less than a pay
+# rise" still act (E15).
+_DO_NOTHING = re.compile(
+    r"^(?:do nothing|nothing\W*$|wait\b|sit tight|stay the course)|\b(?:hold|stand) firm\b"
+)
+_STEADY = re.compile(r"\bno (?:big |major )?changes?\b|\bsteady (?:budget|as she goes)")
+
+# Where it is announced, which is delivery rather than a target (E17).
+_VENUE = re.compile(
+    r"\b(?:in|to|before|at|into)\s+(?:the\s+)?(parliament|house of commons|commons)\b"
+)
+
+# "X to Y" where Y is what X is for: "raise taxes to fund schools", "spend big to cut
+# waiting lists". Not "reach out to the centre" or "talk to unions".
+_PURPOSE = re.compile(
+    r"\s+(?:in order |so as )?to\s+(?=(?:fund|pay|finance|boost|cut|bring|help|support|"
+    r"reduce|lower|raise|protect|tackle|ease|cool|curb|keep|get|make|stop|end|save|create|"
+    r"grow|lift|build|clear|balance|restore|calm)\b)"
+)
+_FUNDS = re.compile(r"^(?:fund|pay for|finance|help fund|help pay for)\s+")
+_VERBS = re.compile(
+    r"\b(?:cut|tax|levy|spend|invest|fund|subsid|support|build|regulat|deregulat|ban|cap|"
+    r"limit|freez|raise|increase|relax|scrap|austerity|squeeze|retaliat|sanction|negotiat)"
+)
+
+
+def _has_verb(t: str) -> bool:
+    return bool(_VERBS.search(t))
+
+
+def _split_purpose(t: str) -> tuple[str, str]:
+    parts = _PURPOSE.split(t, maxsplit=1)
+    return (parts[0], parts[1]) if len(parts) == 2 and parts[0].strip() else (t, "")
+
+
+def _target(t: str) -> str | None:
+    if not t:
+        return None
+    return next((node for pat, node in _TARGETS if re.search(pat, t)), None)
+
+
+def calendar_package(text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction] | None:
+    """The ready-made actions for one of a calendar event's own options (E16), or None.
+
+    The options' wording ("Raise taxes to fund public services") is for the player; reading
+    it with keywords would aim at whatever the scenario lists first."""
+    event = calendar_event(state.turn)
+    if event is None or scenario.source != "scheduled" or scenario.title != event.title:
+        return None
+    filled = fill(event, state)
+    wanted = _plain(text)
+    for option, package in zip(filled.options, filled.packages, strict=True):
+        if _plain(option) == wanted and package:
+            return [a.model_copy(update={"rationale": f"from: {option}"}) for a in package]
+    return None
+
+
+def _plain(text: str) -> str:
+    text = re.sub(r"^\s*(?:option|also):\s*", "", text.strip(), flags=re.I)
+    return " ".join(re.findall(r"[a-z0-9']+", text.lower()))
 
 
 # Who "consulting X" means, for the keyword interpreter's delivery (story RB-4).
@@ -214,7 +328,12 @@ def keyword_delivery(text: str, state: WorldState) -> Delivery:
         known = set(state.node_ids())
         consulted = [n for pat, n in _CONSULT_WHO if re.search(pat, t) and n in known]
     phased = re.search(r"phase|gradual|staged|stagger|over (?:the next )?\w+ (?:years|months)", t)
-    return Delivery(consulted=consulted, speed="phased" if phased else "immediate")
+    venue = _VENUE.search(t)
+    return Delivery(
+        consulted=consulted,
+        speed="phased" if phased else "immediate",
+        venue={"parliament": "Parliament"}.get(venue.group(1), "the Commons") if venue else "",
+    )
 
 
 _NEGATION = r"\b(?:no|not|never|won't|will not|nor)\b"
@@ -296,9 +415,13 @@ def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
 
 
 def keyword_sackings(text: str, state: WorldState) -> tuple[list[str], str]:
-    """Ministers ``text`` sacks ("sack the Chancellor"), matched on a word of their role, and
-    the text with those sentences taken out (story SD-4)."""
+    """Ministers ``text`` sacks ("sack the Chancellor", "replace Owen Pryce"), and the text
+    with each sacking taken out so the rest of the sentence still reads (story SD-4).
+
+    The verb has to govern the minister (E18): "tighten fire safety rules in housing" or
+    "replace housing benefit" sack nobody."""
     sacked, kept = [], []
+    changed = False
     for sentence in clauses(text):
         t = sentence.lower()
         hits = []
@@ -307,20 +430,46 @@ def keyword_sackings(text: str, state: WorldState) -> tuple[list[str], str]:
             # "Do not sack the Chancellor", "I won't fire anyone": a refusal sacks nobody.
             refused = bool(re.search(_REFUSAL.pattern + r"(?:\W+\w+){0,2}?\W+" + _SACK, t))
             for character in active_cast(state):
-                words = [w for w in re.findall(r"[a-z]+", character.role.lower()) if len(w) > 4]
-                if character.minister and any(w in t for w in words[:1]):
+                if not character.minister:
+                    continue
+                found = re.search(_sacking(character), t)
+                if found:
                     hits.append(character.id)
+                    t = t[: found.start()] + " " + t[found.end() :]
+                    sentence = sentence[: found.start()] + " " + sentence[found.end() :]
         if refused:
+            changed = True
             continue
         if hits:
             sacked += hits
+            changed = True
+            rest = re.sub(r"^[\s,;]*(?:and|then)?\s*", "", sentence, flags=re.I).strip(" .;,!?")
+            if rest:
+                kept.append(rest)
         else:
             kept.append(sentence)
-    changed = len(kept) < len(clauses(text))
     return sacked, "\n".join(kept) if changed else text
 
 
 _SACK = r"\b(?:sack|fire|dismiss|sacking|replace)\b"
+
+
+def _sacking(character) -> str:
+    """A sacking verb with the minister as its object: their name or surname, their role, or
+    the role's first long word ("the Chancellor"), with "secretary" or "minister" after it
+    when the role has one ("the Housing Secretary")."""
+    role = character.role.lower()
+    words = [w for w in re.findall(r"[a-z]+", role) if len(w) > 4]
+    names = [re.escape(character.name.lower()), re.escape(character.name.split()[-1].lower())]
+    names.append(re.escape(role))
+    if words:
+        title = re.search(r"\b(secretary|minister)\b", role)
+        names.append(re.escape(words[0]) + (r"\s+(?:secretary|minister)" if title else ""))
+    who = "|".join(names)
+    return (
+        r"\b(?:sack|fire|dismiss|replace)\s+(?:the\s+|my\s+|our\s+)?(?:" + who + r")\b"
+        r"(?:\s+with\s+[a-z ]+?(?=$|[.,;]|\s+and\b))?"
+    )
 
 
 class EngineForecaster:
