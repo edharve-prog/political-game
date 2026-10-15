@@ -43,13 +43,13 @@ def test_energy_tax_has_sensible_signs_and_lags(world) -> None:
     assert run["indicator:interest_rate"][2] > 0
     # Higher rates feed back on inflation after six turns, pulling it down from its peak
     assert run["indicator:inflation"][8] < run["indicator:inflation"][7]
-    # Bank Rate moves at turn 2 and reaches house prices three turns later
-    assert run["indicator:house_prices"][4] == 0
-    assert run["indicator:house_prices"][5] < 0
+    # Bank Rate moves at turn 2, gilts with it, and gilts reach house prices a turn later
+    assert run["indicator:house_prices"][2] == 0
+    assert run["indicator:house_prices"][3] < 0
 
 
 def test_effects_settle_rather_than_explode(world) -> None:
-    run = simulate(world, energy_tax(), horizon=120)
+    run = simulate(world, energy_tax(), horizon=200)
     for series in run.values():
         assert abs(series[-1] - series[-2]) < 1e-6
         assert max(abs(v) for v in series) < 10
@@ -132,10 +132,10 @@ def test_spending_and_tax_move_the_deficit(world) -> None:
     )
 
 
-def test_borrowing_raises_rates(world) -> None:
+def test_borrowing_raises_gilt_yields(world) -> None:
     run = simulate(world, [Shock(node="indicator:deficit", delta=1)], horizon=4)
-    assert run["indicator:interest_rate"][0] == 0
-    assert run["indicator:interest_rate"][1] > 0
+    assert run["indicator:gilt_yield"][0] == 0
+    assert run["indicator:gilt_yield"][1] > 0
 
 
 def _loop(world, a, b, weight):

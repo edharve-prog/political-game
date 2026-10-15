@@ -33,6 +33,16 @@ def test_the_opposition_goes_after_the_most_disaffected_voters() -> None:
     assert choose_stance(world) == "sound money"
 
 
+def test_angering_a_small_group_does_not_lure_the_opposition_away() -> None:
+    """The exploit search found that a one-turn tax on business drew the opposition onto
+    business and homeowners and away from bigger groups, buying the government 0.6 points.
+    The opposition counts votes first, so a small grievance does not move it."""
+    world = toy_world()
+    start = choose_stance(world)
+    world.groups["group:business"].approval -= 0.05
+    assert choose_stance(world) == start
+
+
 def test_a_stance_pulls_its_groups_and_a_new_one_takes_the_old_pull_back() -> None:
     world = toy_world()
     leans = {gid: g.lean for gid, g in world.groups.items()}

@@ -26,6 +26,12 @@ The engine is a linear dynamic system on the graph:
 
 Monte Carlo draws perturb each edge weight by its ``uncertainty`` (a normal std dev) once
 per draw, seeded from the game seed so results reproduce exactly.
+
+A hidden true world (D1): with ``GameConfig.hidden_world`` on, resolve plays every turn on
+edge weights drawn once per game from the same uncertainty (``true_weights``), while the
+forecast keeps drawing around the central weights. The player sees the prior; the world
+behaves as one draw from it, so games differ and a forecast can be checked against what
+happened.
 """
 
 from __future__ import annotations
@@ -165,6 +171,8 @@ class DeltaDistribution(Model):
 # it to go ("cap bills" is energy prices, negative), so only the size of the factor is used.
 # Diplomatic and military actions do not push their target's growth this way: they move its
 # standing (``world/changes.action_changes``) and, where it makes sense, trade (``FOREIGN``).
+# Nor does a speech to a foreign country: it moves the relationship a little, not its economy
+# (M3).
 # Legislation does not push its target either: passing a law creates no output by itself, and
 # a law that funds, taxes or regulates something is that tax, spend or regulation, with its
 # cost. Aimed at a population group (rights for renters) it wins that group over by
@@ -224,12 +232,13 @@ MIN_FISCAL_TURNS = 6
 
 # Markets and unfunded tax cuts (CA-4): a tax cut that this turn's other decisions do not pay
 # for, worth at least CONFIDENCE_THRESHOLD steps of deficit a turn, makes markets doubt the
-# government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes Bank
-# Rate up and the pound down once, and costs every group approval (see
+# government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes gilt
+# yields up (O4: the risk premium, not Bank Rate, which the Bank sets) and the pound down once,
+# and costs every group approval (see
 # ``population.popularity.policy_events``). Spending is not judged this way: markets lent
 # freely for the 2008 bailout and the 2020 lockdown.
 CONFIDENCE_THRESHOLD = 0.75
-CONFIDENCE_SHOCKS = {"indicator:interest_rate": 0.4, "indicator:exchange_rate": -0.8}
+CONFIDENCE_SHOCKS = {"indicator:gilt_yield": 1.0, "indicator:exchange_rate": -0.8}
 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
@@ -370,13 +379,38 @@ def _held(node_id: str, push: float, share: float) -> float:
 REGULATION_OUTPUT_COST = 0.25
 
 
-# Foreign policy towards another country, in standard steps of its growth per unit of
-# magnitude. A deal or sanctions move trade only with a trading partner, in the direction of
-# the magnitude. Military escalation disrupts the target's economy (and, through trade, the
-# player's); de-escalation moves only the relationship.
+# Foreign policy towards another country, per unit of magnitude. A deal or sanctions with a
+# trading partner change the player's access to its market, not the size of its economy (M3):
+# each node of the player's that the partner feeds (its economy, through trade, and the sectors
+# the partner buys from or supplies) is held DIPLOMATIC_TRADE_STEPS times that link's weight
+# higher (a deal) or lower (sanctions) for the action's duration. Military escalation disrupts
+# the target's economy, in standard steps of its growth (and, through trade, the player's);
+# de-escalation moves only the relationship.
 FOREIGN = {"diplomatic", "military"}
 DIPLOMATIC_TRADE_STEPS = 0.5
 MILITARY_DISRUPTION_STEPS = 1.0
+ACCESS_EDGES = {EdgeKind.TRADES_WITH, EdgeKind.SUPPLIES}
+
+
+def foreign_country(action: PolicyAction, state: WorldState | None) -> bool:
+    """Whether the action is aimed at a country other than the player's."""
+    return (
+        state is not None
+        and action.target in state.countries
+        and action.target != state.player_country
+    )
+
+
+def access_links(state: WorldState, partner: str) -> list[Edge]:
+    """The partner's links into the player's economy: its trade with the player's country and
+    its supply links into the player's sectors."""
+    return [
+        e
+        for e in state.edges
+        if e.source == partner
+        and e.kind in ACCESS_EDGES
+        and (e.target == state.player_country or e.target in state.sectors)
+    ]
 
 
 def _trades(state: WorldState, a: str, b: str) -> bool:
@@ -387,19 +421,23 @@ def _trades(state: WorldState, a: str, b: str) -> bool:
 
 def foreign_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
     """Economic shocks from a diplomatic or military action towards a foreign country."""
-    if (
-        state is None
-        or action.target not in state.countries
-        or action.target == state.player_country
-    ):
+    if not foreign_country(action, state):
         return []
+    turns = action.duration_turns
     if action.kind == "diplomatic" and _trades(state, state.player_country, action.target):
-        delta = DIPLOMATIC_TRADE_STEPS * action.magnitude
-    elif action.kind == "military" and action.magnitude > 0:
+        return [
+            Shock(
+                node=e.target,
+                delta=DIPLOMATIC_TRADE_STEPS * action.magnitude * e.weight,
+                duration_turns=turns,
+                hold=True,
+            )
+            for e in access_links(state, action.target)
+        ]
+    if action.kind == "military" and action.magnitude > 0:
         delta = -MILITARY_DISRUPTION_STEPS * action.magnitude
-    else:
-        return []
-    return [Shock(node=action.target, delta=delta, duration_turns=action.duration_turns, hold=True)]
+        return [Shock(node=action.target, delta=delta, duration_turns=turns, hold=True)]
+    return []
 
 
 def fiscal_size(action: PolicyAction) -> float:
@@ -524,8 +562,11 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
             continue
         # Nothing pushes the player's own growth rate directly (E3): a speech to the nation
         # moves no output, and growth comes from what the sectors do.
+        # Nor does a speech to a foreign country move its economy (M3): only the relationship.
         home = state is not None and action.target == state.player_country
-        push = 0.0 if protects_jobs(action) or home else action_factor(action) * action.magnitude
+        abroad = action.kind == "communicate" and foreign_country(action, state)
+        still = protects_jobs(action) or home or abroad
+        push = 0.0 if still else action_factor(action) * action.magnitude
         if push and _fleeting(action):
             # A speech lifts confidence once and the lift fades (E4): it does not hold output
             # up for as long as it "runs".
@@ -822,19 +863,73 @@ class _Carry:
         return EngineState(own=self.own, levels=self.levels, pushes=self.pushes)
 
 
+# A hidden world's weights stay within this many standard deviations of the central weight,
+# the range ``lag0_gain`` already guards, so a drawn world is always stable.
+TRUE_WORLD_SIGMAS = GAIN_SIGMAS
+
+
+def _edge_keys(edges: list[Edge]) -> list[str]:
+    """A name for each edge that does not depend on its place in the list or its weight, so
+    an edge keeps its draw when others are added or it is reweighted."""
+    seen: dict[str, int] = defaultdict(int)
+    keys = []
+    for e in edges:
+        key = f"{e.source}>{e.target}:{e.kind}:{e.lag}"
+        keys.append(f"{key}#{seen[key]}")
+        seen[key] += 1
+    return keys
+
+
+def true_draws(state: WorldState, seed: int) -> dict[str, float]:
+    """The hidden world's draw for each propagating edge, in standard deviations from its
+    central weight: fixed for the game (by ``seed``) and within ``TRUE_WORLD_SIGMAS``."""
+    draws = {}
+    for key in _edge_keys(_propagating_edges(state)):
+        z = make_rng(seed, 0, f"world:{key}").gauss(0.0, 1.0)
+        draws[key] = max(-TRUE_WORLD_SIGMAS, min(TRUE_WORLD_SIGMAS, z))
+    return draws
+
+
+def true_weights(state: WorldState, seed: int) -> dict[int, float]:
+    """Edge weights of the game's hidden true world (D1), by index into the propagating edge
+    list: each edge's current weight moved by its fixed draw times its uncertainty. A lasting
+    change to an edge (a trade deal) moves the central weight, and the draw goes with it."""
+    edges = _propagating_edges(state)
+    draws = true_draws(state, seed)
+    return {
+        i: e.weight + draws[key] * e.uncertainty
+        for i, (e, key) in enumerate(zip(edges, _edge_keys(edges), strict=True))
+    }
+
+
+def world_surprises(state: WorldState, seed: int, n: int = 5) -> list[tuple[Edge, float]]:
+    """The ``n`` links where the hidden world differs most from the central guess, with each
+    one's true weight: what a player could have learned about this economy."""
+    edges = _propagating_edges(state)
+    truth = true_weights(state, seed)
+    ranked = sorted(range(len(edges)), key=lambda i: -abs(truth[i] - edges[i].weight))
+    return [(edges[i], truth[i]) for i in ranked[:n] if truth[i] != edges[i].weight]
+
+
 def step(
-    state: WorldState, shocks: list[Shock], protection: dict[int, float] | None = None
+    state: WorldState,
+    shocks: list[Shock],
+    protection: dict[int, float] | None = None,
+    weights: dict[int, float] | None = None,
 ) -> tuple[EngineState, dict[str, float]]:
     """One turn of the engine from what ``state`` carries, plus this turn's ``shocks``.
 
     Returns the engine to carry into the next turn and this turn's change to each node's
     primary metric, in native units, within its bounds. ``protection`` is the job protection
-    in force by absolute turn (see ``job_protection``); None uses the state's own."""
+    in force by absolute turn (see ``job_protection``); None uses the state's own.
+    ``weights`` overrides edge weights by index (``true_weights``); None uses the central
+    ones."""
     if protection is None:
         protection = state.job_protection
     engine = _Carry(state.engine, pushes_for(shocks, state))
     values = {n: _value(state, n) for n in state.node_ids()}
-    _, moves = _Engine(state).step(engine, state.turn, protection.get(state.turn, 0.0), values)
+    model = _Engine(state, weights)
+    _, moves = model.step(engine, state.turn, protection.get(state.turn, 0.0), values)
     return engine.freeze(), moves
 
 

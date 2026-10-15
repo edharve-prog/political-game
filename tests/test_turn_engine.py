@@ -45,6 +45,9 @@ def test_a_capped_indicator_fades_back_from_the_cap_not_past_its_start() -> None
     the fade was worked out from 30%, so it fell well below where it began."""
     start = toy_world()
     start.indicators[UNEMPLOYMENT].value = 24
+    # Only the fade is under test: cut unemployment's feedback through Bank Rate (O4), which
+    # would otherwise bring it down by policy.
+    start.edges = [e for e in start.edges if e.source != "indicator:interest_rate"]
     states = play(start, 12, scenario(Shock(node=UNEMPLOYMENT, delta=6)))
     path = [value(s, UNEMPLOYMENT) for s in states]
     assert path[0] == 25

@@ -23,9 +23,9 @@ EVENT_SHOCKS: dict[str, dict[str, float]] = {
     "strike": {"sector:public": -0.5},
     "protest": {"institution:legislature": -0.2},
     "backbench_rebellion": {"institution:legislature": -0.5},
-    "market_selloff": {"indicator:interest_rate": 0.3, "sector:finance": -0.5},
-    "market_rally": {"indicator:interest_rate": -0.2, "sector:finance": 0.3},
-    "capital_flight": {"sector:finance": -0.8, "indicator:interest_rate": 0.2},
+    "market_selloff": {"indicator:gilt_yield": 0.5, "sector:finance": -0.5},
+    "market_rally": {"indicator:gilt_yield": -0.3, "sector:finance": 0.3},
+    "capital_flight": {"sector:finance": -0.8, "indicator:gilt_yield": 0.4},
     "business_investment": {"sector:manufacturing": 0.5},
     "foreign_retaliation": {"sector:manufacturing": -0.4},
 }

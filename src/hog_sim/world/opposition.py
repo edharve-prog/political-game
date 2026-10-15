@@ -3,9 +3,9 @@
 Every quarter (``QUARTER`` turns) the opposition picks a stance aimed at some groups. A stance
 pulls those groups' lean (where their approval of the government drifts when nothing happens)
 towards the opposition by ``STANCES[...].pull``; the previous stance's pull is taken back
-first, so only one stance acts at a time. The opposition goes after the voters most
-disaffected with the government: it picks the stance whose groups' approval sits furthest
-below their own lean, weighted by population share and turnout. On a tie it keeps its stance.
+first, so only one stance acts at a time. The opposition goes after votes: it picks the
+stance whose pull wins the most turnout-weighted voters, counting disaffected groups (approval
+below their own lean) for more (``DISAFFECTION``). On a tie it keeps its stance.
 
 Each quarter there may also be a by-election (``BYELECTION_CHANCE``, seeded). The government
 holds the seat with a chance that rises with its vote intention (``hold_chance``); a loss costs
@@ -27,6 +27,7 @@ BYELECTION_CHANCE = 0.5  # chance of a by-election in any quarter
 BYELECTION_LOSS = 0.03  # Commons support lost when the government loses a by-election
 BYELECTION_HOLD = 0.01  # Commons support gained when it holds the seat
 LEGISLATURE = "institution:legislature"
+DISAFFECTION = 20.0  # extra appeal per point of approval below lean (0.05 below: twice)
 
 
 class Stance(Model):
@@ -88,14 +89,17 @@ def _weight(state: WorldState, gid: str) -> float:
 
 
 def appeal(state: WorldState, stance: Stance, applied: dict[str, float]) -> float:
-    """How much disaffection the stance can work on: its groups' turnout-weighted approval
-    gap below their own lean, measured without the pull of the stance in force."""
+    """The votes the stance can win: each group's turnout-weighted pull, raised by
+    ``DISAFFECTION`` per point its approval sits below its own lean (measured without the
+    pull of the stance in force). Counting votes first means angering a small group cannot
+    lure the opposition away from a bigger one."""
     total = 0.0
-    for gid in stance.pull:
+    for gid, pull in stance.pull.items():
         group = state.groups.get(gid)
         if group is not None:
             own_lean = group.lean - applied.get(gid, 0.0)
-            total += _weight(state, gid) * max(0.0, own_lean - group.approval)
+            gap = max(0.0, own_lean - group.approval)
+            total += _weight(state, gid) * abs(pull) * (1 + DISAFFECTION * gap)
     return total
 
 
