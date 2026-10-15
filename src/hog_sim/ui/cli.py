@@ -18,6 +18,7 @@ from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import PolicyAction, Reading, SideIssue
 from hog_sim.core.state import WorldState
+from hog_sim.game.advice import cost_options, costing_line
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal, StaleProposal
@@ -455,11 +456,24 @@ def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
         advice = advisers.ask(question, game.state, game.scenario)
     except LLMError as err:
         return f"  The advisers couldn't answer: {err}"
+    # Each option is read and played to the election before it is shown (D8). Reading an
+    # option with Claude costs a call, so this may take a moment.
+    costed = cost_options(game, [(a.option, a.trade_off) for a in advice])
+    offered = [c for c in costed if c.blocked is None]
     start = len(game.scenario.suggested_options) + 1
-    game.add_options([a.option for a in advice])
+    game.add_options([c.option for c in offered])
     lines = [_section("Your advisers suggest")]
-    for i, a in enumerate(advice, start):
-        lines += ["", _numbered(i, a.option), _wrap(f"Trade-off: {a.trade_off}", "     ")]
+    for i, c in enumerate(offered, start):
+        lines += ["", _numbered(i, c.option), _wrap(f"Trade-off: {c.trade_off}", "     ")]
+        numbers = (
+            costing_line(c.costing)
+            if c.costing is not None
+            else "Numbers: could not be read into measures, so not costed"
+        )
+        lines.append(_wrap(numbers, "     ", "     "))
+    for c in costed:
+        if c.blocked is not None:
+            lines += ["", _wrap(f"Not offered: {c.option} ({c.blocked})", "  ", "    ")]
     return "\n".join(lines)
 
 
