@@ -9,6 +9,7 @@ from hog_sim.game.stubs import CannedScenarios, EngineForecaster, KeywordInterpr
 from hog_sim.policy import capital, credibility
 from hog_sim.policy.capital import available, cycle_factor, next_capital, refill
 from hog_sim.policy.credibility import CredibilityChange, speech_weight, step_credibility
+from hog_sim.policy.fiscal_events import next_budget
 from hog_sim.policy.limits import constrain, still_running
 from hog_sim.population.popularity import target_approval
 from hog_sim.world.seed.toy import toy_world
@@ -74,7 +75,8 @@ def test_the_refill_rises_with_approval_and_majority() -> None:
 
 
 def test_the_stock_caps_what_a_package_can_do() -> None:
-    state = toy_world().model_copy(update={"capital": 0.5})
+    # On a Budget turn, so the off-Budget surcharge (O6) does not enter.
+    state = toy_world().model_copy(update={"capital": 0.5, "turn": next_budget(0)})
     limited = constrain([act("spend", "sector:public", 1.0)], state, [], capital=0.5)
     assert limited.actions[0].magnitude == pytest.approx(0.5)
     assert any("Political capital" in n for n in limited.notes)

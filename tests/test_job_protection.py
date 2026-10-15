@@ -123,7 +123,8 @@ def test_a_cut_with_no_scheme_running_is_blocked() -> None:
 
 def test_a_cut_removes_the_cover_it_saves_on() -> None:
     state = running(turns=6)  # cover left on turns 1..5
-    constrained = constrain([cut(turns=12)], state, [])
+    # Room for the off-Budget surcharge (O6), so only the trim to the scheme shows.
+    constrained = constrain([cut(turns=12)], state, [], capital=3.0)
     [trimmed] = constrained.actions
     assert trimmed.duration_turns == 5
     assert job_protection(state, [trimmed]) == {}
@@ -145,7 +146,7 @@ def test_a_partial_cut_leaves_the_rest_of_the_scheme() -> None:
 
 def test_a_cut_cannot_save_more_than_the_scheme_costs() -> None:
     state = running()
-    [trimmed] = constrain([cut()], state, []).actions
+    [trimmed] = constrain([cut()], state, [], capital=3.0).actions
     huge = cut(-1.0).model_copy(update={"duration_turns": 24})
     assert fiscal_cost(huge, state) == pytest.approx(fiscal_cost(trimmed, state))
 

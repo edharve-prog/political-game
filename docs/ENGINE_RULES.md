@@ -431,9 +431,13 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
    one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. A
    speech also carries only part of its stated size when credibility is low (see
-   Credibility below). Above the capital the government holds this turn, every measure is
-   scaled down by the same share to fit. The review screen shows each measure's capital and
-   deficit cost over its life.
+   Credibility below). Outside a Budget turn, a tax or spending change costs **0.5 more per
+   unit** (before the lifetime factor): the Budget is the turn to plan fiscal moves for, and
+   the note says when the next one falls. Above the capital the government holds this turn,
+   every measure is scaled down by the same share to fit. The review screen shows each
+   measure's capital and deficit cost over its life, and an **independent scorecard** for the
+   package's taxes and spending: what each adds to the deficit a turn, for how many turns, in
+   all, and whether the package adds to borrowing, cuts it or is paid for.
 
    **Capital is a stock.** The first turn has 1.5. At the end of every turn the stock
    refills, and half of what the turn left unspent is banked on top, up to 3.0 in all. The
@@ -990,7 +994,8 @@ Each event comes round every 12 turns. With Claude, Claude writes the event's br
 the rest of the in-tray, but the event sets the category and the options. Offline, the
 event's own briefing is used. A calendar lead opens no storyline, and the rule that a new
 storyline must lead every third turn skips calendar turns. Prompts and the dashboard show
-what is coming in the next six turns.
+what is coming in the next six turns. On a Budget turn, taxes and spending carry no
+off-Budget capital surcharge (section 4).
 
 ## 10. Key numbers in one place
 
@@ -999,6 +1004,7 @@ what is coming in the next six turns.
 | Turns before the election | 24 | `core/config.py` |
 | Forecast horizon, random draws | 24 turns, 100 draws | `core/config.py` |
 | Political capital | 1.5 on the first turn, then a stock: refill 1.5 x approval x majority x cycle x credibility, half of unspent banked, at most 3.0 | `core/config.py`, `policy/capital.py` |
+| Off-Budget surcharge | +0.5 capital per unit for tax or spending outside a Budget turn | `policy/fiscal_events.py` |
 | Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP over the share that becomes output (public 1.85, finance 1.70, manufacturing 1.63, housing 1.11, energy 0.59 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`, `SECTOR_PASS_THROUGH`) |

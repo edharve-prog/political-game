@@ -53,7 +53,10 @@ def test_a_majority_needs_no_forcing() -> None:
 
 def test_forcing_costs_capital_and_support() -> None:
     world = world_with_support(0.45)
-    assert capital_cost([SPEND], world) == pytest.approx(FORCE_CAPITAL * capital_cost([SPEND]))
+    calm = world_with_support(0.6)
+    assert capital_cost([SPEND], world) == pytest.approx(
+        FORCE_CAPITAL * capital_cost([SPEND], calm)
+    )
     limited = constrain([SPEND], world, [])
     assert limited.actions and any(n.startswith("Forced through") for n in limited.notes)
     after = resolve(

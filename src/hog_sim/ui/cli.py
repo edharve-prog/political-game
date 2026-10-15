@@ -31,6 +31,7 @@ from hog_sim.knowledge.offline import StoredForecaster, StoredInterpreter
 from hog_sim.knowledge.recall import Recaller
 from hog_sim.knowledge.store import KnowledgeStore
 from hog_sim.llm.advisers import Advisers
+from hog_sim.policy.fiscal_events import scorecard_lines
 from hog_sim.policy.limits import lifetime_cost
 from hog_sim.policy.pledges import broken_by, pledge_line
 from hog_sim.population.popularity import ElectionResult, national_approval, vote_intention
@@ -259,6 +260,9 @@ def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
         ]
     lines.append("")
     lines += [_wrap(n, "  ", "    ") for n in notes]
+    card = scorecard_lines(proposal.actions, state, describe) if state is not None else []
+    if card:
+        lines += ["", *(_wrap(line, "  ", "      ") for line in card)]
     return "\n".join(lines)
 
 

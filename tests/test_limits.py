@@ -6,9 +6,20 @@ from hog_sim.core.config import GameConfig
 from hog_sim.core.models import PolicyAction
 from hog_sim.game.loop import Game, replay
 from hog_sim.game.stubs import CannedScenarios, EngineForecaster
+from hog_sim.policy.fiscal_events import next_budget
 from hog_sim.policy.limits import REPEAT_DECAY, constrain
 from hog_sim.world.propagation import fiscal_cost
 from hog_sim.world.seed.toy import toy_world
+
+BUDGET_TURN = next_budget(0)
+
+
+def budget_world():
+    """The toy world on a Budget turn, where taxes and spending carry no off-Budget
+    surcharge (O6), so the other limits can be read on their own."""
+    world = toy_world()
+    world.turn = BUDGET_TURN
+    return world
 
 
 def act(kind, target, magnitude=0.5):
@@ -52,14 +63,14 @@ def test_repeating_a_lever_brings_diminishing_returns() -> None:
 
 
 def test_a_different_lever_is_not_penalised() -> None:
-    world = toy_world()
+    world = budget_world()
     past = [[act("spend", "sector:public")]]
     limited = constrain([act("spend", "sector:housing")], world, past)
     assert limited.actions[0].magnitude == 0.5 and limited.notes == []
 
 
 def test_political_capital_scales_an_oversized_package() -> None:
-    world = toy_world()
+    world = budget_world()
     package = [act("spend", "sector:public", 1.0), act("deregulate", "sector:housing", 1.0)]
     limited = constrain(package, world, [], capital=1.5)
     assert [a.magnitude for a in limited.actions] == pytest.approx([0.75, 0.75])
@@ -94,7 +105,7 @@ def test_a_package_cannot_borrow_past_the_deficit_limit() -> None:
 
 
 def test_tax_rises_make_room_for_borrowing() -> None:
-    world = toy_world()
+    world = budget_world()
     world.indicators["indicator:deficit"].value = 9.9
     alone = constrain([act("spend", "sector:public", 0.4)], world, [])
     paid = constrain(
@@ -106,7 +117,7 @@ def test_tax_rises_make_room_for_borrowing() -> None:
 
 
 def test_room_below_the_limit_is_untouched() -> None:
-    limited = constrain([act("spend", "sector:public", 1.0)], toy_world(), [])
+    limited = constrain([act("spend", "sector:public", 1.0)], budget_world(), [])
     assert limited.actions[0].magnitude == pytest.approx(1.0)
     assert limited.notes == []
 
@@ -114,7 +125,7 @@ def test_room_below_the_limit_is_untouched() -> None:
 def test_a_funded_package_goes_ahead_above_the_deficit_limit() -> None:
     """Spending paid for by a tax rise in the same package is not blocked just because the
     deficit is already past the limit; it is scaled to what the tax rise covers."""
-    world = toy_world()
+    world = budget_world()
     world.indicators["indicator:deficit"].value = 12
     package = [act("spend", "sector:public", 0.3), act("tax", "sector:finance", 0.8)]
     limited = constrain(package, world, [])
