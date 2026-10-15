@@ -6,7 +6,15 @@ from typing import Literal
 
 from pydantic import Field
 
-from hog_sim.core.models import ActionKind, Delivery, Model, Pledge, PolicyAction, Scenario
+from hog_sim.core.models import (
+    ActionKind,
+    Delivery,
+    Model,
+    Pledge,
+    PolicyAction,
+    Reading,
+    Scenario,
+)
 from hog_sim.llm.client import LLMClient, ModelConfig, structured_call
 from hog_sim.llm.prompts import interpreter as prompt
 from hog_sim.llm.scenario_gen import scenario_text
@@ -27,8 +35,19 @@ class PledgeDraft(Model):
         return Pledge(**self.model_dump())
 
 
+class ReadingDraft(Model):
+    """How one action was read (D6): ``action`` is its index in ``actions``."""
+
+    action: int = Field(ge=0)
+    span: str = Field(description="The words of the response it comes from, quoted exactly")
+    confidence: float = Field(ge=0, le=1)
+
+
 class Interpretation(Model):
     actions: list[PolicyAction] = Field(default_factory=list)
+    readings: list[ReadingDraft] = Field(
+        default_factory=list, description="One per action: its quoted words and confidence"
+    )
     unmapped: list[str] = Field(
         default_factory=list, description="Measures in the response that fit no node"
     )
@@ -55,10 +74,36 @@ def repair_interpretation(result: Interpretation, summary: StateSummary) -> Inte
         pledge.target = resolve_id(pledge.target, ids) if pledge.target else None
         pledge.groups = [resolve_id(g, ids) for g in pledge.groups]
     if any(a.kind != "do_nothing" for a in result.actions):
-        result.actions = [a for a in result.actions if a.kind != "do_nothing"]
+        kept = [i for i, a in enumerate(result.actions) if a.kind != "do_nothing"]
+        result.actions = [result.actions[i] for i in kept]
+        moved = {old: new for new, old in enumerate(kept)}
+        result.readings = [
+            r.model_copy(update={"action": moved[r.action]})
+            for r in result.readings
+            if r.action in moved
+        ]
     if result.actions:
         result.clarifying_question = None
+    result.readings = [r for r in result.readings if r.action < len(result.actions)]
     return result
+
+
+def readings(result: Interpretation) -> list[Reading]:
+    """The interpretation's readings as ``Reading`` objects, one per action at most."""
+    out, seen = [], set()
+    for draft in result.readings:
+        if draft.action < len(result.actions) and draft.action not in seen:
+            seen.add(draft.action)
+            action = result.actions[draft.action]
+            out.append(
+                Reading(
+                    kind=action.kind,
+                    target=action.target,
+                    span=draft.span,
+                    confidence=draft.confidence,
+                )
+            )
+    return out
 
 
 def check_interpretation(result: Interpretation, summary: StateSummary) -> list[str]:

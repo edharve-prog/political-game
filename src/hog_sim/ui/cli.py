@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
-from hog_sim.core.models import PolicyAction, SideIssue
+from hog_sim.core.models import PolicyAction, Reading, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
@@ -124,6 +124,19 @@ def _dashboard(
                 f"{(now - begin) * 100:+.1f}",
             )
         )
+    lines += ["", f"{'STANDING':<29}{'now':<15}{columns}".rstrip()]
+    if state.capital is not None:
+        # Capital is a stock (O5): what this turn may spend, refilled and partly banked.
+        last = "" if previous.capital is None else f"{state.capital - previous.capital:+.2f}"
+        lines.append(row("Political capital", f"{state.capital:.2f}", last, ""))
+    lines.append(
+        row(
+            "Credibility",
+            f"{state.credibility * 100:.0f}%",
+            f"{(state.credibility - previous.credibility) * 100:+.0f}",
+            f"{(state.credibility - start.credibility) * 100:+.0f}",
+        )
+    )
     cast = active_cast(state)
     if cast:
         lines += ["", f"{'PEOPLE':<24}{'loyalty':<12}role"]
@@ -224,9 +237,9 @@ def _lifetime(action: PolicyAction, state: WorldState | None) -> str:
 def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
-        lines += [
-            f"  {i}. {describe(a)}{_lifetime(a, state)}" for i, a in enumerate(proposal.actions, 1)
-        ]
+        for i, a in enumerate(proposal.actions, 1):
+            lines.append(f"  {i}. {describe(a)}{_lifetime(a, state)}")
+            lines += _reading_lines(proposal.reading(i - 1))
     else:
         lines.append("  (no actions: this turn the government does nothing)")
     notes = [f"Not possible: {line}" for line in proposal.unmapped]
@@ -246,6 +259,21 @@ def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines.append("")
     lines += [_wrap(n, "  ", "    ") for n in notes]
     return "\n".join(lines)
+
+
+def _reading_lines(reading: Reading | None) -> list[str]:
+    """Where an action came from in the response, flagged when the interpreter guessed (D6)."""
+    if reading is None:
+        return []
+    lines = []
+    if reading.span:
+        span = reading.span if len(reading.span) <= 70 else reading.span[:67] + "..."
+        lines.append(f'     from "{span}"')
+    if reading.fallback:
+        lines.append("     CHECK: no target was named, so it was guessed from the scenario")
+    elif reading.doubtful:
+        lines.append(f"     CHECK: low confidence ({reading.confidence:.0%}) in this reading")
+    return lines
 
 
 def _preview_text(game: Game, proposal: Proposal) -> str:
@@ -287,6 +315,7 @@ def _guarded(game: Game, part: str, what: str, call, offline=None):
     """``call()``, and when the model fails (E22) ask to retry or to run it once with
     ``game.<part>`` (scenarios, interpreter or forecaster) swapped for ``offline``. Without
     an offline stand-in the error is raised as before."""
+    from hog_sim.llm.budget import LLMBudgetExceeded
     from hog_sim.llm.client import LLMError
 
     while True:
@@ -295,7 +324,10 @@ def _guarded(game: Game, part: str, what: str, call, offline=None):
         except LLMError as err:
             if offline is None:
                 raise
-            if _retry_or_offline(what, err) == "offline":
+            choice = _retry_or_offline(what, err)
+            if choice == "retry" and isinstance(err, LLMBudgetExceeded):
+                err.client.extend()
+            if choice == "offline":
                 original = getattr(game, part)
                 setattr(game, part, offline)
                 try:
@@ -876,6 +908,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
+    from hog_sim.llm.budget import BUDGET_ENV, DEFAULT_LIMIT, BudgetedClient
     from hog_sim.llm.calllog import LOG_ENV, LOG_FILE
     from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
@@ -931,6 +964,13 @@ def _main(argv: list[str] | None) -> None:
         action="store_true",
         help="make one small call to the model to confirm the connection works, then exit",
     )
+    parser.add_argument(
+        "--call-budget",
+        type=int,
+        default=int(os.environ.get(BUDGET_ENV) or DEFAULT_LIMIT),
+        help=f"most model calls a turn may make before asking you (default {DEFAULT_LIMIT}; "
+        "0 for no cap)",
+    )
     args = parser.parse_args(argv)
     if args.llm_log is None:
         args.llm_log = str(Path(args.save).parent / LOG_FILE)
@@ -965,7 +1005,8 @@ def _main(argv: list[str] | None) -> None:
                 raise SystemExit(str(exc)) from None
             print(f"{NO_CLAUDE_NOTE}\n{exc}\n")
         else:
-            client = _with_log(client, provider, args.llm_log)
+            budget = BudgetedClient(client, max(0, args.call_budget))
+            client = _with_log(budget, provider, args.llm_log)
     if client:
         from hog_sim.forecasting.candidates import ForecastConfig
         from hog_sim.game.llm_plugins import llm_plugins
@@ -1020,6 +1061,8 @@ def _main(argv: list[str] | None) -> None:
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
     _log_turns(client, game_id, lambda: game.state.turn)
+    if client:
+        budget.turn_of = lambda: game.state.turn
     library = PolicyLibrary(store.conn, game_id)
     # Offline stand-ins for one step when the model fails (E22); none in offline play.
     fallback = (
