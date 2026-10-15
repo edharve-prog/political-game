@@ -1034,7 +1034,9 @@ where the game began.
 *Source: `game/balance.py`, `tests/test_balance.py`*
 
 Scripted bots play full offline games pulling one lever every turn (deregulate energy, raise
-pensions, spend on everything and so on), plus a "do nothing" bot. The test fails if:
+pensions, spend on everything and so on), plus a "do nothing" bot. Their scenarios come from
+the scenario library on the calendar (`OnCalendar`), so every bot meets the Budget and the
+other calendar events as a player would. The test fails if:
 
 - any single-lever bot wins more than 34% of its games;
 - doing nothing ever wins;

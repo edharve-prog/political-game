@@ -2,8 +2,10 @@
 
 Each bot plays the same response every turn, either as fixed engine actions (to probe one
 lever at a time) or as text through the keyword interpreter (to play like a person), or
-follows a schedule of actions by turn (``SCHEDULE_BOTS``: act early, then coast). Games use
-only the offline plug-ins, so the run is deterministic and needs no Claude.
+follows a schedule of actions by turn (``SCHEDULE_BOTS``: act early, then coast). Scenarios
+come from the library on the calendar (``OnCalendar``), so bots meet the Budget and the other
+calendar events as a player does. Games use only the offline plug-ins, so the run is
+deterministic and needs no Claude.
 
 The exploit search (D4, ``search``) looks for the next dominant strategy before a player does:
 it plays seeded random and greedy packages (kind x target x size x turns) once on turn 0 of a
@@ -33,6 +35,7 @@ from hog_sim.policy.capital import available
 from hog_sim.policy.feasibility import compatibility_problem
 from hog_sim.policy.limits import constrain, lifetime_cost
 from hog_sim.population.popularity import run_election
+from hog_sim.world.calendar import OnCalendar
 from hog_sim.world.seed.toy import toy_world
 
 # Pass marks for the balance test, in one place.
@@ -151,7 +154,11 @@ def play(name: str, seed: int, turns: int = 24) -> GameResult:
     else:
         interpreter, respond = KeywordInterpreter(), TEXT_BOTS[name]
     game = Game(
-        config, toy_world(), ScenarioLibrary.load(seed=seed), interpreter, EngineForecaster()
+        config,
+        toy_world(),
+        OnCalendar(ScenarioLibrary.load(seed=seed)),
+        interpreter,
+        EngineForecaster(),
     )
     at_bound = checked = 0
     record = None
