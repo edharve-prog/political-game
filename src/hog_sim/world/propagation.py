@@ -401,8 +401,47 @@ def _held(node_id: str, push: float, share: float) -> float:
 
 
 # Regulating an indicator (a price cap, a rent control) trims the output of the sectors that
-# drive it, by this share of the push.
+# drive it, by this share of the push: the suppliers carry the cap (M4). A cap the Treasury
+# pays for (``PolicyAction.borne_by`` "treasury", the 2022 Energy Price Guarantee) squeezes
+# no one, and costs what a subsidy that moves the price as far would.
 REGULATION_OUTPUT_COST = 0.25
+
+# Who a tax on a sector falls on (M4, ``PolicyAction.incidence``). On its output (the
+# default), it takes off output as before. On its profits (a windfall tax) it raises as much
+# but trims output by only PROFITS_OUTPUT_SHARE of that, through lost investment. On its
+# customers (VAT, a duty) they buy CONSUMERS_OUTPUT_SHARE as much less, and prices rise
+# CONSUMERS_INFLATION points a year for each point of GDP it raises, for a year (a one-off
+# rise in the price level).
+PROFITS_OUTPUT_SHARE = 0.25
+CONSUMERS_OUTPUT_SHARE = 0.5
+CONSUMERS_INFLATION = 0.9
+INFLATION_NODE = "indicator:inflation"
+TURNS_PER_YEAR = 12
+
+
+def incidence_factor(action: PolicyAction) -> float:
+    """Share of the usual push on its target that the action keeps, given who carries it."""
+    match action.incidence:
+        case "profits":
+            return PROFITS_OUTPUT_SHARE
+        case "consumers":
+            return CONSUMERS_OUTPUT_SHARE
+        case "treasury" | "suppliers" | "output" | None:
+            return 1.0
+    return 1.0
+
+
+def treasury_cap(action: PolicyAction) -> bool:
+    return action.incidence == "treasury"
+
+
+def consumer_prices(action: PolicyAction, state: WorldState | None) -> list[Shock]:
+    """A tax on a sector's customers lifts prices for a year (M4)."""
+    if state is None or action.incidence != "consumers" or INFLATION_NODE not in state.indicators:
+        return []
+    raised = -fiscal_cost(action, state) * scale(state, FISCAL_NODE)  # % GDP a year
+    delta = raised * CONSUMERS_INFLATION / scale(state, INFLATION_NODE)
+    return [Shock(node=INFLATION_NODE, delta=delta, duration_turns=TURNS_PER_YEAR, hold=True)]
 
 
 # Foreign policy towards another country, per unit of magnitude. A deal or sanctions with a
@@ -499,6 +538,8 @@ def fiscal_size(action: PolicyAction) -> float:
     to push prices down still costs money, a stamp duty rise to cool them raises it, and a
     stamp duty cut to lift them costs it.
     """
+    if treasury_cap(action):
+        return abs(action.magnitude)  # the Treasury pays whichever way the cap goes
     return action.instrument_sign * abs(action.magnitude)
 
 
@@ -537,6 +578,9 @@ def fiscal_cost(action: PolicyAction, state: WorldState | None = None) -> float:
         paid = len(costs) if cut else max(len(costs), MIN_FISCAL_TURNS)
         return sum(costs) / paid if paid else 0.0
     size = fiscal_size(action)
+    if treasury_cap(action):
+        # As a subsidy that moves the price as far: a cap pushes half as hard a unit.
+        return size * fiscal_steps(action, state) * abs(action_factor(action)) / ACTION_STEPS
     return _FISCAL_SIGN.get(action.kind, 0.0) * size * fiscal_steps(action, state)
 
 
@@ -619,7 +663,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
         home = state is not None and action.target == state.player_country
         abroad = action.kind == "communicate" and foreign_country(action, state)
         still = protects_jobs(action) or home or abroad
-        push = 0.0 if still else action_factor(action) * action.magnitude
+        push = 0.0 if still else action_factor(action) * action.magnitude * incidence_factor(action)
         if push and _fleeting(action):
             # A speech lifts confidence once and the lift fades (E4): it does not hold output
             # up for as long as it "runs".
@@ -630,6 +674,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
                 state is not None
                 and action.kind == "regulate"
                 and action.target in state.indicators
+                and not treasury_cap(action)
             ):
                 cost = -REGULATION_OUTPUT_COST * abs(push)
                 shocks += [
@@ -652,6 +697,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
             shocks += _job_shocks(_job_costs(jobs[i], -1.0 if cut else 1.0), one_off=not cut)
             continue
         shocks += demand_shocks(action, state) + national_demand(action, state)
+        shocks += consumer_prices(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:
             paid = fiscal_turns(action, state)

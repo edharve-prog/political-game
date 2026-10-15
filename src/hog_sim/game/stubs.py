@@ -219,6 +219,15 @@ class KeywordInterpreter:
             if re.search(r"\bcap|freez|limit|regulat", t):
                 kind = "regulate"
                 size = size if re.search(r"\braise|\bincrease|\bhigher", t) else -size
+                if re.search(r"guarantee|treasury|taxpayer|pay (?:the )?(?:suppliers|firms)", t):
+                    # The state pays suppliers the difference (M4), as in 2022.
+                    return PolicyAction(
+                        kind=kind,
+                        target=target,
+                        magnitude=size,
+                        borne_by="treasury",
+                        rationale=f"from: {text}",
+                    )
             else:
                 # Spending on it (a furlough scheme, help with bills). "Raise" or "cut" is the
                 # spending's own way, not the indicator's: cutting it lets the indicator rise.
@@ -237,7 +246,7 @@ class KeywordInterpreter:
             size = -size if re.search(r"retaliat|sanction|tariff", t) else size
         elif re.search(r"\bcut\w*\b.*\b(?:tax|levy|duty)|\b(?:tax|levy|duty)\w*\b.*\bcut", t):
             kind, size = "tax", -size
-        elif re.search(r"tax|levy|windfall", t):
+        elif re.search(r"tax|levy|windfall|\bduty\b|\bvat\b", t):
             kind = "tax"
         elif re.search(r"deregulat|scrap rules|relax", t):
             kind = "deregulate"
@@ -251,7 +260,16 @@ class KeywordInterpreter:
             kind = "spend"
         else:
             kind = "communicate"
-        return PolicyAction(kind=kind, target=target, magnitude=size, rationale=f"from: {text}")
+        borne_by = None
+        if kind == "tax" and target.startswith("sector:"):
+            # Who the tax falls on (M4): a windfall tax on profits, VAT or a duty on customers.
+            if re.search(r"windfall|profit|excess", t):
+                borne_by = "profits"
+            elif re.search(r"\bvat\b|duty|sales tax|on (?:bills|fuel|petrol)", t):
+                borne_by = "consumers"
+        return PolicyAction(
+            kind=kind, target=target, magnitude=size, borne_by=borne_by, rationale=f"from: {text}"
+        )
 
 
 # A clause that asks for nothing: "do nothing", "wait it out", "hold firm". Only at the start

@@ -241,8 +241,18 @@ Special cases:
 - **Aimed at an indicator**, the sign of the magnitude is the direction the player wants it to
   go, whatever the kind. "Cap energy bills" is regulate on energy prices with a negative
   magnitude, and it pushes prices down.
-- **Regulating an indicator** also costs the sectors that drive it a quarter of the push in
-  output (a price cap squeezes energy firms).
+- **Regulating an indicator** (a price cap) has to be paid for by someone (M4,
+  `PolicyAction.borne_by`). By default the suppliers carry it: the sectors that drive the
+  indicator lose a quarter of the push in output (a cap squeezes energy firms). Or the
+  Treasury pays them the difference, as with the 2022 Energy Price Guarantee: no one is
+  squeezed, and the deficit rises by what a subsidy that moves the price as far would cost,
+  0.625 points of GDP a turn for a full-size cap, for at least 6 turns.
+- **A tax on a sector falls on someone** (M4, `borne_by`): on its output by default (a levy on
+  each unit made), which takes off output as above; on its **profits** (a windfall tax), which
+  raises as much but takes off only a quarter as much output, through lost investment; or on
+  its **customers** (VAT, a duty on what it sells), who buy half as much less, while prices
+  rise for a year by 0.9 points of inflation for each point of GDP the tax raises. A windfall
+  tax on energy therefore barely moves bills, while a duty on them pushes up inflation.
 - **Aimed at a population group** (a pension rise, a tax on landlords), the action is not a
   push on the graph. It becomes an approval boost or hit for that group of 0.05 per step: a
   full-magnitude pension rise is +0.10 to pensioners' target approval, held for as long as it
@@ -975,6 +985,8 @@ what is coming in the next six turns.
 | Political capital | 1.5 on the first turn, then a stock: refill 1.5 x approval x majority x cycle x credibility, half of unspent banked, at most 3.0 | `core/config.py`, `policy/capital.py` |
 | Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
+| Tax incidence (M4) | on profits: same revenue, a quarter of the output cut; on customers: half the output cut, +0.9 inflation per point of GDP raised, for 12 turns | `world/propagation.py` (`PROFITS_OUTPUT_SHARE`, `CONSUMERS_OUTPUT_SHARE`, `CONSUMERS_INFLATION`) |
+| Price cap paid by the Treasury | as a subsidy moving the price as far: 0.625 points a turn per unit; no supplier squeeze | `world/propagation.py` (`treasury_cap`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP over the share that becomes output (public 1.85, finance 1.70, manufacturing 1.63, housing 1.11, energy 0.59 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`, `SECTOR_PASS_THROUGH`) |
 | Output gap | growth = gap now less gap 12 turns ago; unemployment -0.5, deficit -0.5 (a turn later), inflation +0.15 (three turns later) per point | `world/seed/toy.py` |
 | National tax and spending | lift the gap 0.5 (spending) or 0.35 (tax) points per point of GDP while paid | `world/propagation.py` (`NATIONAL_MULTIPLIER`) |
