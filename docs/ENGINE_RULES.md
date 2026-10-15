@@ -84,6 +84,16 @@ A game is 24 turns of one month each, with a general election after the last one
    ("we will not raise taxes", "no cuts to schools") are still pledges, a refused sacking
    ("do not sack the Chancellor") sacks nobody, and cutting a programme ("cut spending on
    furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
+   "Do nothing", "wait" and "hold firm" mean do nothing only at the start of an instruction, so
+   "cut waiting lists" still acts. In "X to Y" the verb and target come from X and Y is its
+   purpose; "raise taxes to fund public services" is a broad tax rise and a spend on public
+   services. Business, growth, the economy and households are targets; a speech about them
+   goes to the nation, while tax or spending for households is shared over the population
+   groups (all but business) and for the economy over the sectors. A calendar event's own
+   options map to ready-made actions instead of being read word by word. "In Parliament" or
+   "to the Commons" is where something is announced, not a target. A sacking needs the verb
+   to govern the minister ("sack the Housing Secretary", "replace Ruth Calder"), and the rest
+   of the sentence is still read; the review step can call a sacking off with `drop sacking`.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
    confirming. Under each action the review screen quotes the words it was read from and
@@ -372,8 +382,9 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
    speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
-   with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
-   Parliament is read as a whip.
+   with repetition. Offline, a response about whips, backbenchers, MPs, rebels or a vote is
+   read as a whip, and so is one that names Parliament or the Commons with nothing else to
+   aim at.
 2. **Diminishing returns.** Repeating the same kind of action on the same target, in the same
    direction, within 4 turns halves its magnitude for each earlier use (one repeat: 50%, two:
    25%). A policy meant to keep running should say so with its duration instead. Whipping the
@@ -492,7 +503,21 @@ the next turn on. So with the central weights and no outcome, the forecast is ex
 resolve does for every indicator, sector, country and institution. It reports the average change
 and the 10th and 90th percentiles for every node, within bounds. The draws are seeded from the
 game seed and turn, so they reproduce exactly. Resolving the turn then uses one run with the
-central weights.
+central weights, unless the game has a hidden world.
+
+### A hidden world per game
+
+New games from the command line have a **hidden true world** (D1, `GameConfig.hidden_world`;
+`--central-world` turns it off). When the game starts, every edge weight is drawn once from its
+uncertainty (a normal draw, kept within 3 standard deviations, the range the stability guard
+already allows), seeded from the game seed, and every turn is resolved on those weights. The
+forecast still draws around the central weights, so it shows the government's best guess and its
+spread, and the world plays out as one draw from it. The forecast says so in its list of what it
+does not project. Each edge keeps its draw for the whole game; when a lasting change moves an
+edge's weight (a trade deal), the draw moves with it. After the election the game shows the five
+links where this world differed most from the guess. With it off (the default in code, so the
+backtests, the stability check and older saves), the world behaves exactly as the central
+forecast says.
 
 The forecast lists what it does not project: group approval (shown as no change), crises abroad
 in later turns (drawn turn by turn), the Commons' drift with the polls after this turn (approval
