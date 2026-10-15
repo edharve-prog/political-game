@@ -17,8 +17,13 @@ from hog_sim.core.models import (
 )
 from hog_sim.core.state import WorldState
 from hog_sim.world.cast import default_cast
+from hog_sim.world.propagation import DAMPING
 
 E = EdgeKind
+GAP = "indicator:output_gap"
+OKUN = -0.5  # points of unemployment per point of output gap
+PHILLIPS = 0.15  # points of inflation per point of output gap
+STABILISERS = -0.5  # points of deficit per point of output gap
 
 # Bank Rate's policy rule (O4): the share of last turn's rate kept each turn, and the pull of
 # inflation and unemployment toward the rate they call for.
@@ -170,6 +175,18 @@ def toy_world() -> WorldState:
             high=25,
             persistence=0.5,
         ),
+        # Output against what the economy could produce without stoking inflation, % of
+        # potential (O3). A level: sectors add up to it, growth is its change and
+        # unemployment follows it. Nothing aims at it directly.
+        Indicator(
+            id="indicator:output_gap",
+            name="Output gap",
+            value=0.0,
+            unit="%",
+            low=-20,
+            high=20,
+            persistence=0.9,
+        ),
         # The ten-year gilt yield (O4): what markets charge the government to borrow. It follows
         # the Bank Rate path markets expect, plus a risk premium for fiscal credibility, so it
         # is where a loss of confidence shows (2022). Markets set it; no policy aims at it.
@@ -197,9 +214,9 @@ def toy_world() -> WorldState:
         # Foreign relations and trade
         # The EU buys over 40% of UK exports; the UK is a small share of the EU's (CA-3).
         _edge("country:uk", "country:eu", E.TRADES_WITH, 0.10),
-        _edge("country:eu", "country:uk", E.TRADES_WITH, 0.45),
+        _edge("country:eu", GAP, E.TRADES_WITH, 0.45),
         _edge("country:uk", "country:china", E.TRADES_WITH, 0.10),
-        _edge("country:china", "country:uk", E.TRADES_WITH, 0.03),
+        _edge("country:china", GAP, E.TRADES_WITH, 0.03),
         _edge("country:uk", "country:eu", E.ALLIED_WITH, 0.5),
         _edge("country:china", "sector:manufacturing", E.SUPPLIES, 0.2, unc=0.05),
         # Half of UK goods exports go to the EU, so its demand reaches factories directly (CA-3).
@@ -207,11 +224,18 @@ def toy_world() -> WorldState:
         # Input-output links
         _edge("sector:energy", "sector:manufacturing", E.SUPPLIES, 0.15),
         _edge("sector:finance", "sector:housing", E.SUPPLIES, 0.25),
-        # Sectors add up to the economy: a step (5%) off a sector's output takes roughly its
-        # share of GDP off growth. Finance also carries credit to everyone else (CA-3).
-        _edge("sector:finance", "country:uk", E.SUPPLIES, 0.4),
-        _edge("sector:manufacturing", "country:uk", E.SUPPLIES, 0.5),
-        _edge("sector:public", "country:uk", E.SUPPLIES, 0.5),
+        # Sectors add up to output, a level (O3): a step (5%) off a sector's output takes
+        # roughly its share of GDP off it, as calibrated against growth in CA-3. Finance also
+        # carries credit to everyone else; public output counts at half, as much of a rise
+        # goes on pay and prices rather than more services.
+        _edge("sector:finance", GAP, E.SUPPLIES, 0.4),
+        _edge("sector:manufacturing", GAP, E.SUPPLIES, 0.5),
+        _edge("sector:public", GAP, E.SUPPLIES, 0.5),
+        # Growth is the change in output over the year, on top of trend growth (M1): output now
+        # makes growth, and output 12 turns ago is the base it is measured from. Exact, so no
+        # uncertainty, and fixed (``world.changes``).
+        _edge(GAP, "country:uk", E.SUPPLIES, 1 / DAMPING, unc=0.0),
+        _edge(GAP, "country:uk", E.DRIVES, -1 / DAMPING, lag=12, unc=0.0),
         # Sectors and institutions drive indicators
         # More energy output means lower prices
         _edge("sector:energy", "indicator:energy_prices", E.DRIVES, -0.6, unc=0.2),
@@ -246,18 +270,21 @@ def toy_world() -> WorldState:
         _edge("indicator:gilt_yield", "indicator:house_prices", E.DRIVES, -0.12, lag=1),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
         _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
-        # Okun's law: slower growth costs jobs a turn later (CA-3).
-        _edge("country:uk", "indicator:unemployment", E.DRIVES, -0.4, lag=1),
+        # Okun's law on the gap: output below potential costs jobs a turn later (O3).
+        _edge(GAP, "indicator:unemployment", E.DRIVES, OKUN, lag=1),
+        # Phillips curve: demand beyond potential pushes prices up (O3).
+        _edge(GAP, "indicator:inflation", E.DRIVES, PHILLIPS, lag=3),
         _edge("sector:housing", "indicator:house_prices", E.DRIVES, -0.3, lag=12),
         # Credit: when banks lend more, buyers can borrow more and prices rise (CA-3).
         _edge("sector:finance", "indicator:house_prices", E.DRIVES, 0.4, lag=1),
         # Borrowing: markets demand higher rates and it feeds prices. What spending and tax
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
-        # A slump widens the deficit by itself: tax receipts fall and benefit bills rise (CA-4).
-        _edge("country:uk", "indicator:deficit", E.DRIVES, -0.5, lag=1),
-        # Heavy borrowing raises the risk premium on gilts, not Bank Rate (O4).
+        # A slump widens the deficit by itself: tax receipts fall and benefit bills rise while
+        # output is below potential (CA-4, O3).
+        _edge(GAP, "indicator:deficit", E.DRIVES, STABILISERS, lag=1),
+        # Heavy borrowing raises the risk premium on gilts, not Bank Rate (O4). Demand reaches
+        # prices through the output gap (O3), not straight from the deficit.
         _edge("indicator:deficit", "indicator:gilt_yield", E.DRIVES, 0.2, lag=1),
-        _edge("indicator:deficit", "indicator:inflation", E.DRIVES, 0.1, lag=2),
         # The pound: growth and higher rates attract money, heavy borrowing scares it off, and
         # a weaker pound makes imports dearer a couple of turns later (CA-3).
         _edge("country:uk", "indicator:exchange_rate", E.DRIVES, 0.3),
