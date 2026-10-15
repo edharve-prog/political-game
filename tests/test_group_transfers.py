@@ -12,6 +12,7 @@ from hog_sim.population.popularity import FAIRNESS, policy_events
 from hog_sim.world.propagation import (
     DEMAND_SHARE,
     FISCAL_NODE,
+    HOME_SHARE,
     actions_to_shocks,
     demand_shocks,
     fiscal_cost,
@@ -35,7 +36,8 @@ def test_a_pension_rise_is_spent_across_the_private_sectors() -> None:
     assert all(s.delta > 0 and s.hold and s.duration_turns == 12 for s in shocks)
     money = fiscal_cost(act("spend", "group:pensioners", 1.0), world)
     money_bn = money * scale(world, FISCAL_NODE) / 100 * world.countries["country:uk"].gdp_bn
-    assert spent_bn(shocks, world) == pytest.approx(money_bn * DEMAND_SHARE["group:pensioners"])
+    at_home = money_bn * DEMAND_SHARE["group:pensioners"] * HOME_SHARE
+    assert spent_bn(shocks, world) == pytest.approx(at_home)
 
 
 def test_taxing_business_owners_cuts_investment() -> None:

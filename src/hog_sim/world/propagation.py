@@ -230,6 +230,32 @@ _FISCAL_SIGN = {"spend": 1.0, "tax": -1.0}
 FISCAL_STEPS = 1.25
 MIN_FISCAL_TURNS = 6
 
+# The output gap (O3, M1): output against potential, % of potential, a level. Sectors add up
+# to it, the player's growth is its change over the year and unemployment follows it, so a
+# policy that holds output up for 24 turns gives a step in output for 24 turns, not 24 turns
+# of faster growth. A shock to the player's own growth rate is a shock to its output: a fall
+# of 5 points of growth is output 5% below potential.
+GAP_NODE = "indicator:output_gap"
+# Tax and spending on the whole country move demand (O3): each step of deficit a national
+# policy adds lifts the gap by this many points while it runs, and a tax rise lowers it. Part
+# of the money is saved or spent abroad, and tax changes reach spending less than spending does.
+NATIONAL_MULTIPLIER = {"spend": 0.5, "tax": 0.35}
+# Money spent on a private sector (a subsidy, a contract) buys SECTOR_PASS_THROUGH of its
+# value in extra output from that sector: the rest goes on profits, imports and work that
+# would have been done anyway. Taxing it likewise takes less output off it than it raises
+# (O3). Public services are bought outright, so their spending is their output.
+SECTOR_PASS_THROUGH = 0.5
+PASS_THROUGH = {"sector:public": 1.0}
+# Of what households and firms spend, HOME_SHARE is bought from home producers; the rest is
+# imports (O3).
+HOME_SHARE = 0.7
+
+
+def pass_through(sector: str) -> float:
+    """Output a pound of tax or spending aimed at ``sector`` adds or removes there."""
+    return PASS_THROUGH.get(sector, SECTOR_PASS_THROUGH)
+
+
 # Markets and unfunded tax cuts (CA-4): a tax cut that this turn's other decisions do not pay
 # for, worth at least CONFIDENCE_THRESHOLD steps of deficit a turn, makes markets doubt the
 # government's plans, as after the 2022 mini-budget. Each step of unfunded cut pushes gilt
@@ -402,21 +428,46 @@ def foreign_country(action: PolicyAction, state: WorldState | None) -> bool:
 
 
 def access_links(state: WorldState, partner: str) -> list[Edge]:
-    """The partner's links into the player's economy: its trade with the player's country and
-    its supply links into the player's sectors."""
+    """The partner's links into the player's economy: its trade with the player's country (its
+    output, where there is an output gap) and its supply links into the player's sectors."""
     return [
         e
         for e in state.edges
         if e.source == partner
         and e.kind in ACCESS_EDGES
-        and (e.target == state.player_country or e.target in state.sectors)
+        and (home(state, e.target) == state.player_country or e.target in state.sectors)
     ]
+
+
+def home(state: WorldState, node_id: str) -> str:
+    """The node an edge's end stands for: the player's output gap is the player's country."""
+    return state.player_country if node_id == GAP_NODE else node_id
 
 
 def _trades(state: WorldState, a: str, b: str) -> bool:
     return any(
-        e.kind == EdgeKind.TRADES_WITH and {e.source, e.target} == {a, b} for e in state.edges
+        e.kind == EdgeKind.TRADES_WITH and {home(state, e.source), home(state, e.target)} == {a, b}
+        for e in state.edges
     )
+
+
+def national_demand(action: PolicyAction, state: WorldState | None) -> list[Shock]:
+    """National tax or spending as a held push on the output gap while it is paid (O3)."""
+    if (
+        state is None
+        or action.target != state.player_country
+        or action.kind not in NATIONAL_MULTIPLIER
+        or GAP_NODE not in state.indicators
+        or FISCAL_NODE not in state.indicators
+    ):
+        return []
+    cost = fiscal_cost(action, state) * scale(state, FISCAL_NODE)  # % GDP a year
+    if not cost:
+        return []
+    delta = cost * NATIONAL_MULTIPLIER[action.kind] / scale(state, GAP_NODE)
+    return [
+        Shock(node=GAP_NODE, delta=delta, duration_turns=fiscal_turns(action, state), hold=True)
+    ]
 
 
 def foreign_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]:
@@ -454,13 +505,14 @@ def fiscal_size(action: PolicyAction) -> float:
 def fiscal_steps(action: PolicyAction, state: WorldState | None = None) -> float:
     """Steps of deficit a turn per unit of magnitude. Aimed at a sector, the cost is the
     output the action pushes, as a share of the player's GDP (CA-4): the money spent on, or
-    taxed from, the sector is the output it adds or removes. Anything else costs
+    taxed from, the sector is the output it adds or removes, over the share of it that
+    becomes output (``pass_through``). Anything else costs
     ``FISCAL_STEPS``."""
     if state is None or action.target not in state.sectors:
         return FISCAL_STEPS
     gdp = state.countries[state.player_country].gdp_bn
     output = ACTION_STEPS * scale(state, action.target)
-    return output / gdp * 100 / scale(state, FISCAL_NODE)
+    return output / pass_through(action.target) / gdp * 100 / scale(state, FISCAL_NODE)
 
 
 def fiscal_turns(action: PolicyAction, state: WorldState | None = None) -> int:
@@ -532,7 +584,8 @@ def demand_shocks(action: PolicyAction, state: WorldState | None) -> list[Shock]
         return []
     gdp = state.countries[state.player_country].gdp_bn
     money = cost * scale(state, FISCAL_NODE) / 100 * gdp  # £bn a year into the group's pockets
-    spent = money * DEMAND_SHARE.get(action.target, DEFAULT_DEMAND_SHARE)
+    # Of what it spends, HOME_SHARE is bought at home (O3).
+    spent = money * DEMAND_SHARE.get(action.target, DEFAULT_DEMAND_SHARE) * HOME_SHARE
     turns = max(action.duration_turns, MIN_FISCAL_TURNS)
     return [
         Shock(node=s, delta=spent * w / scale(state, s), duration_turns=turns, hold=True)
@@ -598,7 +651,7 @@ def actions_to_shocks(actions: list[PolicyAction], state: WorldState | None = No
             cut = cuts_jobs_cover(action)
             shocks += _job_shocks(_job_costs(jobs[i], -1.0 if cut else 1.0), one_off=not cut)
             continue
-        shocks += demand_shocks(action, state)
+        shocks += demand_shocks(action, state) + national_demand(action, state)
         cost = fiscal_cost(action, state)
         if fiscal and cost:
             paid = fiscal_turns(action, state)
@@ -670,15 +723,18 @@ def _value(state: WorldState, node_id: str) -> float:
 
 
 def pushes_for(shocks: list[Shock], state: WorldState, turn: int | None = None) -> list[Push]:
-    """Shocks made on ``turn`` (default: the state's) as pushes in absolute turns."""
+    """Shocks made on ``turn`` (default: the state's) as pushes in absolute turns. A shock
+    to the player's own growth lands on its output gap (``GAP_NODE``), where there is one."""
     turn = state.turn if turn is None else turn
+    gap = GAP_NODE in state.indicators
     pushes = []
     for shock in shocks:
         state.node(shock.node)  # raises KeyError on an unknown node
         start = turn + shock.start_turn
+        home_growth = gap and shock.node == state.player_country
         pushes.append(
             Push(
-                node=shock.node,
+                node=GAP_NODE if home_growth else shock.node,
                 delta=shock.delta,
                 start=start,
                 end=start + shock.duration_turns,
@@ -843,7 +899,11 @@ class _Engine:
                     moves[n] = move
                     values[n] += move
             series = past.get(n)
-            series = [*series[len(series) + 1 - self.memory :], level[n]] if series else [level[n]]
+            # Keep the last ``memory`` turns. (The slice used to start from a negative index
+            # once the history was half as long as the longest lag, so it never grew past
+            # that and links longer than half the longest lag never fired.)
+            kept = series[max(0, len(series) + 1 - self.memory) :] if series else []
+            series = [*kept, level[n]]
             if any(abs(v) > NEGLIGIBLE for v in series):
                 levels[n] = series
         engine.own = kept_own

@@ -43,7 +43,7 @@ forecast's random draws).
 |---|---|---|
 | `DRIVES` | a node pushes an indicator (energy output lowers energy prices) | propagation |
 | `SUPPLIES` | one sector or country feeds another's output | propagation |
-| `TRADES_WITH` | one economy's growth moves another's | propagation |
+| `TRADES_WITH` | one economy's growth moves another's (for the player's country, its output) | propagation |
 | `INFLUENCES` | an institution moves another node, or a group's mood | propagation, approval |
 | `EMPLOYS` | a sector's output affects a group's approval | approval |
 | `CARES_ABOUT` | a group's approval depends on an indicator | approval |
@@ -59,8 +59,8 @@ sectors (energy, finance, manufacturing, housing, public); seven groups that tog
 the whole electorate (pensioners 19%, young renters 15%, public sector workers 17%, business
 owners 8%, private sector workers 22%, mortgaged homeowners 13%, students 6%); the House of
 Commons and the Bank of England;
-and eight indicators (inflation, unemployment, Bank Rate, the 10-year gilt yield, energy prices,
-house prices, deficit, and the pound's exchange rate).
+and nine indicators (inflation, unemployment, Bank Rate, the 10-year gilt yield, energy prices,
+house prices, deficit, the output gap and the pound's exchange rate).
 Its numbers are illustrative round figures, not sourced data.
 
 ---
@@ -182,12 +182,28 @@ Every response becomes one or more **actions**. An action has:
 "Do nothing" fits anything. Any other indicator can only be moved indirectly, by acting on
 something that drives it, so the world graph carries the trade-offs.
 
-The player's own country's growth comes from what its sectors do, so tax, spending and rules
-for "the country" have to be aimed at the sectors or groups they reach, where they carry their
-costs. No action pushes the player's own growth rate directly, so a speech to the nation moves
-no output. (Until 13 October 2026 national tax, spending and deregulation pushed UK growth 2
-steps a unit; the extra growth cut the deficit and swelled GDP, so spending on the country paid
-for itself and left debt lower than doing nothing.)
+**Output is a level, growth is its change.** The player's economy is measured by its **output
+gap**, `indicator:output_gap`: output against what the economy could produce without stoking
+inflation, as a % of that potential. The sectors add up to it, so a step (5%) off a sector's
+output takes roughly its share of GDP off the gap. UK growth is the gap's change over the
+year: the gap now less the gap 12 turns ago, on top of trend growth. A policy held for two
+years therefore gives a step in output for two years and a year of faster growth, not two
+years of faster growth, and when it ends output falls back and growth dips below trend for a
+year. Unemployment, the cyclical deficit and inflation follow the gap, not growth. A shock to
+the player's own growth (a scenario's "-5 to UK growth") lands on the gap as output 5% below
+potential. These links are accounting, not behaviour, so they carry no uncertainty and no
+event may rewire them.
+
+No action pushes the player's own growth directly, so a speech to the nation moves no output.
+**Tax and spending on the whole country move demand**: while they are paid, each point of GDP
+of national spending lifts the gap by 0.5 points and each point of national tax cut by 0.35
+(part of the money is saved or spent abroad, and tax changes reach spending less than spending
+does). A tax rise lowers it the same way. (Until 13 October 2026 national tax, spending and
+deregulation pushed UK growth 2 steps a unit; the extra growth cut the deficit and swelled GDP,
+so spending on the country paid for itself and left debt lower than doing nothing. Until O3,
+sectors fed UK growth directly, so a programme held for 24 turns kept growth higher for 24
+turns and left GDP permanently higher, and spending on finance or manufacturing still left debt
+lower than doing nothing.)
 
 ### How hard each kind pushes
 
@@ -237,9 +253,10 @@ Special cases:
   group's pockets is spent on the sectors it buys from, held for as long as the money is paid
   (at least 6 turns). Pensioners and public sector workers spend 80% of it, young renters 90%,
   across the private sectors in proportion to their output (young renters weighted to housing);
-  business owners spend 40% of it, as investment in manufacturing (60%) and finance (40%). A
-  full-size pension rise (£34bn a year) therefore adds about £27bn of private-sector output, and
-  taxing business owners takes investment away. Part of every transfer is saved, so it lifts
+  business owners spend 40% of it, as investment in manufacturing (60%) and finance (40%).
+  70% of what is spent is bought at home; the rest is imports. A full-size pension rise (£34bn
+  a year) therefore adds about £19bn of private-sector output, and taxing business owners takes
+  investment away. Part of every transfer is saved, so it lifts
   output by less than spending the same money on a sector does.
 - **A speech to a sector or a foreign country** lifts it once, by 0.4 steps per unit, and the lift fades
   like any one-off: it does not hold output up for as long as the speech "runs".
@@ -273,10 +290,15 @@ An action holds its push at full strength for its whole duration, then lets it f
 ### Money: the deficit
 
 Spending and tax also move `indicator:deficit`, as a flow, for as long as the policy runs, and
-for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) is the
-output the action adds (or removes), as a share of GDP: a full-size rise in public spending
-adds £50bn of output, so the deficit stays **1.85 points of GDP higher**, while the same rise
-for the smaller housing sector costs 0.56 points. Aimed at anything else (a group, an
+for at least 6 turns even for a one-off. Aimed at a sector, the money spent (or taxed) buys
+the output the action adds (or removes), as a share of GDP: a full-size rise in public spending
+adds £50bn of output, so the deficit stays **1.85 points of GDP higher**. Public services are
+bought outright, but money spent on a private sector (a subsidy, a contract) buys only half its
+value in extra output from that sector; the rest goes on profits, imports and work that would
+have been done anyway. So the same rise for the smaller housing sector costs 1.11 points, and
+taxing a private sector raises twice the output it takes off it. No spending pays for itself:
+a year of spending or tax cuts on anything leaves debt as a share of GDP above doing nothing on
+every turn, while it runs and after (`tests/test_output_gap.py`). Aimed at anything else (a group, an
 indicator), each unit of spending or tax cut keeps the deficit **1.25
 points higher**. A tax rise of the same size takes the same off. Spending or
 taxing aimed at an indicator says separately whether the tax or spending itself goes up or down
@@ -321,7 +343,9 @@ so the cut is blocked; a cut bigger or longer than the scheme is trimmed to it.
 **Debt and its interest bill.** The UK starts with public debt of **100% of GDP** at an average
 rate of 4%, an interest bill of 4% of GDP a year that is already part of the starting deficit.
 Each turn (a month) the debt grows by a twelfth of the deficit and shrinks by a twelfth of
-nominal growth (growth plus inflation) times the debt; at the start the two cancel. The average
+nominal growth (growth plus inflation) times the debt; at the start the two cancel. Because
+growth is the change in output, a lasting rise in output shrinks the debt ratio once, not
+every turn it lasts. The average
 rate drifts toward the market rate on new borrowing as old debt is refinanced, half the gap in
 **24 turns**. That market rate is three quarters the 10-year gilt yield and one quarter Bank Rate,
 the share of the debt that is reserves created by quantitative easing, which pay Bank Rate (O4).
@@ -499,11 +523,13 @@ prices (0.1, three turns later) and inflation (0.4, six turns later), raises une
 six turns later), and lifts the 10-year gilt yield in the same turn (0.7), since markets price
 the path they expect. A higher deficit raises the gilt yield's risk premium (0.2, a turn later),
 and higher gilt yields lower house prices a turn later (0.12), through fixed-rate mortgages. More
-output from finance raises house prices a turn later (0.4): credit. A higher deficit also raises
-inflation (0.1, two turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
-0.5), and slower growth raises unemployment a turn later (0.4) and widens the deficit (0.5): tax
-receipts fall and benefit bills rise. EU growth reaches UK growth
-(0.45) and, a turn later, UK manufacturing (0.3), since the EU buys half of UK goods exports.
+output from finance raises house prices a turn later (0.4): credit. Finance, manufacturing and
+the public sector feed the output gap in the same turn (0.4, 0.5 and 0.5), and UK growth is the
+gap now less the gap 12 turns ago. Output below potential raises unemployment a turn later (0.5,
+Okun's law), widens the deficit (0.5: tax receipts fall and benefit bills rise) and lowers
+inflation three turns later (0.15). Demand reaches prices only through the gap: borrowing no
+longer feeds inflation directly. EU growth reaches UK output (0.45) and, a turn later, UK
+manufacturing (0.3), since the EU buys half of UK goods exports.
 The pound rises with UK growth (0.3) and Bank Rate (0.2) and falls with the deficit (0.4), all in
 the same turn; a weaker pound raises inflation two turns later (0.3). No policy can aim at the
 pound directly.
@@ -955,7 +981,10 @@ off-Budget capital surcharge (section 4).
 | Off-Budget surcharge | +0.5 capital per unit for tax or spending outside a Budget turn | `policy/fiscal_events.py` |
 | Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
-| Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
+| Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP over the share that becomes output (public 1.85, finance 1.70, manufacturing 1.63, housing 1.11, energy 0.59 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`, `SECTOR_PASS_THROUGH`) |
+| Output gap | growth = gap now less gap 12 turns ago; unemployment -0.5, deficit -0.5 (a turn later), inflation +0.15 (three turns later) per point | `world/seed/toy.py` |
+| National tax and spending | lift the gap 0.5 (spending) or 0.35 (tax) points per point of GDP while paid | `world/propagation.py` (`NATIONAL_MULTIPLIER`) |
+| Household demand bought at home | 70% | `world/propagation.py` (`HOME_SHARE`) |
 | Damping per link | 0.9 | `world/propagation.py` |
 | Max same-turn loop gain | 0.9 | `world/propagation.py` |
 | Repeat window, repeat penalty | 4 turns, half per use in the same direction | `policy/limits.py` |
@@ -999,29 +1028,31 @@ happening.*
 
 This is what the engine actually produces (no outcome effects, no scenario shocks):
 
-| After turn | Public sector output | Deficit | Bank Rate | Gilt yield | Unemployment | Public workers | Business owners |
-|---|---|---|---|---|---|---|---|
-| start | £500bn | 4.50% | 4.00% | 4.00% | 4.50% | 0.450 | 0.500 |
-| 1 | £550bn | 6.35% | 4.00% | 4.00% | 4.50% | 0.482 | 0.466 |
-| 2 | £545bn | 5.93% | 4.00% | 4.33% | 4.16% | 0.496 | 0.459 |
-| 3 | £540bn | 5.97% | 4.18% | 4.37% | 4.19% | 0.494 | 0.454 |
-| 6 | £530bn | 6.11% | 4.61% | 4.67% | 4.27% | 0.469 | 0.443 |
-| 7 | £527bn | 5.23% | 4.65% | 4.70% | 4.29% | 0.472 | 0.462 |
-| 8 | £524bn | 4.81% | 4.67% | 4.55% | 4.31% | 0.472 | 0.478 |
+| After turn | Public sector output | Output gap | Growth | Deficit | Bank Rate | Gilt yield | Unemployment | Public workers | Business owners |
+|---|---|---|---|---|---|---|---|---|---|
+| start | £500bn | +0.00% | 1.00% | 4.50% | 4.00% | 4.00% | 4.50% | 0.450 | 0.500 |
+| 1 | £550bn | +0.94% | 1.94% | 6.35% | 4.00% | 4.00% | 4.50% | 0.482 | 0.466 |
+| 2 | £545bn | +0.86% | 1.86% | 5.93% | 4.00% | 4.33% | 4.08% | 0.496 | 0.459 |
+| 3 | £540bn | +0.77% | 1.77% | 5.97% | 4.23% | 4.40% | 4.11% | 0.495 | 0.454 |
+| 6 | £530bn | +0.56% | 1.56% | 6.11% | 4.67% | 4.70% | 4.21% | 0.469 | 0.442 |
+| 7 | £527bn | +0.51% | 1.51% | 5.23% | 4.71% | 4.74% | 4.24% | 0.472 | 0.461 |
+| 8 | £524bn | +0.46% | 1.46% | 4.82% | 4.72% | 4.59% | 4.27% | 0.473 | 0.477 |
 
 Reading it:
 
 - Output jumps by 2 steps (2 × 5% of £500bn = £50bn), then keeps 90% of the push each turn.
 - The deficit rises by the £50bn spent as a share of £2,700bn GDP, 1.85 points, and the
   spending holds it there for the minimum 6 turns, then it halves its excess each turn. The
-  faster growth claws some back a turn later (0.5 × 0.9 × 0.9 ≈ 0.4 points), which is why it
+  higher output claws some back a turn later (0.94 × 0.5 × 0.9 ≈ 0.4 points), which is why it
   sits nearer 6%.
 - A turn later, the gilt yield rises by 1.85 × 0.2 × 0.9 ≈ 0.33 points through the deficit's
   risk premium. Bank Rate does not move on the deficit.
-- The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
-  growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
-  Bank Rate up a turn after that, and the rule's smoothing keeps building on it, which is why it
-  climbs to about 4.6%; gilts follow it.
+- The extra output lifts the output gap by 0.5 × 0.9 × 2 = 0.9 points (0.94 with what the EU
+  buys back), and growth with it, since growth is the gap's change over the year; growth then
+  eases with the gap as the push fades. A turn later the higher output takes 0.94 × 0.5 × 0.9
+  ≈ 0.42 points off unemployment. Lower unemployment then nudges Bank Rate up a turn after that,
+  and the rule's smoothing keeps building on it, which is why it climbs to about 4.7%; gilts
+  follow it.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
   (0.03 for each point above 5%, so about 0.04 at 6.35%, felt by everyone) takes some of that
