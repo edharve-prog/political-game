@@ -202,10 +202,13 @@ def stage_graph_changes(
 DIPLOMATIC_RELATIONSHIP = 0.1
 MILITARY_RELATIONSHIP = -0.15
 MILITARY_STABILITY = -0.05
+# A speech to (or about) a foreign country moves only the relationship, a little (M3).
+COMMUNICATE_RELATIONSHIP = 0.02
 
 
 def action_changes(state: WorldState, actions: list[PolicyAction]) -> list[GraphChange]:
-    """Node changes implied by diplomatic and military actions towards foreign countries."""
+    """Node changes implied by diplomatic, military and communicate actions towards foreign
+    countries."""
     changes = []
     for a in actions:
         if a.target not in state.countries or a.target == state.player_country:
@@ -216,6 +219,8 @@ def action_changes(state: WorldState, actions: list[PolicyAction]) -> list[Graph
             changes.append(_attr(a.target, "relationship", MILITARY_RELATIONSHIP * a.magnitude))
             if a.magnitude > 0:
                 changes.append(_attr(a.target, "stability", MILITARY_STABILITY * a.magnitude))
+        elif a.kind == "communicate" and a.magnitude:
+            changes.append(_attr(a.target, "relationship", COMMUNICATE_RELATIONSHIP * a.magnitude))
     return changes
 
 
@@ -237,13 +242,18 @@ def trade_factor(relationship: float) -> float:
 
 
 def _scale_trade(state: WorldState, country: str, old: float, new: float) -> None:
-    """Set the player's trade edges with ``country`` for its relationship moving from ``old``
-    to ``new``, in place, unless that would make the same-turn feedback unstable."""
+    """Set the player's trade edges with ``country``, and ``country``'s supply links into the
+    player's sectors (market access, M3), for its relationship moving from ``old`` to ``new``,
+    in place, unless that would make the same-turn feedback unstable."""
     pair = {state.player_country, country}
     trade = [
         e
         for e in state.edges
-        if e.kind == EdgeKind.TRADES_WITH and {home(state, e.source), home(state, e.target)} == pair
+        if (
+            e.kind == EdgeKind.TRADES_WITH
+            and {home(state, e.source), home(state, e.target)} == pair
+        )
+        or (e.kind == EdgeKind.SUPPLIES and e.source == country and e.target in state.sectors)
     ]
     if not trade or old == new:
         return
