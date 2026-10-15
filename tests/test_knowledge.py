@@ -233,7 +233,7 @@ def responder(engine):
 
 @pytest.fixture
 def engine(world):
-    return propagate(world, actions_to_shocks([TAX]), horizon=6, k_draws=50)
+    return propagate(world, actions_to_shocks([TAX], world), horizon=6, k_draws=50)
 
 
 def play_claude_game(world, engine, store, game_id, turns=3):
