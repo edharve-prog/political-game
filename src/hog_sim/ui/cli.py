@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
-from hog_sim.core.models import PolicyAction, SideIssue
+from hog_sim.core.models import PolicyAction, Reading, SideIssue
 from hog_sim.core.state import WorldState
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
@@ -222,9 +222,9 @@ def _lifetime(action: PolicyAction, state: WorldState | None) -> str:
 def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines = [_section("Your advisers read that as"), ""]
     if proposal.actions:
-        lines += [
-            f"  {i}. {describe(a)}{_lifetime(a, state)}" for i, a in enumerate(proposal.actions, 1)
-        ]
+        for i, a in enumerate(proposal.actions, 1):
+            lines.append(f"  {i}. {describe(a)}{_lifetime(a, state)}")
+            lines += _reading_lines(proposal.reading(i - 1))
     else:
         lines.append("  (no actions: this turn the government does nothing)")
     notes = [f"Not possible: {line}" for line in proposal.unmapped]
@@ -244,6 +244,21 @@ def _proposal_text(proposal: Proposal, state: WorldState | None = None) -> str:
     lines.append("")
     lines += [_wrap(n, "  ", "    ") for n in notes]
     return "\n".join(lines)
+
+
+def _reading_lines(reading: Reading | None) -> list[str]:
+    """Where an action came from in the response, flagged when the interpreter guessed (D6)."""
+    if reading is None:
+        return []
+    lines = []
+    if reading.span:
+        span = reading.span if len(reading.span) <= 70 else reading.span[:67] + "..."
+        lines.append(f'     from "{span}"')
+    if reading.fallback:
+        lines.append("     CHECK: no target was named, so it was guessed from the scenario")
+    elif reading.doubtful:
+        lines.append(f"     CHECK: low confidence ({reading.confidence:.0%}) in this reading")
+    return lines
 
 
 def _preview_text(game: Game, proposal: Proposal) -> str:

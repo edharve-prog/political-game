@@ -58,6 +58,7 @@ from hog_sim.core.models import (
     Outcome,
     Pledge,
     PolicyAction,
+    Reading,
     Scenario,
     Shock,
 )
@@ -378,6 +379,24 @@ class Proposal(Model):
     unmapped: list[str] = Field(
         default_factory=list, description="Measures the interpreter could not map (E21)"
     )
+    readings: list[Reading] = Field(
+        default_factory=list, description="How each requested action was read (D6)"
+    )
+
+    def reading(self, index: int) -> Reading | None:
+        """The reading for ``actions[index]``: the first unused one of the same kind and
+        target, or None (the player edited it, or the interpreter gave none)."""
+        used: set[int] = set()
+        for i, action in enumerate(self.actions):
+            j = next(
+                (j for j, r in enumerate(self.readings) if j not in used and r.fits(action)),
+                None,
+            )
+            if i == index:
+                return self.readings[j] if j is not None else None
+            if j is not None:
+                used.add(j)
+        return None
 
 
 class Game:
@@ -474,8 +493,9 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
+        readings = getattr(self.interpreter, "last_readings", lambda: [])()
         unmapped = getattr(self.interpreter, "last_unmapped", lambda: [])()
-        return self._limit(
+        proposal = self._limit(
             response,
             requested,
             delivery=delivery,
@@ -483,6 +503,7 @@ class Game:
             sacked=sacked,
             unmapped=unmapped,
         )
+        return proposal.model_copy(update={"readings": list(readings)})
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -499,7 +520,7 @@ class Game:
     ) -> Proposal:
         """The same proposal with the player's edited actions, re-checked against the limits.
         ``sacked`` replaces its sackings, so the player can call one off (E18)."""
-        return self._limit(
+        revised = self._limit(
             proposal.response,
             actions,
             proposal.requested,
@@ -508,6 +529,7 @@ class Game:
             proposal.sacked if sacked is None else sacked,
             proposal.unmapped,
         )
+        return revised.model_copy(update={"readings": proposal.readings})
 
     def _limit(
         self,
