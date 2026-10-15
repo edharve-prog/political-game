@@ -313,6 +313,7 @@ def _guarded(game: Game, part: str, what: str, call, offline=None):
     """``call()``, and when the model fails (E22) ask to retry or to run it once with
     ``game.<part>`` (scenarios, interpreter or forecaster) swapped for ``offline``. Without
     an offline stand-in the error is raised as before."""
+    from hog_sim.llm.budget import LLMBudgetExceeded
     from hog_sim.llm.client import LLMError
 
     while True:
@@ -321,7 +322,10 @@ def _guarded(game: Game, part: str, what: str, call, offline=None):
         except LLMError as err:
             if offline is None:
                 raise
-            if _retry_or_offline(what, err) == "offline":
+            choice = _retry_or_offline(what, err)
+            if choice == "retry" and isinstance(err, LLMBudgetExceeded):
+                err.client.extend()
+            if choice == "offline":
                 original = getattr(game, part)
                 setattr(game, part, offline)
                 try:
@@ -902,6 +906,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
+    from hog_sim.llm.budget import BUDGET_ENV, DEFAULT_LIMIT, BudgetedClient
     from hog_sim.llm.calllog import LOG_ENV, LOG_FILE
     from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
@@ -957,6 +962,13 @@ def _main(argv: list[str] | None) -> None:
         action="store_true",
         help="make one small call to the model to confirm the connection works, then exit",
     )
+    parser.add_argument(
+        "--call-budget",
+        type=int,
+        default=int(os.environ.get(BUDGET_ENV) or DEFAULT_LIMIT),
+        help=f"most model calls a turn may make before asking you (default {DEFAULT_LIMIT}; "
+        "0 for no cap)",
+    )
     args = parser.parse_args(argv)
     if args.llm_log is None:
         args.llm_log = str(Path(args.save).parent / LOG_FILE)
@@ -991,7 +1003,8 @@ def _main(argv: list[str] | None) -> None:
                 raise SystemExit(str(exc)) from None
             print(f"{NO_CLAUDE_NOTE}\n{exc}\n")
         else:
-            client = _with_log(client, provider, args.llm_log)
+            budget = BudgetedClient(client, max(0, args.call_budget))
+            client = _with_log(budget, provider, args.llm_log)
     if client:
         from hog_sim.forecasting.candidates import ForecastConfig
         from hog_sim.game.llm_plugins import llm_plugins
@@ -1046,6 +1059,8 @@ def _main(argv: list[str] | None) -> None:
         print(f"New game {game_id}. Election at turn {config.election_turn}. Ctrl-D to quit.")
 
     _log_turns(client, game_id, lambda: game.state.turn)
+    if client:
+        budget.turn_of = lambda: game.state.turn
     library = PolicyLibrary(store.conn, game_id)
     # Offline stand-ins for one step when the model fails (E22); none in offline play.
     fallback = (
