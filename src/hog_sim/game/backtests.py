@@ -182,7 +182,9 @@ EPISODES = [
         actions=[act("tax", "country:uk", -0.8, 6)],
         checks=[
             Check(node="indicator:deficit", direction=1, real=(1, 2)),
-            Check(node="indicator:interest_rate", direction=1, real=(0.25, 1)),
+            # Ten-year yields rose from about 3.5% to 4.5% in days (O4); Bank Rate is the
+            # Bank's, and moves only as the weaker pound feeds inflation.
+            Check(node="indicator:gilt_yield", direction=1, real=(0.8, 1.5)),
             Check(node="indicator:house_prices", direction=-1, real=(-4, -1)),
             Check(node="group:business", direction=-1),
             Check(node=VOTE, direction=-1, real=(-0.12, -0.08)),

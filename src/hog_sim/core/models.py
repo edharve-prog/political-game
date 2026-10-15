@@ -157,9 +157,10 @@ class Edge(Model):
     uncertainty: float = Field(0.0, ge=0, description="Std dev used in Monte Carlo draws")
     base_weight: float | None = Field(
         None,
-        description="Trade edges with the player only: the weight at a neutral relationship "
-        "(0), which the relationship scales (see ``world/changes.trade_factor``). None until "
-        "the relationship first moves, and again after the weight itself is changed",
+        description="Trade edges with the player, and a partner's supply links into the "
+        "player's sectors, only: the weight at a neutral relationship (0), which the "
+        "relationship scales (see ``world/changes.trade_factor``). None until the relationship "
+        "first moves, and again after the weight itself is changed",
     )
 
 
