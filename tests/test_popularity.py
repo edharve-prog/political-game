@@ -45,8 +45,10 @@ def test_no_action_is_stable(world) -> None:
 
 
 def test_energy_tax_hurts_the_expected_groups(world) -> None:
-    baseline = play(world, [], 12)[-1]
-    taxed = play(world, [PolicyAction(kind="tax", target="sector:energy", magnitude=0.8)], 12)[-1]
+    # Six turns on, while the one-off tax still bites: later, the Bank's tightening against the
+    # inflation it caused briefly takes inflation below where it would be (O4).
+    baseline = play(world, [], 6)[-1]
+    taxed = play(world, [PolicyAction(kind="tax", target="sector:energy", magnitude=0.8)], 6)[-1]
     for gid in ("group:pensioners", "group:public_workers", "group:business"):
         assert taxed.groups[gid].approval < baseline.groups[gid].approval
     assert national_approval(taxed) < national_approval(baseline)

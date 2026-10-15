@@ -20,6 +20,12 @@ from hog_sim.world.cast import default_cast
 
 E = EdgeKind
 
+# Bank Rate's policy rule (O4): the share of last turn's rate kept each turn, and the pull of
+# inflation and unemployment toward the rate they call for.
+RATE_SMOOTHING = 0.8
+RATE_INFLATION = 0.45
+RATE_UNEMPLOYMENT = -0.6
+
 
 def _edge(
     source: str, target: str, kind: EdgeKind, weight: float, lag: int = 0, unc: float = 0.1
@@ -164,6 +170,18 @@ def toy_world() -> WorldState:
             high=25,
             persistence=0.5,
         ),
+        # The ten-year gilt yield (O4): what markets charge the government to borrow. It follows
+        # the Bank Rate path markets expect, plus a risk premium for fiscal credibility, so it
+        # is where a loss of confidence shows (2022). Markets set it; no policy aims at it.
+        # The curve starts flat, so the debt's average rate does not drift with no news.
+        Indicator(
+            id="indicator:gilt_yield",
+            name="10-year gilt yield",
+            value=4.0,
+            unit="%",
+            low=0,
+            high=20,
+        ),
         # Sterling against a basket of trading partners' currencies; markets set it, so no
         # policy aims at it directly (CA-3).
         Indicator(
@@ -200,14 +218,32 @@ def toy_world() -> WorldState:
         _edge("indicator:energy_prices", "indicator:inflation", E.DRIVES, 0.6, lag=1),
         # Dearer energy raises industry's costs and cuts its output (CA-3).
         _edge("indicator:energy_prices", "sector:manufacturing", E.DRIVES, -0.1, lag=1),
-        # The Bank of England sets Bank Rate (Indicator.controlled_by); how it reacts to
-        # inflation is applied straight to Bank Rate. Its support for the government does
-        # not move rates.
-        _edge("indicator:inflation", "indicator:interest_rate", E.DRIVES, 0.5, lag=1),
+        # The Bank of England sets Bank Rate (Indicator.controlled_by) by a smoothed policy
+        # rule (O4): each turn it moves part of the way from last turn's rate toward what
+        # inflation and unemployment call for. The self link is that smoothing; in the long
+        # run a point of inflation raises Bank Rate by RATE_INFLATION * 0.9 / (1 - RATE_SMOOTHING
+        # * 0.9), over one for one, so real rates rise as inflation does (the Taylor
+        # principle). It is independent: neither borrowing nor its support for the
+        # government moves it, except through inflation.
+        _edge(
+            "indicator:interest_rate",
+            "indicator:interest_rate",
+            E.DRIVES,
+            RATE_SMOOTHING,
+            lag=1,
+            unc=0.03,
+        ),
+        _edge("indicator:inflation", "indicator:interest_rate", E.DRIVES, RATE_INFLATION, lag=1),
         # It also cuts when unemployment rises, as in 2008 and 2020 (CA-3, CA-4).
-        _edge("indicator:unemployment", "indicator:interest_rate", E.DRIVES, -1.0, lag=1),
+        _edge(
+            "indicator:unemployment", "indicator:interest_rate", E.DRIVES, RATE_UNEMPLOYMENT, lag=1
+        ),
         _edge("indicator:interest_rate", "indicator:inflation", E.DRIVES, -0.4, lag=6),
-        _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.25, lag=3),
+        _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.1, lag=3),
+        # Gilts: markets price the Bank Rate path they expect, and fixed-rate mortgages are
+        # priced off the same market, so a jump in yields reaches house prices (2022).
+        _edge("indicator:interest_rate", "indicator:gilt_yield", E.DRIVES, 0.7),
+        _edge("indicator:gilt_yield", "indicator:house_prices", E.DRIVES, -0.12, lag=1),
         _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
         _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
         # Okun's law: slower growth costs jobs a turn later (CA-3).
@@ -219,7 +255,8 @@ def toy_world() -> WorldState:
         # decisions cost the budget is added to the deficit directly (FISCAL_STEPS).
         # A slump widens the deficit by itself: tax receipts fall and benefit bills rise (CA-4).
         _edge("country:uk", "indicator:deficit", E.DRIVES, -0.5, lag=1),
-        _edge("indicator:deficit", "indicator:interest_rate", E.DRIVES, 0.15, lag=1),
+        # Heavy borrowing raises the risk premium on gilts, not Bank Rate (O4).
+        _edge("indicator:deficit", "indicator:gilt_yield", E.DRIVES, 0.2, lag=1),
         _edge("indicator:deficit", "indicator:inflation", E.DRIVES, 0.1, lag=2),
         # The pound: growth and higher rates attract money, heavy borrowing scares it off, and
         # a weaker pound makes imports dearer a couple of turns later (CA-3).

@@ -157,9 +157,10 @@ class Edge(Model):
     uncertainty: float = Field(0.0, ge=0, description="Std dev used in Monte Carlo draws")
     base_weight: float | None = Field(
         None,
-        description="Trade edges with the player only: the weight at a neutral relationship "
-        "(0), which the relationship scales (see ``world/changes.trade_factor``). None until "
-        "the relationship first moves, and again after the weight itself is changed",
+        description="Trade edges with the player, and a partner's supply links into the "
+        "player's sectors, only: the weight at a neutral relationship (0), which the "
+        "relationship scales (see ``world/changes.trade_factor``). None until the relationship "
+        "first moves, and again after the weight itself is changed",
     )
 
 
@@ -204,6 +205,28 @@ class Shock(Model):
         description="Hold the push at delta for duration_turns (a policy that keeps running) "
         "instead of adding delta every turn",
     )
+
+
+LOW_CONFIDENCE = 0.6  # readings below this are flagged on the review screen (D6)
+
+
+class Reading(Model):
+    """How the interpreter read one action (review D6): the words it came from, how sure the
+    interpreter is, and whether the target was guessed rather than named. Matched to an
+    action by kind and target, so an action the player edits loses its reading."""
+
+    kind: ActionKind
+    target: str
+    span: str = Field("", description="The words of the response this action comes from")
+    confidence: float = Field(1.0, ge=0, le=1)
+    fallback: bool = Field(False, description="The target was guessed, not named")
+
+    def fits(self, action: PolicyAction) -> bool:
+        return action.kind == self.kind and action.target == self.target
+
+    @property
+    def doubtful(self) -> bool:
+        return self.fallback or self.confidence < LOW_CONFIDENCE
 
 
 class Delivery(Model):

@@ -29,6 +29,7 @@ from hog_sim.core.models import ActionKind, Model, Outcome, PolicyAction, Scenar
 from hog_sim.core.state import WorldState
 from hog_sim.game.loop import Game, resolve
 from hog_sim.game.stubs import EngineForecaster, KeywordInterpreter
+from hog_sim.policy.capital import available
 from hog_sim.policy.feasibility import compatibility_problem
 from hog_sim.policy.limits import constrain, lifetime_cost
 from hog_sim.population.popularity import run_election
@@ -44,7 +45,8 @@ LIMITS = {
     # every voter counted, pensioners are 23% of the vote rather than 38%, and the levers that
     # buy one group with borrowing now cost more voters than they win, so the gap is about 0.8
     # points. Group effects are retuned on top of the fuller electorate (review 2026-10-13, E6),
-    # which should bring this back down.
+    # which should bring this back down. The Bank's rule and gilt yields (O4) also lean against
+    # fiscal stimulus.
     "max_acting_penalty": 0.012,
     # A package that costs nothing in deficit, enacted on turn 0 within one turn's capital,
     # may beat doing nothing at the election by at most this share of the vote (D4).
@@ -237,7 +239,7 @@ def quiet_game(schedule: Mapping[int, Sequence[PolicyAction]], seed: int = 0, tu
     state, past = start, []
     for turn in range(turns):
         limited = constrain(
-            list(schedule.get(turn, [])), state, past, config.role, config.capital_per_turn
+            list(schedule.get(turn, [])), state, past, config.role, available(state, config)
         )
         past.append(limited.actions)
         state = resolve(start, state, _QUIET, limited.actions, _NO_OUTCOME, config)

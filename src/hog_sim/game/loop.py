@@ -39,7 +39,9 @@ graph changes and job protection act on effects already in flight, and a node he
 fades back from the bound. The forecast (``forecast``) runs the same step from the same state,
 with the same shocks for this turn and the same rules after it (ministers leaving, institutions
 settling, the debt, the actions' graph changes), so what it shows is what resolve would do with
-no outcome; what it cannot project is listed in ``UNPROJECTED``.
+no outcome; what it cannot project is listed in ``UNPROJECTED``. With ``hidden_world`` on (D1)
+resolve plays on the game's hidden edge weights (``world.propagation.true_weights``) while the
+forecast keeps the central ones, so the forecast is the government's best guess, not the truth.
 """
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ from hog_sim.core.models import (
     Outcome,
     Pledge,
     PolicyAction,
+    Reading,
     Scenario,
     Shock,
 )
@@ -63,8 +66,21 @@ from hog_sim.core.state import WorldState
 from hog_sim.forecasting.selection import select
 from hog_sim.game.interfaces import Forecaster, Interpreter, ScenarioSource
 from hog_sim.game.records import TurnRecord
+from hog_sim.policy.capital import available, next_capital
+from hog_sim.policy.credibility import (
+    CredibilityChange,
+    is_crisis,
+    meets_crisis,
+    step_credibility,
+)
 from hog_sim.policy.feasibility import LEGISLATURE_ID, forcing_shocks
-from hog_sim.policy.limits import Constrained, constrain
+from hog_sim.policy.limits import (
+    Constrained,
+    capital_cost,
+    constrain,
+    reverses,
+    still_running,
+)
 from hog_sim.policy.pledges import apply_pledges
 from hog_sim.population.popularity import (
     national_approval,
@@ -85,6 +101,7 @@ from hog_sim.world.propagation import (
     propagate,
     scale,
     step,
+    true_weights,
 )
 from hog_sim.world.standing import (
     SENTIMENT_SETTLE,
@@ -192,6 +209,11 @@ UNPROJECTED = [
     "the Commons' drift with the polls after this turn: approval is held where it is",
     "the chosen outcome, which is not known yet",
 ]
+# With a hidden world (D1) the forecast is a guess about the economy, not a copy of it.
+HIDDEN_WORLD_NOTE = (
+    "how this economy really responds: the forecast spreads its guesses over each link's "
+    "uncertainty, and the world plays out one of them"
+)
 
 
 def _departures(
@@ -283,7 +305,7 @@ def forecast(
         baseline=_projection(
             start, state, scenario, [], config, None, (), scenario.shocks + background
         ),
-        unprojected=UNPROJECTED,
+        unprojected=[*UNPROJECTED, HIDDEN_WORLD_NOTE] if config.hidden_world else UNPROJECTED,
     )
 
 
@@ -305,7 +327,8 @@ def resolve(
     shocks = turn_shocks(start, state, scenario, actions, config)
     shocks += outcome_shocks(outcome, state)
     cover = job_protection(state, actions)
-    engine, moves = step(state, shocks, protection=cover)
+    weights = true_weights(state, config.seed) if config.hidden_world else None
+    engine, moves = step(state, shocks, protection=cover, weights=weights)
 
     # Saves from before the engine carried its own state queued effects here; drain them.
     pending = {t: dict(d) for t, d in state.pending.items() if t > state.turn}
@@ -326,8 +349,29 @@ def resolve(
     new = step_debt(new, start)
     new = step_approval(new, reference=start)
     new = advance_storylines(new, state.turn, scenario, outcome, actions, played=state)
+    new.credibility = step_credibility(
+        state.credibility, credibility_change(new, state, scenario, actions)
+    )
+    new.measures = still_running(state.measures, actions)
     new.turn = state.turn + 1
+    unspent = available(state, config) - capital_cost(
+        actions, state, config.role, running=state.measures
+    )
+    new.capital = next_capital(new, unspent, config)
     return new
+
+
+def credibility_change(
+    new: WorldState, state: WorldState, scenario: Scenario, actions: Sequence[PolicyAction]
+) -> CredibilityChange:
+    """What moved credibility on ``state``'s turn (D9): its U-turns, the pledges it broke,
+    and whether a crisis was met with a real measure."""
+    return CredibilityChange(
+        u_turns=sum(reverses(a, state.measures) for a in actions),
+        broken_pledges=sum(p.broken_turn == state.turn for p in new.pledges),
+        crisis=is_crisis(scenario),
+        handled=meets_crisis(scenario, actions),
+    )
 
 
 def not_possible(unmapped: Sequence[str]) -> list[str]:
@@ -369,6 +413,24 @@ class Proposal(Model):
     unmapped: list[str] = Field(
         default_factory=list, description="Measures the interpreter could not map (E21)"
     )
+    readings: list[Reading] = Field(
+        default_factory=list, description="How each requested action was read (D6)"
+    )
+
+    def reading(self, index: int) -> Reading | None:
+        """The reading for ``actions[index]``: the first unused one of the same kind and
+        target, or None (the player edited it, or the interpreter gave none)."""
+        used: set[int] = set()
+        for i, action in enumerate(self.actions):
+            j = next(
+                (j for j, r in enumerate(self.readings) if j not in used and r.fits(action)),
+                None,
+            )
+            if i == index:
+                return self.readings[j] if j is not None else None
+            if j is not None:
+                used.add(j)
+        return None
 
 
 class Game:
@@ -465,8 +527,9 @@ class Game:
         delivery = getattr(self.interpreter, "last_delivery", lambda: None)() or Delivery()
         pledges = getattr(self.interpreter, "last_pledges", lambda: [])()
         sacked = getattr(self.interpreter, "last_sacked", lambda: [])()
+        readings = getattr(self.interpreter, "last_readings", lambda: [])()
         unmapped = getattr(self.interpreter, "last_unmapped", lambda: [])()
-        return self._limit(
+        proposal = self._limit(
             response,
             requested,
             delivery=delivery,
@@ -474,6 +537,7 @@ class Game:
             sacked=sacked,
             unmapped=unmapped,
         )
+        return proposal.model_copy(update={"readings": list(readings)})
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
@@ -482,17 +546,24 @@ class Game:
             raise RuntimeError("the game is over")
         return self._limit(response, actions)
 
-    def revise(self, proposal: Proposal, actions: list[PolicyAction]) -> Proposal:
-        """The same proposal with the player's edited actions, re-checked against the limits."""
-        return self._limit(
+    def revise(
+        self,
+        proposal: Proposal,
+        actions: list[PolicyAction],
+        sacked: Sequence[str] | None = None,
+    ) -> Proposal:
+        """The same proposal with the player's edited actions, re-checked against the limits.
+        ``sacked`` replaces its sackings, so the player can call one off (E18)."""
+        revised = self._limit(
             proposal.response,
             actions,
             proposal.requested,
             proposal.delivery,
             proposal.pledges,
-            proposal.sacked,
+            proposal.sacked if sacked is None else sacked,
             proposal.unmapped,
         )
+        return revised.model_copy(update={"readings": proposal.readings})
 
     def _limit(
         self,
@@ -526,7 +597,7 @@ class Game:
             self.state,
             [r.actions for r in self.history],
             cfg.role,
-            cfg.capital_per_turn,
+            available(self.state, cfg),
         )
 
     def check(self, proposal: Proposal) -> None:

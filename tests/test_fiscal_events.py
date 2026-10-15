@@ -4,7 +4,6 @@ and an independent scorecard costs each measure."""
 import pytest
 
 from hog_sim.core.models import PolicyAction
-from hog_sim.game.stubs import KeywordInterpreter
 from hog_sim.policy.fiscal_events import (
     OFF_BUDGET_SURCHARGE,
     is_budget,
@@ -91,6 +90,6 @@ def test_the_review_screen_shows_the_scorecard() -> None:
     from hog_sim.game.loop import Proposal
 
     world = on(BUDGET)
-    actions = KeywordInterpreter().interpret("Raise taxes on the banks", world, None)
+    actions = [act("tax", "sector:finance", 0.5)]
     proposal = Proposal(response="", requested=actions, actions=actions)
     assert "Independent scorecard" in cli._proposal_text(proposal, world)

@@ -59,8 +59,8 @@ sectors (energy, finance, manufacturing, housing, public); seven groups that tog
 the whole electorate (pensioners 19%, young renters 15%, public sector workers 17%, business
 owners 8%, private sector workers 22%, mortgaged homeowners 13%, students 6%); the House of
 Commons and the Bank of England;
-and seven indicators (inflation, unemployment, Bank Rate, energy prices, house prices, deficit,
-and the pound's exchange rate).
+and eight indicators (inflation, unemployment, Bank Rate, the 10-year gilt yield, energy prices,
+house prices, deficit, and the pound's exchange rate).
 Its numbers are illustrative round figures, not sourced data.
 
 ---
@@ -84,9 +84,26 @@ A game is 24 turns of one month each, with a general election after the last one
    ("we will not raise taxes", "no cuts to schools") are still pledges, a refused sacking
    ("do not sack the Chancellor") sacks nobody, and cutting a programme ("cut spending on
    furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
+   "Do nothing", "wait" and "hold firm" mean do nothing only at the start of an instruction, so
+   "cut waiting lists" still acts. In "X to Y" the verb and target come from X and Y is its
+   purpose; "raise taxes to fund public services" is a broad tax rise and a spend on public
+   services. Business, growth, the economy and households are targets; a speech about them
+   goes to the nation, while tax or spending for households is shared over the population
+   groups (all but business) and for the economy over the sectors. A calendar event's own
+   options map to ready-made actions instead of being read word by word. "In Parliament" or
+   "to the Commons" is where something is announced, not a target. A sacking needs the verb
+   to govern the minister ("sack the Housing Secretary", "replace Ruth Calder"), and the rest
+   of the sentence is still read; the review step can call a sacking off with `drop sacking`.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
-   confirming.
+   confirming: change a measure's size, turns, kind or target, drop it, or add one. Offline,
+   `build` skips keyword matching altogether: the player picks each measure's kind, target
+   (only those the kind can be aimed at), size and turns from menus. Under each action the
+   review screen quotes the words it was read from and flags it to check when the
+   interpreter guessed: Claude gives each action a confidence from 0 to 1, and anything below
+   0.6 is flagged. Offline, keyword matching rates a target it had to guess from the scenario
+   0.4 (and says so), a speech nobody asked for 0.5, and anything else 0.8; a reading reused
+   from an earlier game rates its match score.
 4. The engine runs its **forecast**: 100 random draws of the next 24 turns, starting from
    everything already in flight and adding this turn's actions, the scenario's shocks and the
    background pushes resolve will apply (section 5).
@@ -109,7 +126,7 @@ A game is 24 turns of one month each, with a general election after the last one
 5. Business moods settle a fifth of the way back to neutral. Foreign-policy actions change the
    target country's relationship and stability, and any lasting graph changes in the outcome are
    checked and applied (section 7).
-6. The debt grows by the month's deficit and its average rate reprices toward Bank Rate
+6. The debt grows by the month's deficit and its average rate reprices toward the gilt yield
    (section 3). Every group's approval moves one step (section 6).
 7. Storylines advance (section 9), and the turn counter goes up.
 
@@ -273,11 +290,12 @@ spending cuts) do not pay for spooks the markets if it adds at least 0.75 points
 deficit (a tax cut of magnitude 0.6 or more on a group). Cuts and the savings that pay
 for them are compared over their lives (cost a turn times the turns it is paid, at least 6), so a
 one-turn tax rise pays for only a quarter of a cut that runs for two years. For each point of
-unfunded cut, Bank Rate jumps 0.4
-points and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
+unfunded cut, the 10-year gilt
+yield jumps 1 point and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
-and the government's poll rating down by over 10 points. Spending is not judged this way:
+and the government's poll rating down by over 10 points. Bank Rate does not jump: the Bank is
+independent, and it moves only as the weaker pound feeds inflation. Spending is not judged this way:
 markets lent freely for the 2008 bailout and the 2020 lockdown.
 
 **Job protection.** Spending aimed at unemployment is a wage subsidy, like the 2020 furlough
@@ -304,10 +322,12 @@ so the cut is blocked; a cut bigger or longer than the scheme is trimmed to it.
 rate of 4%, an interest bill of 4% of GDP a year that is already part of the starting deficit.
 Each turn (a month) the debt grows by a twelfth of the deficit and shrinks by a twelfth of
 nominal growth (growth plus inflation) times the debt; at the start the two cancel. The average
-rate drifts toward Bank Rate as old debt is refinanced, half the gap in **24 turns**. Whatever
-the bill has risen since the start is added to the deficit, so borrowing compounds and higher
-rates cost money: Bank Rate about 2 points higher for two years adds nearly 1 point of GDP to the
-deficit. A lower bill saves money the same way. The briefing shows the debt, rate and bill. A
+rate drifts toward the market rate on new borrowing as old debt is refinanced, half the gap in
+**24 turns**. That market rate is three quarters the 10-year gilt yield and one quarter Bank Rate,
+the share of the debt that is reserves created by quantitative easing, which pay Bank Rate (O4).
+Gilts and Bank Rate start level at 4%, so with no news the rate stays put. Whatever the bill has
+risen since the start is added to the deficit, so borrowing compounds and higher rates cost money:
+rates about 2 points higher for two years add nearly 1 point of GDP to the deficit. A lower bill saves money the same way. The briefing shows the debt, rate and bill. A
 world can leave debt untracked (a country with no debt figure); once tracked, debt paid down to
 0 is still tracked and the next deficit builds it up again.
 
@@ -316,16 +336,20 @@ world can leave debt untracked (a country with no debt figure); once tracked, de
 *Source: `world/propagation.py` (`foreign_shocks`), `world/changes.py` (`action_changes`)*
 
 - **Diplomatic** action towards a country improves (or, with negative magnitude, worsens) the
-  relationship by 0.1 per unit. If the two countries trade, it also moves the partner's growth by
-  0.5 steps per unit, held for the action's duration (a trade deal or sanctions).
+  relationship by 0.1 per unit. If the two countries trade, it is a trade deal or sanctions: it
+  changes the UK's access to that market, not the size of the partner's economy (M3). Each UK
+  node the partner feeds (UK growth through trade, and UK sectors it buys from or supplies, such
+  as EU demand for UK manufacturing) is held 0.5 × that link's weight steps higher per unit (or
+  lower, for sanctions) for the action's duration. A full-size deal with the EU lifts UK growth
+  0.23 steps and manufacturing 0.15 steps while it runs.
 - **Military** escalation (positive magnitude) worsens the relationship by 0.15 per unit, cuts
   the country's stability by 0.05 per unit and knocks 1 step per unit off its growth, which
   reaches the UK through trade. De-escalation (negative magnitude) only mends the relationship.
-- A relationship change also scales the trade between the two countries (section 7), so
-  diplomacy deepens trade for good and a row thins it.
-- **Communicate** aimed at a foreign country follows the general rule above and nudges that
-  country's growth by 0.4 steps per unit. This is a side effect of the general rule rather
-  than a deliberate design choice.
+- A relationship change also scales the trade between the two countries, and the partner's
+  supply links into UK sectors (section 7), so diplomacy deepens trade for good and a row thins
+  it.
+- **Communicate** aimed at a foreign country moves only the relationship, by 0.02 per unit. It
+  no longer touches that country's growth.
 
 ---
 
@@ -368,8 +392,9 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    **Whipping** rebuilds a majority: a speech (communicate) aimed at the legislature pushes its
    support up by 1 step (0.1) per unit of magnitude. It is priced as a full measure, not a
    speech, so a whip at full strength takes 1.0 of the 1.5 capital, and it does not wear out
-   with repetition. Offline, any response mentioning whips, backbenchers, MPs, the Commons or
-   Parliament is read as a whip.
+   with repetition. Offline, a response about whips, backbenchers, MPs, rebels or a vote is
+   read as a whip, and so is one that names Parliament or the Commons with nothing else to
+   aim at.
 2. **Diminishing returns.** Repeating the same kind of action on the same target, in the same
    direction, within 4 turns halves its magnitude for each earlier use (one repeat: 50%, two:
    25%). A policy meant to keep running should say so with its duration instead. Whipping the
@@ -380,14 +405,28 @@ order, in every mode (with Claude or offline). Each one that bites adds a plain-
    (communicate) at a quarter, whips at full price, measures forced through at double and do
    nothing free, times each measure's **lifetime**: every turn a measure runs after its first
    adds a tenth of its first turn's cost (a 12-turn measure costs 2.1 times a one-off, a 24-turn
-   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most.
-   Outside a Budget turn, a tax or spending change costs **0.5 more per unit** (before the
-   lifetime factor): the Budget is the turn to plan fiscal moves for, and the note says when
-   the next one falls. The budget is **1.5 a turn**. Above it, every measure is scaled down by
-   the same share to fit. The review screen shows each measure's capital and deficit cost over
-   its life, and an **independent scorecard** for the package's taxes and spending: what each
-   adds to the deficit a turn, for how many turns, in all, and whether the package adds to
-   borrowing, cuts it or is paid for.
+   one 3.3 times), charged on the turn it is decided. Speeches run for 3 turns at most. A
+   speech also carries only part of its stated size when credibility is low (see
+   Credibility below). Outside a Budget turn, a tax or spending change costs **0.5 more per
+   unit** (before the lifetime factor): the Budget is the turn to plan fiscal moves for, and
+   the note says when the next one falls. Above the capital the government holds this turn,
+   every measure is scaled down by the same share to fit. The review screen shows each
+   measure's capital and deficit cost over its life, and an **independent scorecard** for the
+   package's taxes and spending: what each adds to the deficit a turn, for how many turns, in
+   all, and whether the package adds to borrowing, cuts it or is paid for.
+
+   **Capital is a stock.** The first turn has 1.5. At the end of every turn the stock
+   refills, and half of what the turn left unspent is banked on top, up to 3.0 in all. The
+   refill is 1.5 times four factors, each 1 at the starting world:
+
+   - approval: +4% for every point of vote intention above 48% (and down below it);
+   - majority: +2% for every point of the legislature's support above 0.6;
+   - the electoral cycle: a **honeymoon** worth +30% just after the election that halves
+     every 3 turns, and a **mid-term slump** of up to -20%, deepest halfway to the election
+     and gone by polling day;
+   - credibility: 0.5 plus credibility (so 1 at 0.5).
+
+   The refill never falls below a quarter of 1.5. The dashboard shows the stock.
 4. **Deficit ceiling.** The deficit the package would leave (today's value, plus what is already
    landing this turn, plus every tax and spending move in it) may not pass 10% of GDP, on any
    turn the package's costs run. Only the borrowing measures are scaled down to fit, and tax
@@ -450,12 +489,18 @@ outcome that tries one is sent back: a group's reaction goes in its group effect
 event cap.
 
 Example from the starting world: higher energy prices raise inflation (weight 0.6, one turn
-later) and cut manufacturing output (0.1, one turn later); higher inflation raises Bank Rate (0.5, one turn later); higher Bank Rate lowers house
-prices (0.25, three turns later) and inflation (0.4, six turns later), and raises unemployment
-(0.2, six turns later). Higher unemployment lowers Bank Rate (1.0, one turn later): the Bank cuts
-in a slump. More output from finance raises house prices a turn later (0.4): credit. A higher
-deficit raises Bank Rate (0.15, one turn) and inflation (0.1, two
-turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
+later) and cut manufacturing output (0.1, one turn later). Bank Rate follows a smoothed policy
+rule (O4): each turn it keeps 0.8 of last turn's move (a link from Bank Rate to itself, one turn
+later) and adds 0.45 per point of inflation and -0.6 per point of unemployment, both a turn later.
+In the long run a lasting point of inflation raises Bank Rate by 0.45 × 0.9 / (1 - 0.8 × 0.9) ≈
+1.45 points, more than one for one, so real rates rise as inflation does; the Bank cuts in a
+slump. No other link moves Bank Rate: the Bank is independent. Higher Bank Rate lowers house
+prices (0.1, three turns later) and inflation (0.4, six turns later), raises unemployment (0.2,
+six turns later), and lifts the 10-year gilt yield in the same turn (0.7), since markets price
+the path they expect. A higher deficit raises the gilt yield's risk premium (0.2, a turn later),
+and higher gilt yields lower house prices a turn later (0.12), through fixed-rate mortgages. More
+output from finance raises house prices a turn later (0.4): credit. A higher deficit also raises
+inflation (0.1, two turns). Finance, manufacturing and the public sector feed UK growth in the same turn (0.4, 0.5 and
 0.5), and slower growth raises unemployment a turn later (0.4) and widens the deficit (0.5): tax
 receipts fall and benefit bills rise. EU growth reaches UK growth
 (0.45) and, a turn later, UK manufacturing (0.3), since the EU buys half of UK goods exports.
@@ -493,7 +538,21 @@ the next turn on. So with the central weights and no outcome, the forecast is ex
 resolve does for every indicator, sector, country and institution. It reports the average change
 and the 10th and 90th percentiles for every node, within bounds. The draws are seeded from the
 game seed and turn, so they reproduce exactly. Resolving the turn then uses one run with the
-central weights.
+central weights, unless the game has a hidden world.
+
+### A hidden world per game
+
+New games from the command line have a **hidden true world** (D1, `GameConfig.hidden_world`;
+`--central-world` turns it off). When the game starts, every edge weight is drawn once from its
+uncertainty (a normal draw, kept within 3 standard deviations, the range the stability guard
+already allows), seeded from the game seed, and every turn is resolved on those weights. The
+forecast still draws around the central weights, so it shows the government's best guess and its
+spread, and the world plays out as one draw from it. The forecast says so in its list of what it
+does not project. Each edge keeps its draw for the whole game; when a lasting change moves an
+edge's weight (a trade deal), the draw moves with it. After the election the game shows the five
+links where this world differed most from the guess. With it off (the default in code, so the
+backtests, the stability check and older saves), the world behaves exactly as the central
+forecast says.
 
 The forecast lists what it does not project: group approval (shown as no change), crises abroad
 in later turns (drawn turn by turn), the Commons' drift with the polls after this turn (approval
@@ -589,6 +648,24 @@ extra turn and then halves every 4 turns. A pledge breaks only once, and the pla
 before confirming a response that would break one. Every prompt lists the pledges, kept or
 broken, so scenarios and outcomes can refer back to them.
 
+### Credibility
+
+One score, from 0 to 1, for how far voters and markets believe the government. It starts at
+0.5 and moves at the end of each turn:
+
+- each U-turn (going the other way on a measure still running) costs 0.06;
+- each pledge broken costs 0.08;
+- a crisis (an unscheduled scenario with urgency 0.75 or more) met with a real measure on
+  something it affects earns 0.04; met with speeches, nothing, or measures elsewhere, it
+  costs 0.05;
+- then the score drifts 5% of the way back toward 0.5, so old sins fade.
+
+Credibility does three things. Every speech carries 0.5 plus credibility of its stated size
+(half at 0, one and a half at 1), applied by the limits, so the logged action is what ran.
+Every group's target approval moves by 0.1 times credibility's distance from 0.5 (so -0.03
+at 0.2). And it scales the capital refill (above). The dashboard shows it, and "why" names
+it when it moves a group.
+
 ### People
 
 The game has a small cast of invented people. There are two ministers (the Chancellor and the
@@ -654,9 +731,9 @@ amounts (in steps):
 | strike | public sector output -0.5 |
 | protest | legislature support -0.2 |
 | backbench rebellion | legislature support -0.5 |
-| market sell-off | Bank Rate +0.3, finance output -0.5 |
-| market rally | Bank Rate -0.2, finance output +0.3 |
-| capital flight | finance output -0.8, Bank Rate +0.2 |
+| market sell-off | gilt yield +0.5, finance output -0.5 |
+| market rally | gilt yield -0.3, finance output +0.3 |
+| capital flight | finance output -0.8, gilt yield +0.4 |
 | business investment | manufacturing output +0.5 |
 | foreign retaliation | manufacturing output -0.4 |
 
@@ -874,8 +951,9 @@ off-Budget capital surcharge (section 4).
 |---|---|---|
 | Turns before the election | 24 | `core/config.py` |
 | Forecast horizon, random draws | 24 turns, 100 draws | `core/config.py` |
-| Political capital a turn | 1.5 | `core/config.py` |
+| Political capital | 1.5 on the first turn, then a stock: refill 1.5 x approval x majority x cycle x credibility, half of unspent banked, at most 3.0 | `core/config.py`, `policy/capital.py` |
 | Off-Budget surcharge | +0.5 capital per unit for tax or spending outside a Budget turn | `policy/fiscal_events.py` |
+| Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP (public 1.85, finance 0.85, manufacturing 0.81, housing 0.56, energy 0.30 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`) |
 | Damping per link | 0.9 | `world/propagation.py` |
@@ -885,7 +963,8 @@ off-Budget capital surcharge (section 4).
 | Law for a group: counterparty, hold without money | loses as much as the group gains; 3 turns | `world/levers.py` |
 | Deregulation: workers' loss | 0.3 steps per unit for young renters and public workers (0.6 public workers for the public sector) | `world/levers.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
-| Starting debt, rate repricing | 100% of GDP at 4%; half of a Bank Rate change in 24 turns | `world/seed/toy.py`, `world/debt.py` |
+| Starting debt, rate repricing | 100% of GDP at 4%; half of a change in the market rate (75% gilts, 25% Bank Rate) in 24 turns | `world/seed/toy.py`, `world/debt.py` |
+| Bank Rate rule | keeps 0.8 of last turn's move; +0.45 per point of inflation, -0.6 per point of unemployment; long run 1.45 per point of inflation | `world/seed/toy.py` (`RATE_*`) |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
 | Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
 | Institutions settle back, Commons follows polls | 20% of the gap a turn (the part the engine does not carry); 0.5 support per point of approval | `game/loop.py` |
@@ -897,7 +976,7 @@ off-Budget capital surcharge (section 4).
 | Approval event cap per group | gains and losses each tapering from 0.10 toward 0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
 | Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
-| Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +0.4 Bank Rate, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
+| Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +1 gilt yield, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
 | Outcome extra shock cap | ±1 step each, and ±1 step a node in total with event tags; none on groups | `forecasting/candidates.py`, `world/events.py` |
@@ -920,15 +999,15 @@ happening.*
 
 This is what the engine actually produces (no outcome effects, no scenario shocks):
 
-| After turn | Public sector output | Deficit | Bank Rate | Unemployment | Public workers | Business owners |
-|---|---|---|---|---|---|---|
-| start | £500bn | 4.50% | 4.00% | 4.50% | 0.450 | 0.500 |
-| 1 | £550bn | 6.35% | 4.00% | 4.50% | 0.482 | 0.466 |
-| 2 | £545bn | 5.93% | 4.25% | 4.16% | 0.499 | 0.457 |
-| 3 | £540bn | 5.96% | 4.50% | 4.19% | 0.500 | 0.449 |
-| 6 | £530bn | 6.07% | 4.53% | 4.27% | 0.487 | 0.439 |
-| 7 | £527bn | 5.17% | 4.51% | 4.29% | 0.492 | 0.458 |
-| 8 | £524bn | 4.73% | 4.38% | 4.36% | 0.495 | 0.475 |
+| After turn | Public sector output | Deficit | Bank Rate | Gilt yield | Unemployment | Public workers | Business owners |
+|---|---|---|---|---|---|---|---|
+| start | £500bn | 4.50% | 4.00% | 4.00% | 4.50% | 0.450 | 0.500 |
+| 1 | £550bn | 6.35% | 4.00% | 4.00% | 4.50% | 0.482 | 0.466 |
+| 2 | £545bn | 5.93% | 4.00% | 4.33% | 4.16% | 0.496 | 0.459 |
+| 3 | £540bn | 5.97% | 4.18% | 4.37% | 4.19% | 0.494 | 0.454 |
+| 6 | £530bn | 6.11% | 4.61% | 4.67% | 4.27% | 0.469 | 0.443 |
+| 7 | £527bn | 5.23% | 4.65% | 4.70% | 4.29% | 0.472 | 0.462 |
+| 8 | £524bn | 4.81% | 4.67% | 4.55% | 4.31% | 0.472 | 0.478 |
 
 Reading it:
 
@@ -937,10 +1016,12 @@ Reading it:
   spending holds it there for the minimum 6 turns, then it halves its excess each turn. The
   faster growth claws some back a turn later (0.5 × 0.9 × 0.9 ≈ 0.4 points), which is why it
   sits nearer 6%.
-- A turn later, Bank Rate rises by 1.85 × 0.15 × 0.9 ≈ 0.25 points through the deficit link.
+- A turn later, the gilt yield rises by 1.85 × 0.2 × 0.9 ≈ 0.33 points through the deficit's
+  risk premium. Bank Rate does not move on the deficit.
 - The extra output lifts UK growth by 0.5 × 0.9 × 2 = 0.9 points, and a turn later the faster
   growth takes 0.4 × 0.9 × 0.9 ≈ 0.32 points off unemployment. Lower unemployment then nudges
-  Bank Rate up by about 0.3 a turn after that, which is why it climbs to about 4.5%.
+  Bank Rate up a turn after that, and the rule's smoothing keeps building on it, which is why it
+  climbs to about 4.6%; gilts follow it.
 - Public sector workers are employed by the sector (weight 0.9), so their target rises by
   0.05 × 0.9 × 2 = 0.09, and their approval closes half the gap each turn. The debt penalty
   (0.03 for each point above 5%, so about 0.04 at 6.35%, felt by everyone) takes some of that
@@ -964,7 +1045,7 @@ pensions, spend on everything and so on), plus a "do nothing" bot. The test fail
 - any single-lever bot wins more than 34% of its games;
 - doing nothing ever wins;
 - indicators sit at a hard bound in more than 10% of turns;
-- acting does worse on average than doing nothing by more than half a point of vote share.
+- acting does worse on average than doing nothing by more than 1.2 points of vote share.
 
 A schedule bot plays the strategy the review of 13 October found dominant: on turns 0 to 3,
 a 24-turn law and a 24-turn speech for one group each, then nothing. It is held to the same
