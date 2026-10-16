@@ -107,16 +107,22 @@ class CannedScenarios:
 _TARGETS = [
     (r"\bwhip|backbench|\bmps\b|\brebel|\bvotes?\b", "institution:legislature"),
     (r"furlough|job retention|wage subsid", "indicator:unemployment"),
+    # Taxes paid by people, not firms or sectors (FR-11).
+    (r"income tax|national insurance|council tax|\bpaye\b", HOUSEHOLDS),
     (r"\bbills?\b|price cap|\bcap\b", "indicator:energy_prices"),
-    (r"energy|gas|electric", "sector:energy"),
+    (r"energy|gas|electric|emission|carbon|pollut", "sector:energy"),
     (r"bank|financ|city", "sector:finance"),
     (r"manufactur|industr|factor|export", "sector:manufacturing"),
-    (r"household|families", HOUSEHOLDS),
+    (r"household|families|poverty", HOUSEHOLDS),
     (r"hous|home|rent|planning|build", "sector:housing"),
-    (r"public|nhs|hospital|school|pay|union|wages?|nurse|teacher", "sector:public"),
+    (
+        r"public|nhs|hospital|school|pay|union|wages?|nurse|teacher|waiting (?:lists?|times?)|"
+        r"backlog|crime|police",
+        "sector:public",
+    ),
     (r"china", "country:china"),
     (r"\beu\b|europe", "country:eu"),
-    (r"business|\bfirms?\b|employer|compan|enterprise", "group:business"),
+    (r"business|\bfirms?\b|employer|compan|enterprise|red tape|bureaucra", "group:business"),
     (r"growth|econom|the country", ECONOMY),
     (r"parliament|\bcommons\b", "institution:legislature"),
 ]
@@ -125,7 +131,8 @@ _SIZE = [(r"huge|major|big|massive", 0.9), (r"small|modest|slight", 0.25)]
 
 class KeywordInterpreter:
     """Turns free text into PolicyActions with keyword rules: one per line of a package built
-    from "Option:" and "Also:" lines (backlog story RB-1), otherwise one for the whole text."""
+    from "Option:" and "Also:" lines (backlog story RB-1), and one per measure within a line
+    ("raise taxes on banks and cut taxes for families" is two, FR-7)."""
 
     def __init__(self) -> None:
         self._delivery: Delivery | None = None
@@ -162,9 +169,29 @@ class KeywordInterpreter:
         parts = re.findall(r"^\s*(?:Option|Also):\s*(.+)$", text, re.M)
         if len(parts) < 2:
             parts = [text]
-        read = [(part, a) for part in parts for a in self._one(part, state, scenario)]
+        read = [
+            (piece, a)
+            for part in parts
+            for piece in (
+                [part] if calendar_package(part, state, scenario) is not None else measures(part)
+            )
+            for a in self._one(piece, state, scenario)
+        ]
+        # "Hold firm on pay but fund nurses": holding firm on one thing doesn't cancel the rest.
         read = [(p, a) for p, a in read if a.kind != "do_nothing"] or read[:1]
-        self._readings = [keyword_reading(part, action) for part, action in read]
+        readings = [keyword_reading(part, action) for part, action in read]
+        # A side remark next to real measures ("dismiss concerns and fund schools") is not a
+        # speech to a guessed target.
+        kept = [
+            i
+            for i, r in enumerate(readings)
+            if not (
+                r.kind == "communicate" and r.fallback and not re.search(_SPEECH, r.span.lower())
+            )
+        ]
+        if kept and len(kept) < len(read):
+            read, readings = [read[i] for i in kept], [readings[i] for i in kept]
+        self._readings = readings
         return [action for _, action in read]
 
     def _one(self, text: str, state: WorldState, scenario: Scenario) -> list[PolicyAction]:
@@ -201,6 +228,10 @@ class KeywordInterpreter:
         kind: str | None = None,
     ) -> PolicyAction:
         target = _target(t) or _target(purpose)
+        if target in _TAXED_SECTOR and re.search(r"\bvat\b|\btax|\bduty|\blevy", t):
+            # "Cut VAT on energy bills" is a tax on the sector its customers pay, not spending
+            # on the bills (FR-11).
+            target = _TAXED_SECTOR[target]
         if target is None:
             # A spend for a purpose with no target of its own stays at home.
             skip = ("indicator:", "country:") if kind == "spend" else ("indicator:",)
@@ -244,9 +275,18 @@ class KeywordInterpreter:
         elif target.startswith("country:") and target != state.player_country:
             kind = "diplomatic"
             size = -size if re.search(r"retaliat|sanction|tariff", t) else size
-        elif re.search(r"\bcut\w*\b.*\b(?:tax|levy|duty)|\b(?:tax|levy|duty)\w*\b.*\bcut", t):
+        elif _REDUCE_BAD.search(t) and not re.search(_MONEY, t):
+            # Cutting a bad thing means acting to reduce it, not cutting spending (FR-8):
+            # "cut waiting lists" funds the NHS, "cut red tape" loosens rules.
+            if re.search(r"red tape|bureaucra", t):
+                kind = "deregulate"
+            elif re.search(r"emission|carbon|pollut", t):
+                kind = "regulate"
+            else:
+                kind = "spend"
+        elif re.search(rf"{_LOWER}\w*\b.*\b{_TAX_WORD}|\b{_TAX_WORD}\w*\b.*{_LOWER}", t):
             kind, size = "tax", -size
-        elif re.search(r"tax|levy|windfall|\bduty\b|\bvat\b", t):
+        elif re.search(r"tax|levy|windfall|\bduty\b|\bvat\b|national insurance", t):
             kind = "tax"
         elif re.search(r"deregulat|scrap rules|relax", t):
             kind = "deregulate"
@@ -270,6 +310,56 @@ class KeywordInterpreter:
         return PolicyAction(
             kind=kind, target=target, magnitude=size, borne_by=borne_by, rationale=f"from: {text}"
         )
+
+
+# Words for a tax, and for lowering one: "cut VAT", "lower income tax", "taxes ... slashed".
+_TAX_WORD = r"(?:tax|levy|duty|vat|national insurance)"
+_LOWER = r"\b(?:cut|reduc|lower|slash|scrap|abolish|axe)"
+# Indicators a tax can't fall on, and the sector it falls on instead.
+_TAXED_SECTOR = {"indicator:energy_prices": "sector:energy"}
+
+# Bad things the player wants less of (FR-8). "Cut waiting lists" means act to bring them
+# down, unless the words are about money ("cut funding for crime prevention").
+_BAD = (
+    r"waiting (?:lists?|times?)|backlogs?|crime|poverty|homeless\w*|emissions?|pollution|"
+    r"carbon|red tape|bureaucracy"
+)
+_REDUCE_BAD = re.compile(
+    rf"\b(?:cut\w*|reduc\w*|slash\w*|tackl\w*|lower\w*|halv\w*|clear\w*|bring\w* down|end|"
+    rf"ending|fight\w*|beat)\b.*\b(?:{_BAD})\b"
+    rf"|\b(?:{_BAD})\b.*\b(?:come|comes|go|goes|fall|falls|brought)\s+down\b"
+)
+_MONEY = r"\bspend|budget|\bfund|\btax|levy|\bduty\b|\bvat\b|subsid|\bpay\b"
+
+# A verb that starts a measure of its own (FR-7). Nouns that double as verbs ("pay", "cap",
+# "cuts", "spending", "funding", "building") don't, so "cut taxes and spending" or "tax banks
+# and building societies" stay one measure.
+_MEASURE_VERB = (
+    r"(?:cut(?:ting)?|rais(?:e|es|ing)|increas(?:e|es|ing)|spend|invest(?:s|ing)?|fund|"
+    r"subsidi[sz](?:e|es|ing)|support(?:s|ing)?|build|regulat(?:e|es|ing)|"
+    r"deregulat(?:e|es|ing)|freez(?:e|es|ing)|relax(?:es|ing)?|scrap(?:s|ping)?|"
+    r"help(?:s|ing)?|boost(?:s|ing)?|reduc(?:e|es|ing)|slash(?:es|ing)?|tighten(?:s|ing)?|"
+    r"borrow(?:s|ing)?|lower(?:s|ing)?|hik(?:e|es|ing)|introduc(?:e|es|ing)|"
+    r"abolish(?:es|ing)?|ax(?:e|es|ing)|hir(?:e|es|ing)|doubl(?:e|es|ing)|expand(?:s|ing)?|"
+    r"tackl(?:e|es|ing)|ban|sanction|negotiat(?:e|es|ing)|tax(?:es|ing)?\s+(?:the|on)\b)\b"
+)
+_MEASURE_LEAD = (
+    r"(?:then\s+|also\s+)?(?:we(?:'ll| will)\s+|i(?:'ll| will)\s+)?(?=" + _MEASURE_VERB + ")"
+)
+_MEASURE_BREAK = re.compile(
+    r"\s*[,;]\s*(?:(?:and|but|then|also|plus)\s+)?"
+    + _MEASURE_LEAD
+    + r"|\s+(?:and|but|while|whereas|then|plus|also)\s+"
+    + _MEASURE_LEAD,
+    re.I,
+)
+
+
+def measures(text: str) -> list[str]:
+    """``text`` split into its separate measures, each with its own verb (FR-7): "raise taxes
+    on banks and cut taxes for families" is two measures, "help households and families" one.
+    """
+    return [m for m in _MEASURE_BREAK.split(text) if m.strip(" .;,!?")] or [text]
 
 
 # A clause that asks for nothing: "do nothing", "wait it out", "hold firm". Only at the start
@@ -342,6 +432,16 @@ _SPEECH = (
 )
 
 
+_UP = re.compile(r"\b(?:rais|increas|boost|hike|lift|higher|expand|doubl|more\b)")
+_DOWN = re.compile(r"\b(?:cut|reduc|lower|slash|scrap|abolish|freez|axe|less\b)")
+
+
+def _mixed(t: str) -> bool:
+    """Both a rise and a cut in one measure, other than "X to Y", where Y is X's purpose."""
+    main, _ = _split_purpose(t)
+    return bool(_UP.search(main) and _DOWN.search(main))
+
+
 def keyword_reading(part: str, action: PolicyAction) -> Reading:
     """How sure keyword matching is of ``action``, read from ``part`` (review D6). A target
     no keyword named was guessed from the scenario; a speech no word asked for is only the
@@ -353,6 +453,11 @@ def keyword_reading(part: str, action: PolicyAction) -> Reading:
     if fallback:
         confidence = 0.4
     elif action.kind == "communicate" and not re.search(_SPEECH, t):
+        confidence = 0.5
+    elif action.kind != "do_nothing" and _mixed(t):
+        # Asks for something up and something down in one measure that couldn't be split
+        # ("raise taxes on banks, families get tax cuts"): one action may not be what was
+        # meant, so the player is asked to check it (FR-7).
         confidence = 0.5
     else:
         confidence = 0.8
@@ -454,7 +559,20 @@ def keyword_pledges(text: str) -> tuple[list[Pledge], str]:
         words = re.sub(r"^\s*(?:Option|Also):\s*", "", sentence).strip(" .;!")
         pledge = None
         if re.search(_NEGATION, t):
-            if re.search(r"\btax", t) and re.search(r"rais|increas|\bnew\b|\brise|put up", t):
+            # "No new tax cuts" rules out tax cuts, not rises (FR-12): the cut belongs to the tax.
+            tax_cut = re.search(
+                r"\btax\w*\s+(?:cuts?|reductions?|breaks?)\b|\b(?:cut|lower|reduc)\w*\s+"
+                r"(?:\w+\s+){0,2}tax",
+                t,
+            )
+            tax_rise = re.search(
+                r"\btax\w*\s+(?:rises?|increases?|hikes?)\b|\b(?:rais|increas|hik|put up)\w*\s+"
+                r"(?:\w+\s+){0,2}tax",
+                t,
+            )
+            if tax_cut and not tax_rise:
+                pledge = Pledge(text=words, kind="tax", direction="down")
+            elif re.search(r"\btax", t) and re.search(r"rais|increas|\bnew\b|\brise|put up", t):
                 pledge = Pledge(text=words, kind="tax", direction="up")
             elif re.search(r"\btax", t) and re.search(r"\bcut|\blower|reduc", t):
                 # "We will not cut taxes" rules out a tax cut, not a spending cut (E10).
@@ -522,7 +640,9 @@ def _sacking(character) -> str:
         names.append(re.escape(words[0]) + (r"\s+(?:secretary|minister)" if title else ""))
     who = "|".join(names)
     return (
+        # Not "replace the Chancellor's fiscal rule": a possessive names something of theirs.
         r"\b(?:sack|fire|dismiss|replace)\s+(?:the\s+|my\s+|our\s+)?(?:" + who + r")\b"
+        r"(?!['’]s\b)"
         r"(?:\s+with\s+[a-z ]+?(?=$|[.,;]|\s+and\b))?"
     )
 

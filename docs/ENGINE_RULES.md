@@ -83,16 +83,25 @@ A game is 24 turns of one month each, with a general election after the last one
    spending"), since matching keywords would read the plain instruction inside it. Promises
    ("we will not raise taxes", "no cuts to schools") are still pledges, a refused sacking
    ("do not sack the Chancellor") sacks nobody, and cutting a programme ("cut spending on
-   furlough") is a spending cut. A sentence with "but" or "while" is read as two instructions.
+   furlough") is a spending cut, but cutting a bad thing (waiting lists, crime, poverty) means
+   acting to bring it down: "cut waiting lists" is a spend on public services, "cut emissions"
+   a regulation and "cut red tape" a deregulation. A sentence with "but" or "while" is read as
+   two instructions, and each measure with its own verb is its own action: "raise taxes on
+   banks and cut taxes for families" is a tax rise on finance and a tax cut for households. A
+   single measure that still asks for a rise and a cut is flagged for the player to check.
    "Do nothing", "wait" and "hold firm" mean do nothing only at the start of an instruction, so
-   "cut waiting lists" still acts. In "X to Y" the verb and target come from X and Y is its
+   "cut waiting lists" still acts, and only when nothing else is asked: "hold firm on pay but
+   fund nurses" funds nurses. "No new tax cuts" is a pledge against tax cuts. Income tax and
+   national insurance fall on households; VAT on energy bills is a tax on the energy sector
+   paid by its customers. In "X to Y" the verb and target come from X and Y is its
    purpose; "raise taxes to fund public services" is a broad tax rise and a spend on public
    services. Business, growth, the economy and households are targets; a speech about them
    goes to the nation, while tax or spending for households is shared over the population
    groups (all but business) and for the economy over the sectors. A calendar event's own
    options map to ready-made actions instead of being read word by word. "In Parliament" or
    "to the Commons" is where something is announced, not a target. A sacking needs the verb
-   to govern the minister ("sack the Housing Secretary", "replace Ruth Calder"), and the rest
+   to govern the minister ("sack the Housing Secretary", "replace Ruth Calder", but not
+   "replace the Chancellor's fiscal rule"), and the rest
    of the sentence is still read; the review step can call a sacking off with `drop sacking`.
 3. The **limits** cut the actions down to what is actually possible this turn (section 4). The
    player sees the result, with a note for every cut, and can edit and re-check it before
@@ -102,8 +111,10 @@ A game is 24 turns of one month each, with a general election after the last one
    review screen quotes the words it was read from and flags it to check when the
    interpreter guessed: Claude gives each action a confidence from 0 to 1, and anything below
    0.6 is flagged. Offline, keyword matching rates a target it had to guess from the scenario
-   0.4 (and says so), a speech nobody asked for 0.5, and anything else 0.8; a reading reused
-   from an earlier game rates its match score.
+   0.4 (and says so), a speech nobody asked for 0.5, a measure asking for both a rise and a
+   cut 0.5, and anything else 0.8. A reading reused from an earlier game rates 1.0 for the
+   same words, otherwise twice its match score less one (so only a near-identical rewording
+   escapes the check), and below 0.6 if some of its measures no longer exist.
 4. The engine runs its **forecast**: 100 random draws of the next 24 turns, starting from
    everything already in flight and adding this turn's actions, the scenario's shocks and the
    background pushes resolve will apply (section 5).
@@ -923,7 +934,8 @@ outcomes written for a policy that runs all parliament, and cutting a bill subsi
 outcomes written for raising it. Outcomes from a turn that sacked someone are reused only on a
 turn that sacks the same people, since their stories may mention it. Likewise they are reused
 only on a turn delivered the same way (who was consulted, imposed or phased), breaking the same
-pledges, with the same measures blocked or forced through; outcomes stored before this check
+pledges, with the same measures blocked, forced through or impossible (measures the
+interpreter could not map to anything in the game); outcomes stored before this check
 are reused only on a plain turn (no consultation, imposed at once, nothing broken or blocked).
 Each stored outcome keeps
 the numbers it claimed, so its story still matches them, and is re-scored against today's
@@ -934,6 +946,8 @@ that agrees on every negation, direction (raise or cut), number and duration, cl
 So "do not increase public spending" never reuses the reading of "increase public spending",
 and "raise taxes on business and cut taxes on pensioners" never reuses the reading of the same
 package with the groups swapped, though it does match the same two clauses in the other order.
+A purpose is a clause of its own, so "tax business to fund pensioners" never reuses the reading
+of "tax pensioners to fund business".
 Anything else goes to keyword matching instead. Delivery, pledges and sackings are always read from what the player
 wrote that turn, whichever reading is used.
 

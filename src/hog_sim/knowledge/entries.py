@@ -58,6 +58,9 @@ class ReuseContext(Model):
 
 
 LIMIT_PREFIXES = ("Blocked:", "Forced through:")
+# The end of the limit note for a measure nothing in the game can carry out (game.loop's
+# not_possible, E21).
+NOT_POSSIBLE = ": not possible, nothing in the game can carry it out"
 
 
 def reuse_context(
@@ -65,9 +68,15 @@ def reuse_context(
 ) -> ReuseContext:
     """The context to match stored outcomes on. Limit notes count only when a measure was
     blocked or forced through, and only by kind and target: the reasons carry numbers that
-    change from turn to turn."""
+    change from turn to turn. A measure nothing could carry out counts too (FR-12): the
+    outcome may say it couldn't be done."""
     delivery = delivery or Delivery()
     blocked = {note.split(" (", 1)[0] for note in limits or [] if note.startswith(LIMIT_PREFIXES)}
+    blocked |= {
+        "Not possible: " + normalise_text(note[: -len(NOT_POSSIBLE)])
+        for note in limits or []
+        if note.endswith(NOT_POSSIBLE)
+    }
     return ReuseContext(
         consulted=sorted(set(delivery.consulted)),
         speed=delivery.speed,

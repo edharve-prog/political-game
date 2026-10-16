@@ -29,6 +29,7 @@ from hog_sim.core.models import Scenario
 from hog_sim.core.state import WorldState
 from hog_sim.game.records import TurnRecord
 from hog_sim.knowledge.entries import (
+    NOT_POSSIBLE,
     GraphChangeEntry,
     InterpretationEntry,
     OutcomeEntry,
@@ -179,7 +180,8 @@ class KnowledgeStore:
         context = reuse_context(
             record.delivery,
             [p.text for p in broken_by(state_before, record.actions)],
-            record.notes,
+            # As the forecaster saw them: measures nothing could carry out count (FR-12).
+            record.notes + [f"{m}{NOT_POSSIBLE}" for m in record.unmapped],
         )
         key = f"{sid}|{action_signature(record.actions)}"
         self.put(

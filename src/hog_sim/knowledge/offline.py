@@ -30,7 +30,15 @@ from __future__ import annotations
 
 import re
 
-from hog_sim.core.models import Delivery, Outcome, Pledge, PolicyAction, Reading, Scenario
+from hog_sim.core.models import (
+    LOW_CONFIDENCE,
+    Delivery,
+    Outcome,
+    Pledge,
+    PolicyAction,
+    Reading,
+    Scenario,
+)
 from hog_sim.core.state import WorldState
 from hog_sim.forecasting.candidates import CLAIM_TURN
 from hog_sim.forecasting.scoring import (
@@ -106,8 +114,14 @@ def intent_key(text: str) -> tuple:
     )
 
 
-# Where a response moves from one instruction to the next.
-_CLAUSE_BREAK = re.compile(r"[.;:!?,\n]|\b(?:and|but|while|whereas|then|also|plus)\b")
+# Where a response moves from one instruction to the next, or from what is done to what it
+# is for or paid by: "tax business to fund pensioners" is two parts, so the same words with
+# the groups swapped are a different request (FR-9).
+_CLAUSE_BREAK = re.compile(
+    r"[.;:!?,\n]|\b(?:and|but|while|whereas|then|also|plus|to|so|through|via)\b"
+    # "by taxing banks", not "by 5%", whose number stays with its own clause.
+    r"|\bby(?=\s+\w+ing\b)"
+)
 # Words that say nothing about what is done or to whom.
 _FILLER = frozenset(
     "a an the of on in at to for by with from into onto this that these those it its we our "
@@ -131,7 +145,8 @@ def intent_clauses(text: str) -> list[tuple]:
 
     Binding each direction to its own clause's words is what tells "raise taxes on business
     and cut taxes on pensioners" from the same package with the groups swapped, which share
-    every word and every direction."""
+    every word and every direction; a purpose ("to fund", "to pay for") is a clause of its
+    own, so "tax business to fund pensioners" doesn't match its mirror image."""
     found = []
     for clause in _CLAUSE_BREAK.split(text.lower()):
         key = intent_key(clause)
@@ -164,6 +179,20 @@ def same_request(stored: str, text: str) -> float:
     if intent_clauses(stored) != intent_clauses(text):
         return 0.0
     return _overlap(stored, text)
+
+
+def reuse_confidence(score: float, dropped: bool = False) -> float:
+    """How sure a reused reading is (D6, FR-12). The same words are as sure as when Claude read
+    them; other words that only share most of theirs fall to the review screen's CHECK line
+    (below ``LOW_CONFIDENCE``) unless nearly all are shared, and so does a reading that lost
+    measures this world can't carry out."""
+    if score >= 1.0:
+        confidence = 1.0
+    else:
+        confidence = max(0.0, 2 * score - 1)  # 0.6 -> 0.2, 0.8 -> 0.6, 0.9 -> 0.8
+    if dropped:
+        confidence = min(confidence, LOW_CONFIDENCE - 0.1)
+    return round(confidence, 2)
 
 
 class StoredInterpreter:
@@ -199,9 +228,15 @@ class StoredInterpreter:
             return list(getattr(self.fallback, "last_sacked", lambda: [])())
         return list(self._sacked)
 
+    def last_unmapped(self) -> list[str]:
+        """Measures the fallback could not map, when it read the turn (E21)."""
+        if self._used_fallback:
+            return list(getattr(self.fallback, "last_unmapped", lambda: [])())
+        return []
+
     def last_readings(self) -> list[Reading]:
         """The fallback's readings, or for a stored interpretation the whole response with
-        the match score as confidence (D6)."""
+        a confidence from the match score (D6, ``reuse_confidence``)."""
         if self._used_fallback:
             return list(getattr(self.fallback, "last_readings", lambda: [])())
         return list(self._readings)
@@ -230,13 +265,9 @@ class StoredInterpreter:
             actions = [a for a in best.actions if a.target in known]
             if actions:
                 self.last_source = "stored"
+                confidence = reuse_confidence(best_score, dropped=len(actions) < len(best.actions))
                 self._readings = [
-                    Reading(
-                        kind=a.kind,
-                        target=a.target,
-                        span=text.strip(),
-                        confidence=round(min(best_score, 1.0), 2),
-                    )
+                    Reading(kind=a.kind, target=a.target, span=text.strip(), confidence=confidence)
                     for a in actions
                 ]
                 return [a.model_copy(deep=True) for a in actions]
