@@ -35,6 +35,11 @@ class TurnRecord(Model):
     unmapped: list[str] = Field(
         default_factory=list, description="Measures that could not be mapped (E21)"
     )
+    offline: list[str] = Field(
+        default_factory=list,
+        description="Steps (scenarios, interpreter, forecaster) an offline stand-in played "
+        "after a model failure, so not Claude's work (E22, O10)",
+    )
 
     @property
     def outcome(self) -> Outcome:

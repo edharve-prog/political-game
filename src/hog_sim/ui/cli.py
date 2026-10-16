@@ -18,7 +18,7 @@ from hog_sim.content.library import ScenarioLibrary
 from hog_sim.core.config import GameConfig
 from hog_sim.core.models import PolicyAction, Reading, SideIssue
 from hog_sim.core.state import WorldState
-from hog_sim.game.advice import cost_options, costing_line
+from hog_sim.game.advice import CostedOption, cost_option, costing_line
 from hog_sim.game.explain import alternatives, why
 from hog_sim.game.interfaces import NeedsClarification
 from hog_sim.game.loop import Game, Proposal, StaleProposal
@@ -316,10 +316,11 @@ def _retry_or_offline(what: str, err: Exception) -> str:
             return "offline"
 
 
-def _guarded(game: Game, part: str, what: str, call, offline=None):
+def _guarded(game: Game, part: str, what: str, call, offline=None, ran_offline=None):
     """``call()``, and when the model fails (E22) ask to retry or to run it once with
     ``game.<part>`` (scenarios, interpreter or forecaster) swapped for ``offline``. Without
-    an offline stand-in the error is raised as before."""
+    an offline stand-in the error is raised as before. A step run offline adds ``part`` to
+    the ``ran_offline`` set before it runs, so its result can be marked as not Claude's."""
     from hog_sim.llm.budget import LLMBudgetExceeded
     from hog_sim.llm.client import LLMError
 
@@ -333,6 +334,8 @@ def _guarded(game: Game, part: str, what: str, call, offline=None):
             if choice == "retry" and isinstance(err, LLMBudgetExceeded):
                 err.client.extend()
             if choice == "offline":
+                if ran_offline is not None:
+                    ran_offline.add(part)
                 original = getattr(game, part)
                 setattr(game, part, offline)
                 try:
@@ -386,13 +389,17 @@ def _ask_for_turn(
         options = game.scenario.suggested_options
         try:
             response = compose_response(raw, options)
+            ran_offline: set[str] = set()
             proposal = _guarded(
                 game,
                 "interpreter",
                 "reading your response",
                 partial(game.propose, response),
                 offline[1] if offline else None,
+                ran_offline,
             )
+            if ran_offline:  # read by the offline stand-in, not by Claude (O10)
+                proposal = proposal.model_copy(update={"offline": sorted(ran_offline)})
             break
         except ValueError as err:
             print(f"  {err}")
@@ -463,23 +470,38 @@ def _advice(game: Game, advisers: Advisers | None, question: str) -> str:
     except LLMError as err:
         return f"  The advisers couldn't answer: {err}"
     # Each option is read and played to the election before it is shown (D8). Reading an
-    # option with Claude costs a call, so this may take a moment.
-    costed = cost_options(game, [(a.option, a.trade_off) for a in advice])
+    # option with Claude costs a call, so this may take a moment. If the model fails or the
+    # turn's call budget runs out (O10), the options not yet costed are offered without
+    # numbers and the turn carries on where it was.
+    costed: list[CostedOption] = []
+    failure: LLMError | None = None
+    for a in advice:
+        try:
+            costed.append(cost_option(game, a.option, a.trade_off))
+        except LLMError as err:
+            failure = err
+            break
+    uncosted = [CostedOption(option=a.option, trade_off=a.trade_off) for a in advice[len(costed) :]]
     offered = [c for c in costed if c.blocked is None]
     start = len(game.scenario.suggested_options) + 1
-    game.add_options([c.option for c in offered])
+    game.add_options([c.option for c in offered + uncosted])
     lines = [_section("Your advisers suggest")]
-    for i, c in enumerate(offered, start):
+    for k, c in enumerate(offered + uncosted):
+        i = start + k
         lines += ["", _numbered(i, c.option), _wrap(f"Trade-off: {c.trade_off}", "     ")]
         numbers = (
             costing_line(c.costing)
             if c.costing is not None
+            else "Numbers: not costed, because the model failed"
+            if k >= len(offered)
             else "Numbers: could not be read into measures, so not costed"
         )
         lines.append(_wrap(numbers, "     ", "     "))
     for c in costed:
         if c.blocked is not None:
             lines += ["", _wrap(f"Not offered: {c.option} ({c.blocked})", "  ", "    ")]
+    if failure is not None:
+        lines += ["", _wrap(f"The model failed while costing these options: {failure}", "  ")]
     return "\n".join(lines)
 
 
@@ -924,9 +946,38 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(f"Could not reach Claude. {exc}") from None
 
 
+def _offline_plugins(knowledge: KnowledgeStore, seed: int) -> tuple:
+    """The offline scenarios, interpreter and forecaster: for offline practice, and as the
+    stand-ins for one step when the model fails (E22). The scenarios keep to the calendar
+    (E19) on both paths."""
+    return (
+        OnCalendar(ScenarioLibrary.load(knowledge.library_scenarios(), seed=seed)),
+        StoredInterpreter(knowledge, KeywordInterpreter()),
+        StoredForecaster(knowledge, EngineForecaster()),
+    )
+
+
+def _env_call_budget() -> int:
+    """The per-turn call budget from the environment, or the default when it is unset or
+    not a whole number (with a message saying so)."""
+    from hog_sim.llm.budget import BUDGET_ENV, DEFAULT_LIMIT
+
+    raw = (os.environ.get(BUDGET_ENV) or "").strip()
+    if not raw:
+        return DEFAULT_LIMIT
+    try:
+        return int(raw)
+    except ValueError:
+        print(
+            f"{BUDGET_ENV}={raw!r} is not a whole number of calls, so the default of "
+            f"{DEFAULT_LIMIT} is used (0 means no cap)."
+        )
+        return DEFAULT_LIMIT
+
+
 def _main(argv: list[str] | None) -> None:
     from hog_sim.core.env import load_env
-    from hog_sim.llm.budget import BUDGET_ENV, DEFAULT_LIMIT, BudgetedClient
+    from hog_sim.llm.budget import DEFAULT_LIMIT, BudgetedClient
     from hog_sim.llm.calllog import LOG_ENV, LOG_FILE
     from hog_sim.llm.providers import DEFAULT_PROVIDER, PROVIDERS
 
@@ -985,7 +1036,7 @@ def _main(argv: list[str] | None) -> None:
     parser.add_argument(
         "--call-budget",
         type=int,
-        default=int(os.environ.get(BUDGET_ENV) or DEFAULT_LIMIT),
+        default=_env_call_budget(),
         help=f"most model calls a turn may make before asking you (default {DEFAULT_LIMIT}; "
         "0 for no cap)",
     )
@@ -1040,11 +1091,7 @@ def _main(argv: list[str] | None) -> None:
         advisers = Advisers(client, config=model_config)
         print(_llm_banner(model_config, forecast_config, provider, note))
     else:
-        plugins = (
-            OnCalendar(ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed)),
-            StoredInterpreter(knowledge, KeywordInterpreter()),
-            StoredForecaster(knowledge, EngineForecaster()),
-        )
+        plugins = _offline_plugins(knowledge, args.seed)
         print(OFFLINE_BANNER)
         kept = knowledge.stats()
         if kept["scenario"]:
@@ -1083,15 +1130,7 @@ def _main(argv: list[str] | None) -> None:
         budget.turn_of = lambda: game.state.turn
     library = PolicyLibrary(store.conn, game_id)
     # Offline stand-ins for one step when the model fails (E22); none in offline play.
-    fallback = (
-        (
-            ScenarioLibrary.load(knowledge.library_scenarios(), seed=args.seed),
-            StoredInterpreter(knowledge, KeywordInterpreter()),
-            StoredForecaster(knowledge, EngineForecaster()),
-        )
-        if client
-        else None
-    )
+    fallback = _offline_plugins(knowledge, args.seed) if client else None
     pending = store.pending_proposal(game_id, game.state.turn)
     if pending is not None:
         try:
@@ -1106,12 +1145,14 @@ def _main(argv: list[str] | None) -> None:
         while not game.over:
             print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
             calls_before = len(client.usage.records) if client else 0
+            ran_offline: set[str] = set()  # steps played offline after a model failure
             _guarded(
                 game,
                 "scenarios",
                 "writing this turn's scenario",
                 lambda: game.scenario,
                 fallback[0] if fallback else None,
+                ran_offline,
             )
             print(_briefing(game))
             state_before = game.state
@@ -1125,8 +1166,9 @@ def _main(argv: list[str] | None) -> None:
                 game,
                 "forecaster",
                 "writing what happened",
-                partial(game.commit, proposal),
+                partial(game.commit, proposal, offline=ran_offline),
                 fallback[2] if fallback else None,
+                ran_offline,
             )
             store.save_turn(game_id, record)
             if client:
