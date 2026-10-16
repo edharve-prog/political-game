@@ -149,20 +149,24 @@ class KnowledgeStore:
         """File one Claude turn. Returns the number of entries written.
 
         ``record.scenario`` should be the object the game played (a ``GeneratedScenario``
-        keeps its stakeholder positions in memory even though the save drops them).
+        keeps its stakeholder positions in memory even though the save drops them). Steps
+        Claude did not play (``record.offline``) are not filed: a scenario or outcomes an
+        offline stand-in wrote after a model failure (with their graph changes), and a reading
+        made offline or never made at all because the actions were built or loaded.
         """
+        offline = set(record.offline)
         prov = (provenance or Provenance()).model_copy(
             update={"game_id": game_id, "turn": record.turn, "created_at": datetime.now(UTC)}
         )
         scenario = record.scenario
         sid = scenario_id(scenario)
         written = 0
-        if getattr(scenario, "origin", "llm") == "llm":
+        if getattr(scenario, "origin", "llm") == "llm" and "scenarios" not in offline:
             self.put("scenario", sid, to_library_scenario(scenario, state_before, prov), sid)
             written += 1
         # What the interpreter made of the response, before this turn's limits cut it down.
         interpreted = record.requested_actions or record.actions
-        if interpreted:
+        if interpreted and "interpreter" not in offline:
             self.put(
                 "interpretation",
                 f"{sid}|{normalise_text(record.response)}",
@@ -176,6 +180,8 @@ class KnowledgeStore:
                 sid,
             )
             written += 1
+        if "forecaster" in offline:
+            return written
         context = reuse_context(
             record.delivery,
             [p.text for p in broken_by(state_before, record.actions)],

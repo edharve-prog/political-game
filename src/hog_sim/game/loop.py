@@ -49,7 +49,7 @@ forecast keeps the central ones, so the forecast is the government's best guess,
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 
 from pydantic import Field
 
@@ -421,6 +421,11 @@ class Proposal(Model):
     readings: list[Reading] = Field(
         default_factory=list, description="How each requested action was read (D6)"
     )
+    offline: list[str] = Field(
+        default_factory=list,
+        description="Steps Claude did not play: run by an offline stand-in after a model "
+        "failure (E22, O10), or no interpreter because the actions were ready-made",
+    )
 
     def reading(self, index: int) -> Reading | None:
         """The reading for ``actions[index]``: the first unused one of the same kind and
@@ -546,10 +551,11 @@ class Game:
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
-        against this turn's limits without calling the interpreter."""
+        against this turn's limits without calling the interpreter. It is marked as not read
+        by the interpreter (``offline``), so it is never filed as Claude's interpretation."""
         if self.over:
             raise RuntimeError("the game is over")
-        return self._limit(response, actions)
+        return self._limit(response, actions).model_copy(update={"offline": ["interpreter"]})
 
     def revise(
         self,
@@ -568,7 +574,9 @@ class Game:
             proposal.sacked if sacked is None else sacked,
             proposal.unmapped,
         )
-        return revised.model_copy(update={"readings": proposal.readings})
+        return revised.model_copy(
+            update={"readings": proposal.readings, "offline": proposal.offline}
+        )
 
     def _limit(
         self,
@@ -621,8 +629,11 @@ class Game:
     def play_turn(self, response: str) -> TurnRecord:
         return self.commit(self.propose(response))
 
-    def commit(self, proposal: Proposal) -> TurnRecord:
+    def commit(self, proposal: Proposal, offline: Iterable[str] = ()) -> TurnRecord:
         """Forecast, pick an outcome and resolve the turn with the proposal's actions.
+
+        ``offline`` names the steps of this turn ("scenarios", "forecaster") that an offline
+        stand-in played after a model failure; the record keeps them with the proposal's own.
 
         Raises ``StaleProposal`` if the proposal does not belong to this turn and this world
         (see ``check``): propose again and show the player the result."""
@@ -679,6 +690,7 @@ class Game:
             pledges=proposal.pledges,
             sacked=proposal.sacked,
             unmapped=proposal.unmapped,
+            offline=sorted({*proposal.offline, *offline}),
         )
         self.state = new
         self.history.append(record)
