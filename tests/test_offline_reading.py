@@ -39,7 +39,8 @@ def budget() -> Scenario:
     "text, expected",
     [
         ("Spend big to cut hospital waiting lists", [("spend", "sector:public", 0.9)]),
-        ("Cut hospital waiting lists", [("spend", "sector:public", -0.5)]),
+        # Cutting waiting lists means acting to bring them down, not a spending cut (FR-8).
+        ("Cut hospital waiting lists", [("spend", "sector:public", 0.5)]),
         ("Nothing less than a pay rise for nurses", [("spend", "sector:public", 0.5)]),
         ("Do nothing", [("do_nothing", "country:uk", 0)]),
         ("Wait it out", [("do_nothing", "country:uk", 0)]),
