@@ -4,7 +4,16 @@ import math
 
 import pytest
 
-from hog_sim.game.stability import LIMITS, TEST_PLAYERS, TURNS, WINDOW, Run, problems, run
+from hog_sim.game.stability import (
+    LIMITS,
+    TEST_PLAYERS,
+    TURNS,
+    WINDOW,
+    Run,
+    play,
+    problems,
+    run,
+)
 
 
 @pytest.fixture(scope="module")
@@ -18,6 +27,28 @@ def test_long_games_are_stable(runs) -> None:
 
 def test_games_run_the_full_length(runs) -> None:
     assert all(len(r.votes) == TURNS for r in runs)
+
+
+# FR-25: new games play on a hidden world, so the economy players get is checked too, on
+# several hidden worlds, by a busy player and the bot that spends on everything.
+HIDDEN_TEST_PLAYERS = ["random option", "spend on everything"]
+HIDDEN_TEST_SEEDS = 3
+
+
+@pytest.fixture(scope="module")
+def hidden_runs() -> list[Run]:
+    return run(HIDDEN_TEST_PLAYERS, HIDDEN_TEST_SEEDS, hidden_world=True)
+
+
+def test_long_games_on_hidden_worlds_are_stable(hidden_runs) -> None:
+    assert all(r.hidden_world and len(r.votes) == TURNS for r in hidden_runs)
+    assert problems(hidden_runs) == []
+
+
+def test_the_hidden_pass_really_plays_a_hidden_world() -> None:
+    central, hidden = (play("do nothing", 1, turns=6, hidden_world=h) for h in (False, True))
+    assert central.steps != hidden.steps
+    assert "hidden world" in " ".join(problems([hidden.model_copy(update={"votes": [0.4] * 6})]))
 
 
 def _run(steps: list[float], votes: list[float] | None = None, at_bound: int = 0) -> Run:

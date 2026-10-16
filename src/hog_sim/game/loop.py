@@ -331,7 +331,11 @@ def resolve(
     shocks = turn_shocks(start, state, scenario, actions, config)
     shocks += outcome_shocks(outcome, state)
     cover = job_protection(state, actions)
-    weights = true_weights(state, config.seed) if config.hidden_world else None
+    weights = (
+        true_weights(state, config.seed, config.hidden_world_draw, start)
+        if config.hidden_world
+        else None
+    )
     engine, moves = step(state, shocks, protection=cover, weights=weights)
 
     # Saves from before the engine carried its own state queued effects here; drain them.

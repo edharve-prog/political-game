@@ -8,6 +8,7 @@ quit at that point does not lose the player's response: resuming offers it again
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from pathlib import Path
@@ -47,6 +48,15 @@ CREATE TABLE IF NOT EXISTS pending_proposals (
 class _Pending(Model):
     # Stored as a plain Scenario, as TurnRecord stores it, whichever source wrote it.
     scenario: Scenario
+
+
+def load_config(text: str) -> GameConfig:
+    """A saved game's config. A save from before hidden-world draw rule 2 (FR-24) has no
+    ``hidden_world_draw`` and keeps rule 1, so it resumes on the hidden weights it was
+    playing; new games use rule 2."""
+    data = json.loads(text)
+    data.setdefault("hidden_world_draw", 1)
+    return GameConfig.model_validate(data)
 
 
 class SaveStore:
@@ -119,7 +129,7 @@ class SaveStore:
             "SELECT record FROM turns WHERE game_id = ? ORDER BY turn", (game_id,)
         ).fetchall()
         return (
-            GameConfig.model_validate_json(row[0]),
+            load_config(row[0]),
             WorldState.from_json(row[1]),
             [TurnRecord.model_validate_json(r[0]) for r in rows],
         )

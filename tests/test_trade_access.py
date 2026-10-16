@@ -38,7 +38,7 @@ def test_a_deal_pushes_the_players_exposed_nodes_not_the_partner():
     assert EU not in nodes
     for edge in access_links(world, EU):
         assert nodes[edge.target] == pytest.approx(DIPLOMATIC_TRADE_STEPS * 0.8 * edge.weight)
-    assert {"indicator:output_gap", FACTORIES}  # UK output (O3) <= set(nodes)
+    assert {"indicator:output_gap", FACTORIES} <= set(nodes)  # UK output (O3)
 
 
 def test_a_deal_leaves_the_partners_growth_almost_alone_and_helps_the_player():

@@ -74,7 +74,10 @@ def test_higher_rates_raise_the_deficit() -> None:
         with_debt.indicators["indicator:deficit"].value
         - without.indicators["indicator:deficit"].value
     )
-    assert 0.2 < gap < 2.0
+    # Up to 2.5: since Bank Rate works through the output gap (FR-27), a held hike opens a
+    # slump that grows the debt, and inflation falls less, so the Bank keeps rates nearer 9%
+    # than 7% and the bill on a larger debt is bigger (2.2 points, against 1.6 before).
+    assert 0.2 < gap < 2.5
 
 
 def test_old_saves_without_debt_are_unchanged() -> None:

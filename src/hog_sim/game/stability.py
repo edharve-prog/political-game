@@ -8,6 +8,11 @@ Players are the balance bots (``game/balance.py``) plus a seeded random player w
 each scenario's suggested options. ``uv run python -m hog_sim.game.stability`` prints the table;
 ``tests/test_stability.py`` asserts ``LIMITS``. The nightly 120-turn run planned in CI-4 can
 call ``run`` with more seeds.
+
+New games play on a hidden world (D1, ``GameConfig.hidden_world``): edge weights drawn once per
+game from their uncertainty, a different economy for every seed. So a second pass plays the
+same games on hidden worlds over several seeds (``HIDDEN_PLAYERS``, ``--hidden-seeds``), the
+economy players actually get, and must pass the same ``LIMITS`` (FR-25).
 """
 
 from __future__ import annotations
@@ -54,11 +59,16 @@ LIMITS = {
 
 PLAYERS = ["do nothing", "first suggested option", "random option", *LEVER_BOTS]
 TEST_PLAYERS = ["do nothing", "random option", "spend on everything", "deregulate energy"]
+# The hidden-world pass: a quiet player, a busy one and two lever bots, each on several hidden
+# worlds.
+HIDDEN_PLAYERS = TEST_PLAYERS
+HIDDEN_SEEDS = 5
 
 
 class Run(Model):
     player: str
     seed: int
+    hidden_world: bool = False
     steps: dict[str, list[float]]  # each indicator's distance from its start, per turn
     votes: list[float]
     turns_at_bound: int
@@ -74,8 +84,8 @@ def _respond(name: str, seed: int) -> Callable[[Scenario], str]:
     return TEXT_BOTS[name]
 
 
-def play(name: str, seed: int, turns: int = TURNS) -> Run:
-    config = GameConfig(seed=seed, election_turn=turns, k_draws=20)
+def play(name: str, seed: int, turns: int = TURNS, hidden_world: bool = False) -> Run:
+    config = GameConfig(seed=seed, election_turn=turns, k_draws=20, hidden_world=hidden_world)
     interpreter = _Scripted(LEVER_BOTS[name]) if name in LEVER_BOTS else KeywordInterpreter()
     game = Game(
         config,
@@ -100,6 +110,7 @@ def play(name: str, seed: int, turns: int = TURNS) -> Run:
     return Run(
         player=name,
         seed=seed,
+        hidden_world=hidden_world,
         steps=steps,
         votes=votes,
         turns_at_bound=at_bound,
@@ -107,8 +118,10 @@ def play(name: str, seed: int, turns: int = TURNS) -> Run:
     )
 
 
-def run(players: list[str] = PLAYERS, seeds: int = 1, turns: int = TURNS) -> list[Run]:
-    return [play(name, seed, turns) for name in players for seed in range(seeds)]
+def run(
+    players: list[str] = PLAYERS, seeds: int = 1, turns: int = TURNS, hidden_world: bool = False
+) -> list[Run]:
+    return [play(name, seed, turns, hidden_world) for name in players for seed in range(seeds)]
 
 
 def _peak(values: list[float]) -> float:
@@ -123,7 +136,8 @@ def problems(runs: list[Run]) -> list[str]:
     """Every way the runs break ``LIMITS``; empty when the engine is stable enough."""
     found = []
     for r in runs:
-        who = f"{r.player!r} (seed {r.seed})"
+        world = ", hidden world" if r.hidden_world else ""
+        who = f"{r.player!r} (seed {r.seed}{world})"
         numbers = [*r.votes, *(v for vs in r.steps.values() for v in vs)]
         if not all(math.isfinite(v) for v in numbers):
             found.append(f"{who} produced a non-finite number")
@@ -153,7 +167,7 @@ def problems(runs: list[Run]) -> list[str]:
 
 
 def table(runs: list[Run]) -> str:
-    header = f"{'Player':<30}{'Seed':>5}{'Peak':>7}{'Early avg':>11}{'Late avg':>10}"
+    header = f"{'Player':<30}{'Seed':>5}{'World':>8}{'Peak':>7}{'Early avg':>11}{'Late avg':>10}"
     lines = [f"{header}{'Vote range':>15}"]
     for r in runs:
         peaks = {n: _peak(v) for n, v in r.steps.items()}
@@ -161,7 +175,8 @@ def table(runs: list[Run]) -> str:
         values = r.steps[worst]
         half = len(values) // 2
         lines.append(
-            f"{r.player:<30}{r.seed:>5}{peaks[worst]:>7.2f}"
+            f"{r.player:<30}{r.seed:>5}{'hidden' if r.hidden_world else 'central':>8}"
+            f"{peaks[worst]:>7.2f}"
             f"{_level(values[:half]):>11.2f}{_level(values[half:]):>10.2f}"
             f"{f'{min(r.votes):.1%}-{max(r.votes):.1%}':>15}  worst: {worst.split(':', 1)[1]}"
         )
@@ -172,8 +187,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Play long offline games and check stability")
     parser.add_argument("--seeds", type=int, default=1)
     parser.add_argument("--turns", type=int, default=TURNS)
+    parser.add_argument(
+        "--hidden-seeds",
+        type=int,
+        default=HIDDEN_SEEDS,
+        help="hidden worlds each of HIDDEN_PLAYERS plays (0 skips the pass)",
+    )
     args = parser.parse_args()
     runs = run(seeds=args.seeds, turns=args.turns)
+    runs += run(HIDDEN_PLAYERS, args.hidden_seeds, args.turns, hidden_world=True)
     print(table(runs))
     print("\n".join(problems(runs)) or "Stable.")
 

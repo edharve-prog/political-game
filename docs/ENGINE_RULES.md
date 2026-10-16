@@ -247,12 +247,17 @@ Special cases:
   Treasury pays them the difference, as with the 2022 Energy Price Guarantee: no one is
   squeezed, and the deficit rises by what a subsidy that moves the price as far would cost,
   0.625 points of GDP a turn for a full-size cap, for at least 6 turns.
-- **A tax on a sector falls on someone** (M4, `borne_by`): on its output by default (a levy on
-  each unit made), which takes off output as above; on its **profits** (a windfall tax), which
-  raises as much but takes off only a quarter as much output, through lost investment; or on
-  its **customers** (VAT, a duty on what it sells), who buy half as much less, while prices
-  rise for a year by 0.9 points of inflation for each point of GDP the tax raises. A windfall
-  tax on energy therefore barely moves bills, while a duty on them pushes up inflation.
+- **A tax on a sector falls on someone** (M4, `borne_by`). Each choice raises the same money
+  and differs only in how much output it takes off for each pound raised: on its output by
+  default (a levy on each unit made), the same share that becomes output when money is spent
+  there (half, for a private sector; all of it for public services); on its **profits** (a
+  windfall tax), a quarter, through lost investment; or on its **customers** (VAT, a duty on
+  what it sells), a quarter, as they buy less, while prices rise for a year by 0.9 points of
+  inflation for each point of GDP the tax raises. That rise is the whole of it: where the
+  sector's lower output already lifts prices through its own links (less energy output means
+  dearer bills, which feed inflation), that part is taken off it, so prices are not counted
+  twice. A windfall tax on energy therefore barely moves bills, while a duty on them pushes up
+  inflation.
 - **Aimed at a population group** (a pension rise, a tax on landlords), the action is not a
   push on the graph. It becomes an approval boost or hit for that group of 0.05 per step: a
   full-magnitude pension rise is +0.10 to pensioners' target approval, held for as long as it
@@ -323,7 +328,8 @@ deficit (a tax cut of magnitude 0.6 or more on a group). Cuts and the savings th
 for them are compared over their lives (cost a turn times the turns it is paid, at least 6), so a
 one-turn tax rise pays for only a quarter of a cut that runs for two years. For each point of
 unfunded cut, the 10-year gilt
-yield jumps 1 point and the pound falls 8 index points, both fading as usual, and every group takes a 0.12
+yield jumps 1 point and the pound falls 4 index points (on top of what the extra borrowing does
+to it), both fading as usual, and every group takes a 0.12
 approval hit that fades with the usual half-life. This is the 2022 mini-budget: £45bn of tax cuts
 with no plan to pay for them sent gilt yields and mortgage rates up, the pound to a record low
 and the government's poll rating down by over 10 points. Bank Rate does not jump: the Bank is
@@ -528,16 +534,18 @@ rule (O4): each turn it keeps 0.8 of last turn's move (a link from Bank Rate to 
 later) and adds 0.45 per point of inflation and -0.6 per point of unemployment, both a turn later.
 In the long run a lasting point of inflation raises Bank Rate by 0.45 × 0.9 / (1 - 0.8 × 0.9) ≈
 1.45 points, more than one for one, so real rates rise as inflation does; the Bank cuts in a
-slump. No other link moves Bank Rate: the Bank is independent. Higher Bank Rate lowers house
-prices (0.1, three turns later) and inflation (0.4, six turns later), raises unemployment (0.2,
-six turns later), and lifts the 10-year gilt yield in the same turn (0.7), since markets price
-the path they expect. A higher deficit raises the gilt yield's risk premium (0.2, a turn later),
+slump. No other link moves Bank Rate: the Bank is independent. Higher Bank Rate works on
+demand: it holds output below potential six turns later (0.5), and that gap is how it reaches
+unemployment, inflation, growth and the cyclical deficit, the same way any other slump does.
+Its other routes are markets: it lowers house prices (0.1, three turns later) and lifts the
+10-year gilt yield in the same turn (0.7), since markets price the path they expect. A higher deficit raises the gilt yield's risk premium (0.2, a turn later),
 and higher gilt yields lower house prices a turn later (0.12), through fixed-rate mortgages. More
 output from finance raises house prices a turn later (0.4): credit. Finance, manufacturing and
 the public sector feed the output gap in the same turn (0.4, 0.5 and 0.5), and UK growth is the
 gap now less the gap 12 turns ago. Output below potential raises unemployment a turn later (0.5,
 Okun's law), widens the deficit (0.5: tax receipts fall and benefit bills rise) and lowers
-inflation three turns later (0.15). Demand reaches prices only through the gap: borrowing no
+inflation three turns later (0.15). Okun's law is the only route from output to jobs: a
+factory slump costs jobs through the gap it opens, not through a link of its own as well. Demand reaches prices only through the gap: borrowing no
 longer feeds inflation directly. EU growth reaches UK output (0.45) and, a turn later, UK
 manufacturing (0.3), since the EU buys half of UK goods exports.
 The pound rises with UK growth (0.3) and Bank Rate (0.2) and falls with the deficit (0.4), all in
@@ -581,14 +589,24 @@ central weights, unless the game has a hidden world.
 New games from the command line have a **hidden true world** (D1, `GameConfig.hidden_world`;
 `--central-world` turns it off). When the game starts, every edge weight is drawn once from its
 uncertainty (a normal draw, kept within 3 standard deviations, the range the stability guard
-already allows), seeded from the game seed, and every turn is resolved on those weights. The
+already allows), seeded from the game seed, and every turn is resolved on those weights. A draw
+never flips a link's sign: a link's uncertainty counts for at most 0.9 of its weight over 3, so
+a small link gets uncertainty in proportion to its size and its drawn weight stays between 10%
+and 190% of the central one. The drawn world as a whole must also behave: Bank Rate must still
+answer a lasting point of inflation by more than a point in the long run (the Taylor
+principle), and a push on every node at once must die away within 400 turns. A world that fails
+either check is redrawn from the seed (up to 20 times; should all fail, the game plays on the
+central weights), so a seed always gives the same world. About one seed in seven needs a redraw.
+Games saved before this rule (`GameConfig.hidden_world_draw` 1) keep the original draws, so they
+resume on the weights they had; the stability check plays hidden worlds over several seeds as
+well as the central one. The
 forecast still draws around the central weights, so it shows the government's best guess and its
 spread, and the world plays out as one draw from it. The forecast says so in its list of what it
 does not project. Each edge keeps its draw for the whole game; when a lasting change moves an
 edge's weight (a trade deal), the draw moves with it. After the election the game shows the five
 links where this world differed most from the guess. With it off (the default in code, so the
-backtests, the stability check and older saves), the world behaves exactly as the central
-forecast says.
+backtests, the central stability pass and older saves), the world behaves exactly as the
+central forecast says.
 
 The forecast lists what it does not project: group approval (shown as no change), crises abroad
 in later turns (drawn turn by turn), the Commons' drift with the polls after this turn (approval
@@ -1017,7 +1035,7 @@ off-Budget capital surcharge (section 4).
 | Off-Budget surcharge | +0.5 capital per unit for tax or spending outside a Budget turn | `policy/fiscal_events.py` |
 | Credibility | starts 0.5; U-turn -0.06, broken pledge -0.08, crisis met +0.04 or ducked -0.05; settles 5% a turn; speeches x(0.5 + credibility), approval +0.1 per unit from 0.5 | `policy/credibility.py` |
 | Push per unit of magnitude | 2 steps | `world/propagation.py` (`ACTION_STEPS`) |
-| Tax incidence (M4) | on profits: same revenue, a quarter of the output cut; on customers: half the output cut, +0.9 inflation per point of GDP raised, for 12 turns | `world/propagation.py` (`PROFITS_OUTPUT_SHARE`, `CONSUMERS_OUTPUT_SHARE`, `CONSUMERS_INFLATION`) |
+| Tax incidence (M4) | output taken off per pound raised: on output, the sector's pass-through (0.5; public 1.0); on profits 0.25; on customers 0.25, plus +0.9 inflation per point of GDP raised for 12 turns, less what the cut passes to inflation through the sector's own price links | `world/propagation.py` (`tax_output_share`, `PROFITS_OUTPUT_SHARE`, `CONSUMERS_OUTPUT_SHARE`, `CONSUMERS_INFLATION`, `price_route`) |
 | Price cap paid by the Treasury | as a subsidy moving the price as far: 0.625 points a turn per unit; no supplier squeeze | `world/propagation.py` (`treasury_cap`) |
 | Deficit cost per unit of spending | on a sector, the output it pushes as a share of GDP over the share that becomes output (public 1.85, finance 1.70, manufacturing 1.63, housing 1.11, energy 0.59 points); otherwise 1.25 points; for at least 6 turns | `world/propagation.py` (`fiscal_steps`, `SECTOR_PASS_THROUGH`) |
 | Output gap | growth = gap now less gap 12 turns ago; unemployment -0.5, deficit -0.5 (a turn later), inflation +0.15 (three turns later) per point | `world/seed/toy.py` |
@@ -1031,7 +1049,8 @@ off-Budget capital surcharge (section 4).
 | Deregulation: workers' loss | 0.3 steps per unit for young renters and public workers (0.6 public workers for the public sector) | `world/levers.py` |
 | Deficit warning, hard limit | 5%, 10% of GDP | `policy/feasibility.py` |
 | Starting debt, rate repricing | 100% of GDP at 4%; half of a change in the market rate (75% gilts, 25% Bank Rate) in 24 turns | `world/seed/toy.py`, `world/debt.py` |
-| Bank Rate rule | keeps 0.8 of last turn's move; +0.45 per point of inflation, -0.6 per point of unemployment; long run 1.45 per point of inflation | `world/seed/toy.py` (`RATE_*`) |
+| Bank Rate rule | keeps 0.8 of last turn's move; +0.45 per point of inflation, -0.6 per point of unemployment; long run 1.45 per point of inflation; acts through the output gap (-0.5, six turns later) | `world/seed/toy.py` (`RATE_*`) |
+| Hidden world draw | within 3 std devs, uncertainty at most 0.3 x weight (no sign flips); redrawn unless the Taylor principle holds and a push settles within 400 turns | `world/propagation.py` (`true_draws`, `SIGN_MARGIN`, `SETTLE_TURNS`) |
 | Legislature majority, forcing floor | support 0.5; forced through from 0.4 at 2x capital and -0.05 support | `policy/feasibility.py` (`FORCE_*`) |
 | Whip push | 0.1 support per unit, capital 1.0 per unit, no repeat penalty | `world/propagation.py` (`WHIP_STEPS`), `policy/limits.py` |
 | Institutions settle back, Commons follows polls | 20% of the gap a turn (the part the engine does not carry); 0.5 support per point of approval | `game/loop.py` |
@@ -1043,7 +1062,7 @@ off-Budget capital surcharge (section 4).
 | Approval event cap per group | gains and losses each tapering from 0.10 toward 0.15 | `population/popularity.py` |
 | Debt penalty | 0.03 per point above 5% | `population/popularity.py` |
 | Job protection (spending on unemployment) | holds back 80% of a rise in unemployment per unit, while it runs | `world/propagation.py` (`JOB_PROTECTION`) |
-| Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +1 gilt yield, -8 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
+| Unfunded tax cut that spooks markets | 0.75 points a turn; then per point +1 gilt yield, -4 pound, -0.12 approval | `world/propagation.py`, `population/popularity.py` |
 | Seats, majority | 650, more than 325 | `population/popularity.py` |
 | Outcome group reaction cap | ±0.1 | `forecasting/candidates.py` |
 | Outcome extra shock cap | ±1 step each, and ±1 step a node in total with event tags; none on groups | `forecasting/candidates.py`, `world/events.py` |
