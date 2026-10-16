@@ -31,6 +31,10 @@ class GameConfig(Model):
     # forecast still shows the central weights and their spread. Off, the world behaves
     # exactly as the central forecast says (the calibration harnesses and older saves).
     hidden_world: bool = False
+    # How a hidden world is drawn (``world.propagation.true_draws``): rule 2 keeps every
+    # link's sign, the Taylor principle and a world that settles. Games saved before rule 2
+    # load as rule 1 (``game.persistence``), so they resume on the hidden weights they had.
+    hidden_world_draw: Literal[1, 2] = 2
 
 
 def make_rng(seed: int, turn: int = 0, stream: str = "") -> random.Random:

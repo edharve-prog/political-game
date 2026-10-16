@@ -31,7 +31,8 @@ A hidden true world (D1): with ``GameConfig.hidden_world`` on, resolve plays eve
 edge weights drawn once per game from the same uncertainty (``true_weights``), while the
 forecast keeps drawing around the central weights. The player sees the prior; the world
 behaves as one draw from it, so games differ and a forecast can be checked against what
-happened.
+happened. A drawn world keeps every link's sign, the Taylor principle
+and settles, or it is redrawn from the seed (``true_draws``).
 """
 
 from __future__ import annotations
@@ -262,9 +263,11 @@ def pass_through(sector: str) -> float:
 # yields up (O4: the risk premium, not Bank Rate, which the Bank sets) and the pound down once,
 # and costs every group approval (see
 # ``population.popularity.policy_events``). Spending is not judged this way: markets lent
-# freely for the 2008 bailout and the 2020 lockdown.
+# freely for the 2008 bailout and the 2020 lockdown. The pound's knock comes on top of what the
+# extra borrowing itself does to it (the deficit's link to the pound), and the two together put
+# the 2022 episode inside its real 2-8% fall (FR-29).
 CONFIDENCE_THRESHOLD = 0.75
-CONFIDENCE_SHOCKS = {"indicator:gilt_yield": 1.0, "indicator:exchange_rate": -0.8}
+CONFIDENCE_SHOCKS = {"indicator:gilt_yield": 1.0, "indicator:exchange_rate": -0.4}
 
 
 def unfunded_tax_cut(actions: list[PolicyAction], state: WorldState | None = None) -> float:
@@ -406,28 +409,40 @@ def _held(node_id: str, push: float, share: float) -> float:
 # no one, and costs what a subsidy that moves the price as far would.
 REGULATION_OUTPUT_COST = 0.25
 
-# Who a tax on a sector falls on (M4, ``PolicyAction.incidence``). On its output (the
-# default), it takes off output as before. On its profits (a windfall tax) it raises as much
-# but trims output by only PROFITS_OUTPUT_SHARE of that, through lost investment. On its
-# customers (VAT, a duty) they buy CONSUMERS_OUTPUT_SHARE as much less, and prices rise
-# CONSUMERS_INFLATION points a year for each point of GDP it raises, for a year (a one-off
-# rise in the price level).
+# Who a tax on a sector falls on (M4, ``PolicyAction.incidence``), as the output it takes off
+# for each pound it raises (FR-28). Every incidence raises the same money; only this share
+# differs, and it is the whole of the difference (it does not stack on ``pass_through``):
+# * on its output (a levy on each unit made, the default): ``pass_through``, the same share of
+#   a pound that becomes output when it is spent there (half, for a private sector);
+# * on its profits (a windfall tax): PROFITS_OUTPUT_SHARE, through lost investment;
+# * on its customers (VAT, a duty): CONSUMERS_OUTPUT_SHARE, as they buy less, and prices rise
+#   CONSUMERS_INFLATION points a year for each point of GDP it raises, for a year (a one-off
+#   rise in the price level). That is the whole price rise: where the sector's lower output
+#   already lifts prices through its own links (dearer energy bills), that part is taken off
+#   the rise (``consumer_prices``), so prices are not counted twice.
 PROFITS_OUTPUT_SHARE = 0.25
-CONSUMERS_OUTPUT_SHARE = 0.5
+CONSUMERS_OUTPUT_SHARE = 0.25
 CONSUMERS_INFLATION = 0.9
 INFLATION_NODE = "indicator:inflation"
 TURNS_PER_YEAR = 12
 
 
-def incidence_factor(action: PolicyAction) -> float:
-    """Share of the usual push on its target that the action keeps, given who carries it."""
+def tax_output_share(action: PolicyAction) -> float:
+    """Output a sector tax takes off its target for each pound it raises (see above); for
+    anything that is not a sector tax, ``pass_through`` of its target."""
     match action.incidence:
         case "profits":
             return PROFITS_OUTPUT_SHARE
         case "consumers":
             return CONSUMERS_OUTPUT_SHARE
-        case "treasury" | "suppliers" | "output" | None:
-            return 1.0
+    return pass_through(action.target)
+
+
+def incidence_factor(action: PolicyAction) -> float:
+    """Share of the usual push on its target that the action keeps, given who carries it: a
+    sector tax's output share over the ``pass_through`` its cost is reckoned at."""
+    if action.incidence in ("profits", "consumers"):
+        return tax_output_share(action) / pass_through(action.target)
     return 1.0
 
 
@@ -435,12 +450,37 @@ def treasury_cap(action: PolicyAction) -> bool:
     return action.incidence == "treasury"
 
 
+def price_route(state: WorldState, sector: str) -> float:
+    """Steps of inflation a one-step rise in ``sector``'s output passes on through its own
+    price links, in the long run: straight to inflation, or through a price it drives (energy
+    output lowers bills, which feed inflation). Not through the output gap: that is demand."""
+    drives = [e for e in state.edges if e.kind == EdgeKind.DRIVES]
+    route = 0.0
+    for e in drives:
+        if e.source != sector or e.target not in state.indicators or e.target == GAP_NODE:
+            continue
+        if e.target == INFLATION_NODE:
+            route += e.weight * DAMPING
+            continue
+        route += sum(
+            e.weight * DAMPING * f.weight * DAMPING
+            for f in drives
+            if f.source == e.target and f.target == INFLATION_NODE
+        )
+    return route
+
+
 def consumer_prices(action: PolicyAction, state: WorldState | None) -> list[Shock]:
-    """A tax on a sector's customers lifts prices for a year (M4)."""
+    """A tax on a sector's customers lifts prices for a year (M4), less what its cut to the
+    sector's output already passes to inflation through the sector's price links."""
     if state is None or action.incidence != "consumers" or INFLATION_NODE not in state.indicators:
         return []
     raised = -fiscal_cost(action, state) * scale(state, FISCAL_NODE)  # % GDP a year
-    delta = raised * CONSUMERS_INFLATION / scale(state, INFLATION_NODE)
+    whole = raised * CONSUMERS_INFLATION / scale(state, INFLATION_NODE)
+    push = action_factor(action) * action.magnitude * incidence_factor(action)
+    delta = whole - push * price_route(state, action.target)
+    if delta * whole <= 0:
+        return []
     return [Shock(node=INFLATION_NODE, delta=delta, duration_turns=TURNS_PER_YEAR, hold=True)]
 
 
@@ -969,9 +1009,29 @@ class _Carry:
         return EngineState(own=self.own, levels=self.levels, pushes=self.pushes)
 
 
-# A hidden world's weights stay within this many standard deviations of the central weight,
-# the range ``lag0_gain`` already guards, so a drawn world is always stable.
+# A hidden world's draws (D1). Each edge's weight is its central weight moved by a fixed draw
+# (in standard deviations, within TRUE_WORLD_SIGMAS) times its uncertainty. Draw rule 2, used
+# by every new game since FR-24:
+# * A draw keeps the edge's sign. An edge's uncertainty counts for at most SIGN_MARGIN of its
+#   weight over TRUE_WORLD_SIGMAS, so a small link gets uncertainty in proportion to its size
+#   and a drawn weight stays between 10% and 190% of the central one.
+# * The ±3σ clip only guards the loops that act within a turn (``lag0_gain``), so a drawn
+#   world is also checked as a whole: the Bank Rate rule must still answer inflation more than
+#   one for one in the long run (the Taylor principle, ``taylor_response``), and a push on
+#   every node at once must die away within SETTLE_TURNS (``settles``). A world that fails is
+#   redrawn from the seed (draw 1, 2, ... of up to MAX_REDRAWS), so the same seed always gives
+#   the same world; should none pass, the game plays on the central weights.
+# Draw rule 1 is the original one (no sign or settle checks), kept so games saved before rule
+# 2 resume on the same hidden weights (``GameConfig.hidden_world_draw``).
 TRUE_WORLD_SIGMAS = GAIN_SIGMAS
+HIDDEN_WORLD_DRAW = 2
+SIGN_MARGIN = 0.9
+SETTLE_TURNS = 400
+SETTLE_WINDOW = 24  # the closing turns checked
+SETTLE_TOLERANCE = 1e-3  # standard steps left from a one-step push on every node
+MAX_REDRAWS = 20
+RATE_NODE = "indicator:interest_rate"
+TAYLOR_MIN = 1.0
 
 
 def _edge_keys(edges: list[Edge]) -> list[str]:
@@ -986,33 +1046,134 @@ def _edge_keys(edges: list[Edge]) -> list[str]:
     return keys
 
 
-def true_draws(state: WorldState, seed: int) -> dict[str, float]:
-    """The hidden world's draw for each propagating edge, in standard deviations from its
-    central weight: fixed for the game (by ``seed``) and within ``TRUE_WORLD_SIGMAS``."""
+def _raw_draws(state: WorldState, seed: int, attempt: int = 0) -> dict[str, float]:
+    """One set of draws, clipped to ``TRUE_WORLD_SIGMAS``. Attempt 0 is the original stream."""
+    stream = "world:" if attempt == 0 else f"world:{attempt}:"
     draws = {}
     for key in _edge_keys(_propagating_edges(state)):
-        z = make_rng(seed, 0, f"world:{key}").gauss(0.0, 1.0)
+        z = make_rng(seed, 0, f"{stream}{key}").gauss(0.0, 1.0)
         draws[key] = max(-TRUE_WORLD_SIGMAS, min(TRUE_WORLD_SIGMAS, z))
     return draws
 
 
-def true_weights(state: WorldState, seed: int) -> dict[int, float]:
-    """Edge weights of the game's hidden true world (D1), by index into the propagating edge
-    list: each edge's current weight moved by its fixed draw times its uncertainty. A lasting
-    change to an edge (a trade deal) moves the central weight, and the draw goes with it."""
+def drawn_uncertainty(edge: Edge) -> float:
+    """The uncertainty a hidden world draws an edge with (rule 2): its own, but never so much
+    that a draw within ``TRUE_WORLD_SIGMAS`` could flip its sign or zero it."""
+    return min(edge.uncertainty, SIGN_MARGIN * abs(edge.weight) / TRUE_WORLD_SIGMAS)
+
+
+def _apply(state: WorldState, draws: dict[str, float], draw: int) -> dict[int, float]:
     edges = _propagating_edges(state)
-    draws = true_draws(state, seed)
+    spread = (lambda e: e.uncertainty) if draw == 1 else drawn_uncertainty
     return {
-        i: e.weight + draws[key] * e.uncertainty
+        i: e.weight + draws[key] * spread(e)
         for i, (e, key) in enumerate(zip(edges, _edge_keys(edges), strict=True))
     }
 
 
-def world_surprises(state: WorldState, seed: int, n: int = 5) -> list[tuple[Edge, float]]:
+def taylor_response(state: WorldState, weights: dict[int, float] | None = None) -> float | None:
+    """Long-run points Bank Rate moves per point of inflation under its rule, with ``weights``
+    (None: the central ones); None when the world has no such rule."""
+    pull = keep = 0.0
+    found = False
+    for i, e in enumerate(_propagating_edges(state)):
+        w = (weights[i] if weights is not None else e.weight) * DAMPING
+        if e.target == RATE_NODE and e.source == INFLATION_NODE:
+            pull += w
+            found = True
+        elif e.target == RATE_NODE and e.source == RATE_NODE:
+            keep += w
+    if not found or keep >= 1:
+        return None if not found else math.inf
+    return pull / (1 - keep)
+
+
+def settles(state: WorldState, weights: dict[int, float] | None = None) -> bool:
+    """Whether a one-step push on every node at once dies away within ``SETTLE_TURNS``."""
+    nodes = [n for n in state.node_ids() if n not in state.groups]
+    run = simulate(state, [Shock(node=n, delta=1.0) for n in nodes], SETTLE_TURNS, weights)
+    tail = (abs(v) for series in run.values() for v in series[-SETTLE_WINDOW:])
+    return all(math.isfinite(v) and v < SETTLE_TOLERANCE for v in tail)
+
+
+def acceptable(state: WorldState, weights: dict[int, float]) -> bool:
+    """Whether a drawn world may be played: it keeps the Taylor principle and settles."""
+    taylor = taylor_response(state, weights)
+    if taylor is not None and not taylor > TAYLOR_MIN:
+        return False
+    return settles(state, weights)
+
+
+_ATTEMPTS: dict[tuple, int | None] = {}
+
+
+def _attempt(state: WorldState, seed: int) -> int | None:
+    """The first redraw of ``seed`` whose world is ``acceptable`` (None: none is). Cached by
+    the world's edges, since a whole game asks the same question every turn."""
+    signature = (
+        seed,
+        tuple(
+            (e.source, e.target, e.kind, e.lag, e.weight, e.uncertainty)
+            for e in _propagating_edges(state)
+        ),
+    )
+    if signature not in _ATTEMPTS:
+        found = None
+        for attempt in range(MAX_REDRAWS + 1):
+            if acceptable(state, _apply(state, _raw_draws(state, seed, attempt), 2)):
+                found = attempt
+                break
+        if len(_ATTEMPTS) > 256:
+            _ATTEMPTS.clear()
+        _ATTEMPTS[signature] = found
+    return _ATTEMPTS[signature]
+
+
+def true_draws(
+    state: WorldState,
+    seed: int,
+    draw: int = HIDDEN_WORLD_DRAW,
+    start: WorldState | None = None,
+) -> dict[str, float]:
+    """The hidden world's draw for each propagating edge, in standard deviations from its
+    central weight: fixed for the game (by ``seed``) and within ``TRUE_WORLD_SIGMAS``.
+
+    Under rule 2 the redraw is chosen on ``start`` (the game's opening world; None: ``state``),
+    so a lasting change to an edge later in the game moves its weight but never reshuffles
+    the whole world. All zeros when no redraw passes."""
+    if draw == 1:
+        return _raw_draws(state, seed)
+    attempt = _attempt(start if start is not None else state, seed)
+    if attempt is None:
+        return dict.fromkeys(_edge_keys(_propagating_edges(state)), 0.0)
+    return _raw_draws(state, seed, attempt)
+
+
+def true_weights(
+    state: WorldState,
+    seed: int,
+    draw: int = HIDDEN_WORLD_DRAW,
+    start: WorldState | None = None,
+) -> dict[int, float]:
+    """Edge weights of the game's hidden true world (D1), by index into the propagating edge
+    list: each edge's current weight moved by its fixed draw times its uncertainty
+    (``drawn_uncertainty`` under rule 2). A lasting change to an edge (a trade deal) moves the
+    central weight, and the draw goes with it. ``draw`` is the game's draw rule
+    (``GameConfig.hidden_world_draw``) and ``start`` its opening world (see ``true_draws``)."""
+    return _apply(state, true_draws(state, seed, draw, start), draw)
+
+
+def world_surprises(
+    state: WorldState,
+    seed: int,
+    n: int = 5,
+    draw: int = HIDDEN_WORLD_DRAW,
+    start: WorldState | None = None,
+) -> list[tuple[Edge, float]]:
     """The ``n`` links where the hidden world differs most from the central guess, with each
     one's true weight: what a player could have learned about this economy."""
     edges = _propagating_edges(state)
-    truth = true_weights(state, seed)
+    truth = true_weights(state, seed, draw, start)
     ranked = sorted(range(len(edges)), key=lambda i: -abs(truth[i] - edges[i].weight))
     return [(edges[i], truth[i]) for i in ranked[:n] if truth[i] != edges[i].weight]
 

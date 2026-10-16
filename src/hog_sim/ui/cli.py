@@ -191,11 +191,14 @@ def _election_line(e: ElectionResult) -> str:
     )
 
 
-def _surprises(state: WorldState, seed: int) -> str:
+def _surprises(game: Game) -> str:
     """After the election: where this game's economy differed most from the forecast's
     central guess (D1)."""
     lines = [_section("How this economy differed from your advisers' guess"), ""]
-    for edge, truth in world_surprises(state, seed):
+    state, config = game.state, game.config
+    for edge, truth in world_surprises(
+        state, config.seed, draw=config.hidden_world_draw, start=game.start
+    ):
         source, target = state.node(edge.source).name, state.node(edge.target).name
         lines.append(f"  {source} -> {target}: guessed {edge.weight:+.2f}, really {truth:+.2f}")
     if len(lines) == 2:
@@ -210,7 +213,7 @@ def _finished(game: Game, save: str) -> str:
     if election is not None:
         lines.append(_election_line(election))
     if game.config.hidden_world:
-        lines.append(_surprises(game.state, game.config.seed))
+        lines.append(_surprises(game))
     lines.append(f"Start a new game with: hog-sim --save {save}")
     return "\n".join(lines)
 
@@ -1142,7 +1145,7 @@ def _main(argv: list[str] | None) -> None:
                 print(_usage_line(client, calls_before))
         print(_dashboard(game.start, game.state, _previous(game), game.config.election_turn))
         if game.config.hidden_world:
-            print(_surprises(game.state, game.config.seed))
+            print(_surprises(game))
     except (EOFError, KeyboardInterrupt):
         print(f"\nSaved. Resume with: hog-sim --resume --save {args.save}")
     finally:

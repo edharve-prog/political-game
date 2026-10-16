@@ -96,3 +96,15 @@ def test_size_report_lists_every_sized_check() -> None:
     sized = [r for r in RESULTS if r.check.real is not None]
     assert f"of {len(sized)} sized checks" in text
     assert all(r.check.describe() in text for r in sized)
+
+
+def test_the_mini_budget_pound_falls_inside_its_real_range() -> None:
+    # FR-29: once a tax cut no longer pushed UK growth directly (#102), the pound's fall in the
+    # 2022 mini-budget grew to about 10.6 points against a real 2 to 8.
+    (pound,) = [
+        r
+        for r in RESULTS
+        if r.episode == "2022 mini-budget" and r.check.node == "indicator:exchange_rate"
+    ]
+    low, high = sorted(pound.check.real)
+    assert low <= pound.change <= high

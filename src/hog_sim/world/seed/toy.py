@@ -30,6 +30,11 @@ STABILISERS = -0.5  # points of deficit per point of output gap
 RATE_SMOOTHING = 0.8
 RATE_INFLATION = 0.45
 RATE_UNEMPLOYMENT = -0.6
+# Bank Rate works on demand (FR-27): a point of Bank Rate holds output -RATE_GAP x 0.9 points
+# below potential six turns on, and that is how it reaches jobs (Okun), prices (Phillips),
+# growth and the cyclical deficit. Its other routes are markets: gilts, house prices and the
+# pound.
+RATE_GAP = -0.5
 
 
 def _edge(
@@ -262,15 +267,15 @@ def toy_world() -> WorldState:
         _edge(
             "indicator:unemployment", "indicator:interest_rate", E.DRIVES, RATE_UNEMPLOYMENT, lag=1
         ),
-        _edge("indicator:interest_rate", "indicator:inflation", E.DRIVES, -0.4, lag=6),
+        _edge("indicator:interest_rate", GAP, E.DRIVES, RATE_GAP, lag=6, unc=0.2),
         _edge("indicator:interest_rate", "indicator:house_prices", E.DRIVES, -0.1, lag=3),
         # Gilts: markets price the Bank Rate path they expect, and fixed-rate mortgages are
         # priced off the same market, so a jump in yields reaches house prices (2022).
         _edge("indicator:interest_rate", "indicator:gilt_yield", E.DRIVES, 0.7),
         _edge("indicator:gilt_yield", "indicator:house_prices", E.DRIVES, -0.12, lag=1),
-        _edge("indicator:interest_rate", "indicator:unemployment", E.DRIVES, 0.2, lag=6),
-        _edge("sector:manufacturing", "indicator:unemployment", E.DRIVES, -0.2, lag=2),
-        # Okun's law on the gap: output below potential costs jobs a turn later (O3).
+        # Okun's law on the gap: output below potential costs jobs a turn later (O3). It is
+        # the only route from output to jobs: a factory slump reaches unemployment through
+        # the gap it opens, not through a second link of its own (FR-27).
         _edge(GAP, "indicator:unemployment", E.DRIVES, OKUN, lag=1),
         # Phillips curve: demand beyond potential pushes prices up (O3).
         _edge(GAP, "indicator:inflation", E.DRIVES, PHILLIPS, lag=3),

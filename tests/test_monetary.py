@@ -86,3 +86,30 @@ def test_a_quiet_world_leaves_the_debt_rate_alone():
     late = play(12)[-1]
     assert abs(debt_rate(late) - debt_rate(start)) < 1e-9
     assert late.indicators[GILT].value == start.indicators[GILT].value
+
+
+GAP, JOBS, GROWTH = "indicator:output_gap", "indicator:unemployment", "country:uk"
+
+
+def test_bank_rate_works_through_the_output_gap():
+    # FR-27: Bank Rate used to move inflation and unemployment directly, so tightening never
+    # lowered growth or widened the cyclical deficit.
+    assert weight(RATE, GAP) < 0
+    assert weight(RATE, INFLATION) == 0 and weight(RATE, JOBS) == 0
+    hike = play(12, scenario(Shock(node=RATE, delta=1.0)))
+    quiet = play(12)
+    gap = [
+        s.indicators[GAP].value - q.indicators[GAP].value for s, q in zip(hike, quiet, strict=True)
+    ]
+    assert min(gap) < -0.3
+    later = hike[-1], quiet[-1]
+    assert later[0].countries[GROWTH].growth_pct < later[1].countries[GROWTH].growth_pct
+    assert later[0].indicators[JOBS].value > later[1].indicators[JOBS].value
+    assert later[0].indicators[INFLATION].value < later[1].indicators[INFLATION].value
+    assert later[0].indicators[DEFICIT].value > later[1].indicators[DEFICIT].value
+
+
+def test_factory_jobs_are_counted_once_through_the_gap():
+    # FR-27: manufacturing reached unemployment directly and again through the gap (Okun).
+    assert weight("sector:manufacturing", JOBS) == 0
+    assert weight("sector:manufacturing", GAP) > 0 and weight(GAP, JOBS) < 0
