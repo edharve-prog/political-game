@@ -237,6 +237,41 @@ def test_claudes_steps_are_still_filed_beside_an_offline_one(tmp_path, monkeypat
     assert stats["interpretation"] == 0 and stats["outcome"] == 1
 
 
+def test_a_loaded_package_is_not_filed_as_claudes_interpretation(tmp_path, monkeypatch) -> None:
+    from hog_sim.knowledge.store import KnowledgeStore
+
+    plugins = (CannedScenarios(0, calendar=False), KeywordInterpreter(), EngineForecaster())
+    # Turn 0 is read by the interpreter and saved as a package; turn 1 loads that package.
+    answers = ["1", "save cuts", "", "use cuts", ""]
+    _, _, records = play(tmp_path, monkeypatch, plugins, answers)
+    assert len(records) == 2
+    assert records[0].offline == [] and records[1].offline == ["interpreter"]
+    knowledge = KnowledgeStore(str(tmp_path / "g.db"))
+    stats = knowledge.stats()
+    knowledge.close()
+    assert stats["interpretation"] == 1 and stats["outcome"] == 2
+
+
+def test_built_actions_are_marked_as_not_read_by_the_interpreter() -> None:
+    from hog_sim.core.config import GameConfig
+    from hog_sim.core.models import PolicyAction
+    from hog_sim.game.loop import Game
+    from hog_sim.world.seed.toy import toy_world
+
+    game = Game(
+        GameConfig(seed=0),
+        toy_world(),
+        CannedScenarios(0, calendar=False),
+        KeywordInterpreter(),
+        EngineForecaster(),
+    )
+    action = PolicyAction(kind="communicate", target="country:uk", magnitude=0.5)
+    proposal = game.propose_actions("(built) speech", [action])
+    assert proposal.offline == ["interpreter"]
+    assert game.revise(proposal, proposal.actions).offline == ["interpreter"]
+    assert game.commit(proposal).offline == ["interpreter"]
+
+
 def test_a_bad_call_budget_in_the_environment_falls_back_to_the_default(
     tmp_path, monkeypatch, capsys
 ) -> None:

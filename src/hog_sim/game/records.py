@@ -37,8 +37,9 @@ class TurnRecord(Model):
     )
     offline: list[str] = Field(
         default_factory=list,
-        description="Steps (scenarios, interpreter, forecaster) an offline stand-in played "
-        "after a model failure, so not Claude's work (E22, O10)",
+        description="Steps (scenarios, interpreter, forecaster) Claude did not play: run by "
+        "an offline stand-in after a model failure (E22, O10), or no interpreter because the "
+        "actions were built from menus or loaded from a package",
     )
 
     @property

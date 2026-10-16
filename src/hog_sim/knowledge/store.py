@@ -149,10 +149,10 @@ class KnowledgeStore:
         """File one Claude turn. Returns the number of entries written.
 
         ``record.scenario`` should be the object the game played (a ``GeneratedScenario``
-        keeps its stakeholder positions in memory even though the save drops them). Steps an
-        offline stand-in played after a model failure (``record.offline``) are not Claude's
-        work, so they are not filed: an offline scenario, an offline reading of the response,
-        or offline outcomes and the graph changes they carry.
+        keeps its stakeholder positions in memory even though the save drops them). Steps
+        Claude did not play (``record.offline``) are not filed: a scenario or outcomes an
+        offline stand-in wrote after a model failure (with their graph changes), and a reading
+        made offline or never made at all because the actions were built or loaded.
         """
         offline = set(record.offline)
         prov = (provenance or Provenance()).model_copy(

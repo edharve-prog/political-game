@@ -423,7 +423,8 @@ class Proposal(Model):
     )
     offline: list[str] = Field(
         default_factory=list,
-        description="Steps played by an offline stand-in after a model failure (E22, O10)",
+        description="Steps Claude did not play: run by an offline stand-in after a model "
+        "failure (E22, O10), or no interpreter because the actions were ready-made",
     )
 
     def reading(self, index: int) -> Reading | None:
@@ -550,10 +551,11 @@ class Game:
 
     def propose_actions(self, response: str, actions: list[PolicyAction]) -> Proposal:
         """A proposal from a ready-made action list (a saved package, story RB-5), checked
-        against this turn's limits without calling the interpreter."""
+        against this turn's limits without calling the interpreter. It is marked as not read
+        by the interpreter (``offline``), so it is never filed as Claude's interpretation."""
         if self.over:
             raise RuntimeError("the game is over")
-        return self._limit(response, actions)
+        return self._limit(response, actions).model_copy(update={"offline": ["interpreter"]})
 
     def revise(
         self,
